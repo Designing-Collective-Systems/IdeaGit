@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IdeaGit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div id="app">
+
+  <!-- NAV -->
+  <nav id="nav">
+    <div class="logo" onclick="goToSetup()" title="Back to Setup">
+      <div class="logo-dot"></div>Idea<span>Git</span>
+    </div>
+    <div class="nav-spacer"></div>
+    <button class="btn btn-ghost" onclick="openInstructions()" style="font-size:16px">Instructions</button>
+    <div id="view-toggle" class="view-toggle" style="display:none">
+      <button class="vt-btn active" id="btn-tv" onclick="switchView('text')">TEXT</button>
+      <button class="vt-btn" id="btn-gv" onclick="switchView('graph')">GRAPH</button>
+    </div>
+    <button id="export-btn" class="btn btn-secondary" style="display:none" onclick="exportCSV()">Export CSV</button>
+    <button id="nav-new-idea-btn" class="btn btn-secondary" style="display:none" onclick="startNewIdea()">+ New Idea</button>
+  </nav>
+
+
+  <!-- PAGE 1 — SETUP -->
+  <div id="page-setup" class="page" style="display:flex">
+
+    <div class="setup-hero fadein">
+      <h1>Idea<em>Git</em></h1>
+      <p>Select your design challenge, then generate and develop ideas.</p>
+    </div>
+
+    <div class="card fadein" style="animation-delay:.08s">
+      <div class="card-head">
+        <h2>Design Challenge</h2>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+        <select id="challenge-select" class="challenge-select" onchange="onChallengeSelect()">
+          <option value="">— Select a design challenge —</option>
+        </select>
+        <div id="challenge-desc" class="challenge-desc" style="display:none"></div>
+      </div>
+      <div class="card-foot">
+        <button class="btn btn-secondary" onclick="clearChallenge()">Clear</button>
+        <button class="btn btn-primary btn-lg" id="start-btn" onclick="startIdeation()" disabled>
+          Start Ideation →
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /page-setup -->
+
+
+  <!-- PAGE 2 — IDEATION -->
+  <div id="page-ideation" class="page" style="display:none">
+
+    <!-- Challenge banner -->
+    <div class="challenge-banner" id="challenge-banner">
+      <span class="challenge-banner-label">Challenge</span>
+      <span class="challenge-banner-text" id="challenge-banner-text"></span>
+    </div>
+
+    <!-- TEXT VIEW -->
+    <div id="text-view" style="flex:1;display:flex;overflow:hidden;flex-direction:row">
+
+      <!-- LEFT SIDEBAR: action buttons -->
+      <div class="action-bar" id="action-bar">
+
+        <!-- TOP: Manual -->
+        <div class="action-group action-group-manual">
+          <div class="action-group-label">Manual</div>
+          <div class="action-group-btns">
+            <button class="btn btn-secondary" id="btn-submit-idea" onclick="submitManualIdea()" style="display:none">Submit Idea</button>
+            <button class="btn btn-secondary" id="btn-modify-manual" onclick="openManualPopup()" disabled>Modify Manually</button>
+          </div>
+        </div>
+
+        <!-- MIDDLE: AI -->
+        <div class="action-group action-group-ai">
+          <div class="action-group-label">AI</div>
+          <div class="action-group-btns">
+            <button class="btn btn-accent" id="btn-modify-auto" onclick="autoModify()" disabled>Modify Automatically</button>
+            <button class="btn btn-accent" id="btn-modify-chat" onclick="openChatPopup()" disabled>Modify by Chatting</button>
+            <button class="btn btn-accent" id="btn-feedback" onclick="openFeedback()" disabled>AI Feedback</button>
+          </div>
+        </div>
+
+        <!-- BOTTOM: Node -->
+        <div class="action-group action-group-node">
+          <div class="action-group-label">Node</div>
+          <div class="action-group-btns">
+            <button class="btn btn-secondary" onclick="startNewIdea()">+ New Idea</button>
+            <button class="btn btn-green" id="btn-finalize" onclick="finalizeIdea()" disabled>Finalize</button>
+            <button class="btn btn-secondary" id="btn-unfinalize" onclick="unfinalizeIdea()" style="display:none">Unfinalize</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: idea content -->
+      <div class="tv-top" style="flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:14px">
+
+        <div class="idea-header">
+          <span id="node-badge" class="badge tag-user">Node #1 · User Created</span>
+          <span id="node-pos" class="node-id-label"></span>
+        </div>
+
+        <!-- Empty state: choose creation method -->
+        <div id="creation-choice" style="display:flex;gap:12px;flex-direction:column">
+          <p style="font-size:16px;color:#000;margin:0">How would you like to create this idea?</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-secondary creation-option-btn" onclick="chooseManualCreate()" id="btn-choose-manual">
+              Create Manually
+            </button>
+            <button class="btn btn-accent creation-option-btn" onclick="chooseAICreate()" id="btn-choose-ai">
+              Generate with AI
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual input fields -->
+        <div id="idea-inputs" style="display:none;flex-direction:column;gap:10px">
+          <div style="margin-bottom:4px">
+            <button class="btn btn-ghost" onclick="cancelManualCreate()" style="padding:6px 12px;font-size:16px">← Back</button>
+          </div>
+          <div class="idea-field-group">
+            <label class="idea-field-label">Title <span style="color:#c00">*</span></label>
+            <input type="text" id="idea-title" class="idea-title idea-field-box" placeholder="Enter idea title…" autocomplete="off" autocorrect="off" spellcheck="false"/>
+          </div>
+          <div class="idea-field-group">
+            <label class="idea-field-label">Description <span style="color:#c00">*</span></label>
+            <textarea id="idea-body" class="idea-body idea-field-box" placeholder="Describe your idea here…"></textarea>
+          </div>
+        </div>
+
+        <!-- Read-only display -->
+        <div id="idea-display" style="display:none;flex-direction:column;gap:10px">
+          <div class="idea-field-group">
+            <label class="idea-field-label">Title</label>
+            <div id="display-title" class="idea-title-display"></div>
+          </div>
+          <div class="idea-field-group">
+            <label class="idea-field-label">Description</label>
+            <div id="display-body" class="idea-body-display"></div>
+          </div>
+          <div id="regenerate-row" style="display:none;align-items:center;gap:12px">
+            <button class="btn btn-accent" onclick="regenerateIdea()">Regenerate with AI</button>
+            <span style="font-size:16px;color:#555">Not happy? Generate a different idea.</span>
+          </div>
+        </div>
+
+        <!-- AI generating spinner -->
+        <div id="ai-generating" style="display:none;align-items:center;gap:10px;color:#555;font-family:'DM Mono',monospace;font-size:16px;padding:8px 0">
+          <span class="spinner"></span> Generating idea…
+        </div>
+
+      </div>
+
+    </div><!-- /text-view -->
+
+    <!-- GRAPH VIEW -->
+    <div id="graph-view" style="flex:1;display:none;overflow:hidden;position:relative">
+      <div id="graph-outer" style="width:100%;height:100%;overflow:hidden;cursor:grab;position:relative">
+        <div id="graph-wrap" style="position:absolute;top:0;left:0;transform-origin:0 0">
+          <svg id="graph-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg>
+          <div id="graph-nodes" style="position:relative"></div>
+        </div>
+      </div>
+      <div class="graph-legend">
+        <div class="lg-item"><div class="lg-dot" style="background:var(--cyan)"></div>User Created</div>
+        <div class="lg-item"><div class="lg-dot" style="background:var(--accent)"></div>AI Generated</div>
+        <div class="lg-item"><div class="lg-dot" style="background:var(--amber)"></div>Manual Edit</div>
+        <div class="lg-item"><div class="lg-dot" style="background:var(--purple)"></div>AI Auto-Modified</div>
+        <div class="lg-item"><div class="lg-dot" style="background:var(--accent2)"></div>AI Chat-Modified</div>
+        <div class="lg-item"><div class="lg-dot" style="background:var(--green)"></div>Finalized</div>
+        <div style="height:1px;background:var(--border);margin:3px 0"></div>
+        <div class="lg-item" style="font-style:italic;opacity:.7">Drag to pan · Click node to edit</div>
+      </div>
+    </div>
+
+  </div><!-- /page-ideation -->
+
+</div><!-- /app -->
+
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- Instructions Modal -->
+<div id="instructions-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeInstructions()">
+  <div class="instr-card">
+    <button class="instr-close" onclick="closeInstructions()">Close</button>
+    <div class="slide-img-wrap" id="slide-img-wrap">
+      <img id="slide-img" src="" alt=""/>
+    </div>
+    <div class="slide-content">
+      <div class="slide-title" id="slide-title"></div>
+      <div class="slide-body"  id="slide-body"></div>
+    </div>
+    <div class="slide-dots" id="slide-dots"></div>
+    <div class="slide-nav">
+      <button class="btn btn-secondary" id="slide-prev" onclick="slideNav(-1)">← Back</button>
+      <span class="slide-counter" id="slide-counter"></span>
+      <button class="btn btn-primary" id="slide-next" onclick="slideNav(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modify Manually Popup -->
+<div id="manual-popup" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeManualPopup()">
+  <div class="edit-popup">
+    <div class="edit-popup-head">
+      <h3>Modify Manually</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeManualPopup()">Cancel</button>
+    </div>
+    <div class="edit-popup-body">
+      <p style="font-size:15px;color:var(--text2);margin:0 0 14px">Edit the title and description. Click Submit to save as a new node.</p>
+      <div class="idea-field-group">
+        <label class="idea-field-label">Title <span style="color:var(--red)">*</span></label>
+        <input type="text" id="manual-title" class="idea-title idea-field-box" placeholder="Enter idea title…" autocomplete="off"/>
+      </div>
+      <div class="idea-field-group" style="margin-top:12px">
+        <label class="idea-field-label">Description <span style="color:var(--red)">*</span></label>
+        <textarea id="manual-ta" class="manual-ta idea-field-box" placeholder="Type your modified idea here…"></textarea>
+      </div>
+    </div>
+    <div class="edit-popup-foot">
+      <button class="btn btn-secondary" onclick="closeManualPopup()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveManual()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modify by Chatting Popup -->
+<div id="chat-popup" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeChatPopup()">
+  <div class="edit-popup">
+    <div class="edit-popup-head">
+      <h3>Modify by Chatting with AI</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeChatPopup()">Close</button>
+    </div>
+    <div class="edit-popup-body" style="display:flex;flex-direction:column;gap:0;padding:0">
+      <div class="chat-messages" id="chat-msgs"></div>
+      <div id="chat-thinking" style="display:none;padding:8px 14px;font-family:'DM Mono',monospace;font-size:14px;color:var(--text3);border-top:1px solid var(--border)">
+        <span style="display:flex;align-items:center;gap:8px"><span class="spinner"></span> AI is thinking…</span>
+      </div>
+    </div>
+    <div class="edit-popup-foot" style="gap:8px">
+      <input type="text" id="chat-in"
+        style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:16px;background:var(--surface)"
+        placeholder="Describe what you want to change…"
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"/>
+      <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  IdeaGit — Design Challenges
+// ============================================================
+const DESIGN_CHALLENGES = [
+  {
+    title: "Challenge 1 — Shopping Cart for Older Adults",
+    description: "Design a feature to improve an older adult's shopping experience when using a regular shopping cart. The feature should not cost more than $200."
+  },
+  {
+    title: "Challenge 2 — Netflix Interaction Feature",
+    description: "Design a feature to add to Netflix that improves how users interact with the content. The feature should not shift the focus away from the content."
+  },
+  {
+    title: "Challenge 3 — Cyclist Route Navigation",
+    description: "Design a feature or product that allows cyclists to avoid traffic and change their route during their ride. The feature or product should not require the cyclist to stop riding."
+  },
+  {
+    title: "Challenge 4 — Fridge Food Waste Reduction",
+    description: "Design a feature for a standard refrigerator that helps households reduce food waste. The solution should be integrated into the fridge and not rely on the user manually entering expiration dates for every item."
+  },
+  {
+    title: "Challenge 5 — Doom-Scrolling Intervention",
+    description: "Design a digital tool or feature for a smartphone that helps users reduce \"doom-scrolling\" without requiring them to turn off their phone or delete social media apps. It must be a passive intervention that doesn't block the user entirely."
+  },
+  {
+    title: "Challenge 6 — Bus Stop for Visually Impaired",
+    description: "Design a feature for a bus stop that assists visually impaired passengers in identifying when their specific bus has arrived and where the door is located. The solution must work in high-noise environments."
+  },
+  {
+    title: "Challenge 7 — Communal Laundry Room System",
+    description: "Design a physical or digital system for a communal apartment's laundry room that prevents clothes left in machines and reduces conflict between neighbors. The solution must cost less than $50 to implement per machine."
+  },
+];
+</script>
+<script src="prompts.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
