@@ -11,6 +11,7 @@ const S = {
   nodeIsLocked: false,
   _lastChatPrompt: '',
   _lastSuggestions: [],
+  activityLog: [],
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -100,6 +101,15 @@ function toast(msg, color='') {
   setTimeout(() => el.remove(), 2900);
 }
 
+function logEvent(action, detail='') {
+  S.activityLog.push({
+    timestamp: new Date().toISOString(),
+    action,
+    detail,
+    node_id: S.curId || '',
+  });
+}
+
 function mkNode({ title='', body='', tag='user-created', parentId=null, meta={} }={}) {
   return { id: uid(), title, body, tag, parentId, meta, ts: Date.now() };
 }
@@ -160,6 +170,7 @@ function onChallengeSelect() {
   S.challenge = ch.description;
   desc.textContent = ch.description; desc.style.display = '';
   startBtn.disabled = false;
+  logEvent('challenge_selected', ch.title);
 }
 
 function clearChallenge() {
@@ -183,6 +194,7 @@ function startIdeation() {
   S.nodes.push(node); S.groups.push([node.id]); S.curId = node.id;
   S.nodeIsLocked = false;
   loadNode(node.id); switchView('text');
+  logEvent('ideation_started');
 }
 
 function goToSetup() {
@@ -285,6 +297,7 @@ function addNodeToGroup(node) {
 //  CREATION — MANUAL
 // ============================================================
 function chooseManualCreate() {
+  logEvent('manual_create_chosen');
   showManualInputs();
   document.getElementById('idea-title').value = '';
   document.getElementById('idea-body').value = '';
@@ -303,6 +316,7 @@ function submitManualIdea() {
   const cur = curNode();
   cur.title = title; cur.body = body; cur.tag = 'user-created';
   loadNode(cur.id);
+  logEvent('manual_idea_submitted', title);
   toast('Idea submitted', 'var(--cyan)');
 }
 
@@ -310,6 +324,7 @@ function submitManualIdea() {
 //  CREATION — AI GENERATE
 // ============================================================
 function chooseAICreate() {
+  logEvent('ai_generate_chosen');
   document.getElementById('creation-choice').style.display = 'none';
   document.getElementById('ai-generating').style.display = 'flex';
   generateIdea();
@@ -324,6 +339,7 @@ async function generateIdea() {
     const cur = curNode();
     cur.title = json.title; cur.body = json.body; cur.tag = 'ai-generated';
     loadNode(cur.id);
+    logEvent('ai_idea_generated', json.title);
     toast('Idea generated', 'var(--accent)');
   } catch(e) {
     document.getElementById('ai-generating').style.display = 'none';
@@ -335,6 +351,7 @@ async function generateIdea() {
 async function regenerateIdea() {
   // Replace current ai-generated node content in-place (same node, no new branch)
   const cur = curNode();
+  logEvent('ai_regenerate_requested', cur?.title || '');
   document.getElementById('regenerate-row').style.display = 'none';
   document.getElementById('ai-generating').style.display = 'flex';
   document.getElementById('idea-display').style.display = 'none';
@@ -359,6 +376,7 @@ async function regenerateIdea() {
 function openManualPopup() {
   const cur = curNode();
   if (!cur || !cur.body) { toast('No idea to modify.', 'var(--amber)'); return; }
+  logEvent('modify_manually_opened', cur.title);
   document.getElementById('manual-title').value = cur.title || '';
   document.getElementById('manual-ta').value    = cur.body  || '';
   document.getElementById('manual-popup').style.display = 'flex';
@@ -377,6 +395,7 @@ function saveManual() {
   const cur = curNode();
   const nn = mkNode({ title, body, tag:'user-modified', parentId:cur.id });
   addNodeToGroup(nn); loadNode(nn.id); closeManualPopup();
+  logEvent('manual_modify_saved', title);
   toast('Idea updated', 'var(--amber)');
 }
 
@@ -386,6 +405,7 @@ function saveManual() {
 async function autoModify() {
   const cur = curNode();
   if (!cur || !cur.body) { toast('No idea to modify.', 'var(--amber)'); return; }
+  logEvent('ai_auto_modify_started', cur.title);
   setActionButtonsEnabled(false);
   toast('Auto-improving…', 'var(--accent)');
   try {
@@ -396,6 +416,7 @@ async function autoModify() {
       const json = JSON.parse(m[1]);
       const nn = mkNode({ title:json.title, body:json.body, tag:'ai-auto', parentId:cur.id, meta:{ method:'auto-improve' } });
       addNodeToGroup(nn); loadNode(nn.id);
+      logEvent('ai_auto_modify_completed', json.title);
       toast('Idea improved', 'var(--accent)');
     } else { toast('AI did not return a valid idea. Try again.', 'var(--red)'); setActionButtonsEnabled(true); }
   } catch(e) { toast('Error: ' + e.message, 'var(--red)'); setActionButtonsEnabled(true); }
@@ -407,6 +428,7 @@ async function autoModify() {
 function openChatPopup() {
   const cur = curNode();
   if (!cur || !cur.body) { toast('No idea to modify.', 'var(--amber)'); return; }
+  logEvent('ai_chat_modify_opened', cur.title);
   S.chatHistory = [];
   S._lastChatPrompt = '';
   S._lastSuggestions = [];
@@ -443,6 +465,7 @@ async function sendChat() {
   const cur = curNode();
   S.chatHistory.push({ role:'user', content:msg });
   S._lastChatPrompt = msg;
+  logEvent('ai_chat_message_sent', msg);
   setChatThinking(true);
   try {
     const { system, user } = PROMPTS.getSuggestions(cur.title, cur.body, S.challenge, msg);
@@ -452,6 +475,7 @@ async function sendChat() {
     S._lastSuggestions = suggestions;
     S.chatHistory.push({ role:'assistant', content: 'Suggested: ' + suggestions.join('; ') });
     if (suggestions.length) {
+      logEvent('ai_suggestions_shown', suggestions.length + ' suggestions');
       addBubble('assistant', 'Here are specific changes based on your input:');
       renderSuggestionsPopup(suggestions);
     } else {
@@ -498,6 +522,7 @@ async function applySelectedSuggestions() {
   const allSuggestions = S._lastSuggestions || [];
   const rejected = allSuggestions.filter(s => !selected.includes(s));
 
+  logEvent('ai_suggestions_selected', `selected: ${selected.length}, rejected: ${rejected.length}`);
   document.getElementById('suggestions-popup')?.remove();
 
   const cur = curNode();
@@ -524,6 +549,7 @@ async function applySelectedSuggestions() {
         }
       });
       addNodeToGroup(nn); loadNode(nn.id);
+      logEvent('ai_chat_modify_completed', json.title);
       S.chatHistory = []; S._lastChatPrompt = ''; S._lastSuggestions = [];
       // Close chat popup after a beat so user sees the confirmation
       setTimeout(closeChatPopup, 900);
@@ -541,6 +567,7 @@ function finalizeIdea() {
   if (cur.tag === 'finalized') { toast('Already finalized.', 'var(--green)'); return; }
   const nn = mkNode({ title:cur.title, body:cur.body, tag:'finalized', parentId:cur.id });
   addNodeToGroup(nn); S.curId = nn.id; loadNode(nn.id);
+  logEvent('idea_finalized', cur.title);
   toast('Idea finalized', 'var(--green)');
   setTimeout(() => switchView('graph'), 350);
 }
@@ -548,11 +575,11 @@ function finalizeIdea() {
 function unfinalizeIdea() {
   const cur = curNode();
   if (!cur || cur.tag !== 'finalized') return;
-  // Revert to parent's tag, or user-created if no parent
   const parent = S.nodes.find(n => n.id === cur.parentId);
   const revertTag = parent?.tag || 'user-created';
   cur.tag = revertTag;
   loadNode(cur.id);
+  logEvent('idea_unfinalized', cur.title);
   toast('Idea unfinalized', 'var(--amber)');
 }
 
@@ -562,12 +589,14 @@ function unfinalizeIdea() {
 async function openFeedback() {
   const cur = curNode();
   if (!cur || (!cur.title && !cur.body)) { toast('No idea to evaluate.'); return; }
+  logEvent('ai_feedback_requested', cur.title);
   showFeedbackModal('Loading…', true);
   try {
     const { system, user } = PROMPTS.aiFeedback(cur.title, cur.body, S.challenge);
     const text = await callClaude([{ role:'user', content:user }], system);
     cur.meta = cur.meta || {};
     cur.meta.ai_feedback = text;
+    logEvent('ai_feedback_received', cur.title);
     showFeedbackModal(text, false);
   } catch(e) { closeFeedbackModal(); toast('Error: ' + e.message, 'var(--red)'); }
 }
@@ -609,6 +638,7 @@ function switchView(v) {
   document.getElementById('graph-view').style.display = v==='graph' ? 'flex' : 'none';
   document.getElementById('btn-tv').classList.toggle('active', v==='text');
   document.getElementById('btn-gv').classList.toggle('active', v==='graph');
+  logEvent('view_switched', v);
   if (v==='graph') renderGraph();
 }
 
@@ -616,6 +646,7 @@ function startNewIdea() {
   const node = mkNode({ tag:'user-created' });
   S.nodes.push(node); S.groups.push([node.id]); S.curId = node.id;
   loadNode(node.id); switchView('text');
+  logEvent('new_idea_started');
   toast('New idea started', 'var(--cyan)');
 }
 
@@ -624,6 +655,10 @@ function startNewIdea() {
 // ============================================================
 function exportCSV() {
   if (!S.nodes.length) { toast('Nothing to export yet.'); return; }
+
+  logEvent('export_csv');
+
+  // Nodes CSV
   const nodeHeaders = [
     'node_id','group','step','tag','title','body','parent_id','timestamp',
     'user_prompt','suggestions_shown','suggestions_selected','suggestions_rejected',
@@ -646,6 +681,8 @@ function exportCSV() {
     ].join(',');
   });
   downloadFile([nodeHeaders.join(','), ...nodeRows].join('\n'), `ideagit_nodes_${datestamp()}.csv`, 'text/csv');
+
+  // Links CSV
   const linkHeaders = ['source_id','target_id','source_tag','target_tag','group'];
   const linkRows = S.nodes.filter(n=>n.parentId).map(n => {
     const parent = S.nodes.find(p=>p.id===n.parentId);
@@ -653,6 +690,14 @@ function exportCSV() {
     return [n.parentId, n.id, parent?.tag||'', n.tag, gIdx+1].join(',');
   });
   setTimeout(() => downloadFile([linkHeaders.join(','), ...linkRows].join('\n'), `ideagit_links_${datestamp()}.csv`, 'text/csv'), 300);
+
+  // Activity log CSV
+  const logHeaders = ['timestamp','action','detail','node_id'];
+  const logRows = S.activityLog.map(e =>
+    [e.timestamp, csvCell(e.action), csvCell(e.detail), e.node_id].join(',')
+  );
+  setTimeout(() => downloadFile([logHeaders.join(','), ...logRows].join('\n'), `ideagit_log_${datestamp()}.csv`, 'text/csv'), 600);
+
   toast('Exported CSVs', 'var(--green)');
 }
 
@@ -751,7 +796,10 @@ function renderGraph() {
     el.className=`gnode${node.tag==='finalized'?' final':''}${isCur?' current':''}`;
     el.style.left=p.x+'px'; el.style.top=p.y+'px';
     el.innerHTML=`<div class="gnode-inner"><span class="badge ${cls}">${esc(label)}</span><div class="gnode-title">${esc(node.title||'(untitled)')}</div><div class="gnode-preview">${esc(node.body||'(no content yet)')}</div></div>`;
-    el.addEventListener('click',()=>{S.curId=node.id;loadNode(node.id);switchView('text');});
+    el.addEventListener('click',()=>{
+      logEvent('graph_node_clicked', node.title || node.id);
+      S.curId=node.id; loadNode(node.id); switchView('text');
+    });
     nodeWrap.appendChild(el);
   });
   S.groups.forEach((group,gi)=>{
