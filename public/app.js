@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 const SLIDES = [
   {
-    title: '1 · Select a Design Challenge',
+    title: '1 · Create a Design Challenge',
     img: 'instructions/slide1.png',
-    body: 'Use the dropdown to pick a design challenge and read it carefully. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
+    body: 'Use the text box to type the design challenge you want to brainstorm. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
   },
   {
     title: '2 · Generate Your First Idea',
