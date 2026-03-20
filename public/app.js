@@ -17,7 +17,7 @@ const S = {
 document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.setAttribute('data-theme', 'light');
   initGraphPan();
-  populateChallengeDropdown();
+  // populateChallengeDropdown();  // replaced by freetext input
 });
 
 // ============================================================
@@ -32,17 +32,17 @@ const SLIDES = [
   {
     title: '2 · Generate Your First Idea',
     img: 'instructions/slide2.png',
-    body: 'Click <strong>"Generate with AI"</strong> to let AI create an idea from scratch, or use the <strong>"Create Manually"</strong> button to type your own title and description. Ideas are created <strong>one at a time</strong> — use <strong>+ New Idea</strong> in the top bar to start another.',
+    body: 'Click <strong>Generate Idea</strong> to let AI create an idea from scratch, or type your own title and description then click <strong>Submit Idea</strong>. Ideas are created <strong>one at a time</strong> — use <strong>+ New Idea</strong> in the top bar to start another.',
   },
   {
     title: '3 · Modify Your Idea',
     img: 'instructions/slide3.png',
-    body: 'Once an idea is submitted, use the four action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify Automatically</strong> — allow AI to modify the idea by itself<br><strong>Modify by Chatting</strong> — interact with AI to modify the idea<br><strong>Finalize</strong> — mark the idea as complete<br><strong>AI Feedback</strong> — get a short critique<br><strong>+New Idea</strong> — start a new idea<br><br>The first four actions create a new node — the original is always preserved.',
+    body: 'Once an idea is submitted, use the four action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify with AI</strong> — get AI suggestions<br><strong>Finalize</strong> — mark the idea as complete<br><strong>AI Feedback</strong> — get a short critique<br><br>The first three actions create a new node — the original is always preserved.',
   },
   {
-    title: '4 · Modify by Chatting',
+    title: '4 · Modify with AI',
     img: 'instructions/slide4.png',
-    body: 'Type what you want to change and press Enter — AI will reply with specific suggestions to pick from. Select the ones you want and click <strong>Apply Selected</strong>.',
+    body: 'Type what you want to change and press Enter — AI will reply with specific suggestions to pick from. Select the ones you want and click <strong>Apply Selected</strong>. Or use <strong>Auto Improve</strong> for one-click AI refinement without typing. Click <strong>Update Idea</strong> to save your changes as a new node.',
   },
   {
     title: '5 · Navigation Bar',
@@ -151,6 +151,7 @@ function existingIdeasSummary() {
 // ============================================================
 //  PAGE 1 — SETUP
 // ============================================================
+/*
 function populateChallengeDropdown() {
   const sel = document.getElementById('challenge-select');
   if (!sel || typeof DESIGN_CHALLENGES === 'undefined') return;
@@ -172,11 +173,20 @@ function onChallengeSelect() {
   startBtn.disabled = false;
   logEvent('challenge_selected', ch.title);
 }
+*/
+
+function onChallengeInput() {
+  const val = document.getElementById('challenge-input').value.trim();
+  S.challenge = val;
+  document.getElementById('start-btn').disabled = val.length === 0;
+  if (val.length > 0) logEvent('challenge_selected', val.slice(0, 80));
+}
 
 function clearChallenge() {
-  document.getElementById('challenge-select').value = '';
-  document.getElementById('challenge-desc').style.display = 'none';
-  document.getElementById('challenge-desc').textContent = '';
+  // document.getElementById('challenge-select').value = '';
+  // document.getElementById('challenge-desc').style.display = 'none';
+  // document.getElementById('challenge-desc').textContent = '';
+  document.getElementById('challenge-input').value = '';
   document.getElementById('start-btn').disabled = true;
   S.challenge = '';
 }

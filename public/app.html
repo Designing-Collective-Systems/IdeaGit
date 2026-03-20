@@ -41,10 +41,20 @@
         <h2>Design Challenge</h2>
       </div>
       <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+        <!--
         <select id="challenge-select" class="challenge-select" onchange="onChallengeSelect()">
           <option value="">— Select a design challenge —</option>
         </select>
         <div id="challenge-desc" class="challenge-desc" style="display:none"></div>
+        -->
+        <textarea
+          id="challenge-input"
+          class="idea-field-box"
+          rows="4"
+          placeholder="Describe your design challenge here…"
+          oninput="onChallengeInput()"
+          style="resize:vertical;font-size:16px;line-height:1.6"
+        ></textarea>
       </div>
       <div class="card-foot">
         <button class="btn btn-secondary" onclick="clearChallenge()">Clear</button>
