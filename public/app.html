@@ -33,28 +33,42 @@
 
     <div class="setup-hero fadein">
       <h1>Idea<em>Git</em></h1>
-      <p>Create your design challenge, then generate and develop ideas.</p>
+      <p>Select your design challenge, then generate and develop ideas.</p>
     </div>
 
     <div class="card fadein" style="animation-delay:.08s">
       <div class="card-head">
         <h2>Design Challenge</h2>
       </div>
-      <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+      <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
         <!--
         <select id="challenge-select" class="challenge-select" onchange="onChallengeSelect()">
           <option value="">— Select a design challenge —</option>
         </select>
         <div id="challenge-desc" class="challenge-desc" style="display:none"></div>
         -->
-        <textarea
-          id="challenge-input"
-          class="idea-field-box"
-          rows="4"
-          placeholder="Describe your design challenge here…"
-          oninput="onChallengeInput()"
-          style="resize:vertical;font-size:16px;line-height:1.6"
-        ></textarea>
+        <div class="idea-field-group">
+          <label class="idea-field-label">Challenge Description</label>
+          <textarea
+            id="challenge-input"
+            class="idea-field-box"
+            rows="3"
+            placeholder="Describe the design challenge…"
+            oninput="onChallengeInput()"
+            style="resize:vertical;font-size:16px;line-height:1.6"
+          ></textarea>
+        </div>
+        <div class="idea-field-group">
+          <label class="idea-field-label">Constraint</label>
+          <textarea
+            id="challenge-constraint"
+            class="idea-field-box"
+            rows="2"
+            placeholder="Enter any constraint (e.g. must cost less than $50)…"
+            oninput="onChallengeInput()"
+            style="resize:vertical;font-size:16px;line-height:1.6"
+          ></textarea>
+        </div>
       </div>
       <div class="card-foot">
         <button class="btn btn-secondary" onclick="clearChallenge()">Clear</button>

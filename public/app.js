@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 const SLIDES = [
   {
-    title: '1 · Create a Design Challenge',
+    title: '1 · Select a Design Challenge',
     img: 'instructions/slide1.png',
-    body: 'Use the text box to type the design challenge you want to brainstorm. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
+    body: 'Use the dropdown to pick a design challenge and read it carefully. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
   },
   {
     title: '2 · Generate Your First Idea',
@@ -176,10 +176,12 @@ function onChallengeSelect() {
 */
 
 function onChallengeInput() {
-  const val = document.getElementById('challenge-input').value.trim();
-  S.challenge = val;
-  document.getElementById('start-btn').disabled = val.length === 0;
-  if (val.length > 0) logEvent('challenge_selected', val.slice(0, 80));
+  const desc       = document.getElementById('challenge-input').value.trim();
+  const constraint = document.getElementById('challenge-constraint').value.trim();
+  // Enable Start only when at least the description is filled
+  document.getElementById('start-btn').disabled = desc.length === 0;
+  // Combine for logging preview (actual combination happens on Start)
+  if (desc.length > 0) logEvent('challenge_selected', desc.slice(0, 80));
 }
 
 function clearChallenge() {
@@ -187,12 +189,17 @@ function clearChallenge() {
   // document.getElementById('challenge-desc').style.display = 'none';
   // document.getElementById('challenge-desc').textContent = '';
   document.getElementById('challenge-input').value = '';
+  document.getElementById('challenge-constraint').value = '';
   document.getElementById('start-btn').disabled = true;
   S.challenge = '';
 }
 
 function startIdeation() {
-  if (!S.challenge) { toast('Select a design challenge first.'); return; }
+  const desc       = document.getElementById('challenge-input').value.trim();
+  const constraint = document.getElementById('challenge-constraint').value.trim();
+  if (!desc) { toast('Please enter a design challenge.'); return; }
+  // Combine into a single challenge string
+  S.challenge = constraint ? `${desc} The solution must meet the following constraint: ${constraint}` : desc;
   document.getElementById('page-setup').style.display = 'none';
   document.getElementById('page-ideation').style.display = 'flex';
   document.getElementById('view-toggle').style.display = 'flex';
