@@ -100,7 +100,6 @@
         <div class="action-group action-group-manual">
           <div class="action-group-label">Manual</div>
           <div class="action-group-btns">
-            <button class="btn btn-secondary" id="btn-submit-idea" onclick="submitManualIdea()" style="display:none">Submit Idea</button>
             <button class="btn btn-secondary" id="btn-modify-manual" onclick="openManualPopup()" disabled>Modify Manually</button>
           </div>
         </div>
@@ -160,6 +159,9 @@
           <div class="idea-field-group">
             <label class="idea-field-label">Description <span style="color:#c00">*</span></label>
             <textarea id="idea-body" class="idea-body idea-field-box" placeholder="Describe your idea here…"></textarea>
+          </div>
+          <div style="margin-top:6px">
+            <button class="btn btn-primary" id="btn-submit-idea" onclick="submitManualIdea()">Submit Idea</button>
           </div>
         </div>
 
@@ -249,7 +251,7 @@
       </div>
       <div class="idea-field-group" style="margin-top:12px">
         <label class="idea-field-label">Description <span style="color:var(--red)">*</span></label>
-        <textarea id="manual-ta" class="manual-ta idea-field-box" placeholder="Type your modified idea here…"></textarea>
+        <textarea id="manual-ta" class="manual-ta idea-field-box" placeholder="Type your modified idea here…" style="min-height:220px;resize:vertical"></textarea>
       </div>
     </div>
     <div class="edit-popup-foot">
@@ -269,16 +271,19 @@
     <div class="edit-popup-body" style="display:flex;flex-direction:column;gap:0;padding:0">
       <div class="chat-messages" id="chat-msgs"></div>
       <div id="chat-thinking" style="display:none;padding:8px 14px;font-family:'DM Mono',monospace;font-size:14px;color:var(--text3);border-top:1px solid var(--border)">
-        <span style="display:flex;align-items:center;gap:8px"><span class="spinner"></span> AI is thinking…</span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="spinner"></span> Loading AI response…</span>
       </div>
     </div>
-    <div class="edit-popup-foot" style="gap:8px">
-      <input type="text" id="chat-in"
-        style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:16px;background:var(--surface)"
+    <div class="edit-popup-foot" style="gap:8px;flex-direction:column;align-items:stretch">
+      <textarea id="chat-in"
+        style="width:100%;min-height:100px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:16px;background:var(--surface);resize:vertical;box-sizing:border-box"
         placeholder="Describe what you want to change…"
         autocomplete="off"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"/>
-      <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" onclick="requestSuggestions()">Provide Suggestions</button>
+        <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+      </div>
     </div>
   </div>
 </div>

@@ -27,7 +27,7 @@ const SLIDES = [
   {
     title: '1 · Select a Design Challenge',
     img: 'instructions/slide1.png',
-    body: 'Use the dropdown to pick a design challenge and read it carefully. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
+    body: 'Use the text boxes to type the design challenge you want to brainstorm. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
   },
   {
     title: '2 · Generate Your First Idea',
@@ -37,27 +37,32 @@ const SLIDES = [
   {
     title: '3 · Modify Your Idea',
     img: 'instructions/slide3.png',
-    body: 'Once an idea is submitted, use the four action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify with AI</strong> — get AI suggestions<br><strong>Finalize</strong> — mark the idea as complete<br><strong>AI Feedback</strong> — get a short critique<br><br>The first three actions create a new node — the original is always preserved.',
+    body: 'Once an idea is submitted, use the five action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify Automatically</strong> — allow AI to modify your idea automatically<br><strong>Modify by Chatting</strong> — interact with the AI to get suggestions<br><strong>AI Feedback</strong> — get a short critique<br><strong>Finalize</strong> — mark the idea as complete<br><br>The first three actions create a new node — the original is always preserved.',
   },
   {
-    title: '4 · Modify with AI',
+    title: '4 · Modify by Chatting',
     img: 'instructions/slide4.png',
-    body: 'Type what you want to change and press Enter — AI will reply with specific suggestions to pick from. Select the ones you want and click <strong>Apply Selected</strong>. Or use <strong>Auto Improve</strong> for one-click AI refinement without typing. Click <strong>Update Idea</strong> to save your changes as a new node.',
+    body: 'Interact with the AI and use the "Provide Suggestions" button to receive suggestions. Select the suggestions you want and click <strong>Apply Selected</strong>.',
   },
   {
     title: '5 · Navigation Bar',
     img: 'instructions/slide5.png',
-    body: 'The top bar has everything you need:<br><br><strong>TEXT / GRAPH</strong> — switch between idea editor and visual graph<br><strong>Export CSV</strong> — save your ideas (do this before switching challenges!)<br><strong>+ New Idea</strong> — start a brand new idea branch<br><strong>Instructions</strong> — re-open this guide at any time',
+    body: 'Use the top bar to navigate IdeaGit:<br><br><strong>Instructions</strong> — re-open this guide at any time<br><strong>TEXT / GRAPH</strong> — switch between idea editor and visual graph<br><strong>Export CSV</strong> — save your ideas (do this before switching challenges!)<br><strong>+ New Idea</strong> — start a brand new idea branch',
   },
   {
     title: '6 · Graph View',
     img: 'instructions/slide6.png',
-    body: 'Click <strong>GRAPH</strong> to see all your ideas as a branching tree. Each node is a version of an idea — modifications branch off from the original. Colours indicate how each node was created (user, AI generated, manual edit, etc.). <strong>Drag</strong> the canvas to pan. <strong>Click any node</strong> to jump back to that version in the editor.',
+    body: 'Click <strong>GRAPH</strong> to see all your ideas as a branching tree. Each node is a version of an idea — modifications branch off from the original. Colours indicate how each node was created (user, AI generated, manual edit, etc.). <strong>Drag</strong> the canvas to pan. <strong>Click any node</strong> to jump back to that version in the text view.',
   },
   {
-    title: '7 · Your Task',
-    img: 'instructions/slide7.png',
-    body: 'Select <strong>one design challenge</strong> and generate at least <strong>5 distinct ideas</strong> using any combination of tools. When done, click <strong>Export CSV</strong> to save your work — this is your submission.<br><br>You are welcome to explore the tool as much as you like. The minimum is <strong>5 ideas for 1 challenge</strong>.',
+    title: '7 · Create Branches',
+    img: 'instructions/slide6.png',
+    body: 'In the Graph View, click on an existing node to jump back to that version in the text view. Modifying an existing node creates a branch in the graph',
+  },
+  {
+    title: '8 · Your Task',
+    img: 'instructions/slide8.png',
+    body: 'Create <strong>one design challenge</strong> and generate at least <strong>5 distinct ideas</strong>. When done, click <strong>Export CSV</strong> to save your work — the csv files are your submission.<br><br>You are welcome to explore the tool as much as you like. The minimum is <strong>5 ideas for 1 challenge</strong>.',
   },
 ];
 
@@ -236,7 +241,6 @@ function showCreationChoice() {
   document.getElementById('idea-inputs').style.display = 'none';
   document.getElementById('idea-display').style.display = 'none';
   document.getElementById('ai-generating').style.display = 'none';
-  document.getElementById('btn-submit-idea').style.display = 'none';
   setActionButtonsEnabled(false);
   setFinalizeButtons(false);
 }
@@ -246,7 +250,6 @@ function showManualInputs() {
   document.getElementById('creation-choice').style.display = 'none';
   document.getElementById('idea-inputs').style.display = 'flex';
   document.getElementById('idea-display').style.display = 'none';
-  document.getElementById('btn-submit-idea').style.display = '';
   document.getElementById('btn-modify-manual').disabled = true;
   setActionButtonsEnabled(false);
   setFinalizeButtons(false);
@@ -261,7 +264,6 @@ function showLockedDisplay(node) {
   document.getElementById('idea-display').style.display = 'flex';
   document.getElementById('display-title').textContent = node.title || '(untitled)';
   document.getElementById('display-body').textContent = node.body || '';
-  document.getElementById('btn-submit-idea').style.display = 'none';
   // Show Regenerate only for ai-generated nodes that have no child nodes yet
   const hasChildren = S.nodes.some(n => n.parentId === node.id);
   const showRegen = node.tag === 'ai-generated' && !hasChildren;
@@ -485,18 +487,45 @@ async function sendChat() {
   logEvent('ai_chat_message_sent', msg);
   setChatThinking(true);
   try {
-    const { system, user } = PROMPTS.getSuggestions(cur.title, cur.body, S.challenge, msg);
+    const systemPrompt = PROMPTS.modifyWithInstructions(cur.title, cur.body, S.challenge);
+    const resp = await callClaude(S.chatHistory, systemPrompt);
+    S.chatHistory.push({ role:'assistant', content:resp });
+    addBubble('assistant', resp);
+  } catch(e) { addBubble('assistant', 'Error: ' + e.message); }
+  finally { setChatThinking(false); }
+}
+
+async function requestSuggestions() {
+  const cur = curNode();
+  const inp = document.getElementById('chat-in');
+  // Include any unsent text in the context too
+  const unseenText = inp.value.trim();
+  const historyContext = unseenText
+    ? [...S.chatHistory, { role:'user', content:unseenText }]
+    : S.chatHistory;
+  if (!historyContext.length) {
+    toast('Chat with the AI first, then request suggestions.', 'var(--amber)');
+    return;
+  }
+  // Build a summary of the conversation to send as user message context
+  const conversationSummary = historyContext
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join('; ');
+  if (unseenText) { inp.value = ''; addBubble('user', unseenText); }
+  setChatThinking(true);
+  logEvent('ai_suggestions_shown', 'requested from chat history');
+  try {
+    const { system, user } = PROMPTS.getSuggestions(cur.title, cur.body, S.challenge, conversationSummary);
     const text = await callClaude([{ role:'user', content:user }], system);
     const json = JSON.parse(text.replace(/```json|```/g,'').trim());
     const suggestions = json.suggestions || [];
     S._lastSuggestions = suggestions;
-    S.chatHistory.push({ role:'assistant', content: 'Suggested: ' + suggestions.join('; ') });
     if (suggestions.length) {
-      logEvent('ai_suggestions_shown', suggestions.length + ' suggestions');
-      addBubble('assistant', 'Here are specific changes based on your input:');
+      addBubble('assistant', 'Here are suggestions based on your conversation:');
       renderSuggestionsPopup(suggestions);
     } else {
-      addBubble('assistant', 'No suggestions generated — try rephrasing.');
+      addBubble('assistant', 'No suggestions generated — try chatting more first.');
     }
   } catch(e) { addBubble('assistant', 'Error: ' + e.message); }
   finally { setChatThinking(false); }
@@ -606,6 +635,11 @@ function unfinalizeIdea() {
 async function openFeedback() {
   const cur = curNode();
   if (!cur || (!cur.title && !cur.body)) { toast('No idea to evaluate.'); return; }
+  // If feedback already exists for this node, show it without calling AI again
+  if (cur.meta && cur.meta.ai_feedback) {
+    showFeedbackModal(cur.meta.ai_feedback, false);
+    return;
+  }
   logEvent('ai_feedback_requested', cur.title);
   showFeedbackModal('Loading…', true);
   try {
@@ -699,21 +733,13 @@ function exportCSV() {
   });
   downloadFile([nodeHeaders.join(','), ...nodeRows].join('\n'), `ideagit_nodes_${datestamp()}.csv`, 'text/csv');
 
-  // Links CSV
-  const linkHeaders = ['source_id','target_id','source_tag','target_tag','group'];
-  const linkRows = S.nodes.filter(n=>n.parentId).map(n => {
-    const parent = S.nodes.find(p=>p.id===n.parentId);
-    const gIdx = S.groups.findIndex(g=>g.includes(n.id));
-    return [n.parentId, n.id, parent?.tag||'', n.tag, gIdx+1].join(',');
-  });
-  setTimeout(() => downloadFile([linkHeaders.join(','), ...linkRows].join('\n'), `ideagit_links_${datestamp()}.csv`, 'text/csv'), 300);
-
   // Activity log CSV
   const logHeaders = ['timestamp','action','detail','node_id'];
   const logRows = S.activityLog.map(e =>
     [e.timestamp, csvCell(e.action), csvCell(e.detail), e.node_id].join(',')
   );
-  setTimeout(() => downloadFile([logHeaders.join(','), ...logRows].join('\n'), `ideagit_log_${datestamp()}.csv`, 'text/csv'), 600);
+  // Note: parent_id in the nodes CSV captures all link relationships — no separate links file needed.
+  setTimeout(() => downloadFile([logHeaders.join(','), ...logRows].join('\n'), `ideagit_log_${datestamp()}.csv`, 'text/csv'), 300);
 
   toast('Exported CSVs', 'var(--green)');
 }

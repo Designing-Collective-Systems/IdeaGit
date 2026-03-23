@@ -91,10 +91,7 @@ Use these headings. 1-3 bullet points each, one sentence per bullet:
 - 
 
 **What to improve**
-- 
-
-**Next step**
-- One concrete action to develop this idea further`
+- `
   }),
 
 };

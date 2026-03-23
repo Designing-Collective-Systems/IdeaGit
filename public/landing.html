@@ -137,9 +137,9 @@
 <script>
 const SLIDES = [
   {
-    title: '1 · Create a Design Challenge',
+    title: '1 · Select a Design Challenge',
     img: 'instructions/slide1.png',
-    body: 'Use the text box to type the design challenge you want to brainstorm. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
+    body: 'Use the text boxes to type the design challenge you want to brainstorm. Then click <strong>Start Ideation →</strong> to begin — you will be taken to the ideation workspace.',
   },
   {
     title: '2 · Generate Your First Idea',
@@ -149,27 +149,32 @@ const SLIDES = [
   {
     title: '3 · Modify Your Idea',
     img: 'instructions/slide3.png',
-    body: 'Once an idea is submitted, use the four action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify with AI</strong> — get AI suggestions<br><strong>Finalize</strong> — mark the idea as complete<br><strong>AI Feedback</strong> — get a short critique<br><br>The first three actions create a new node — the original is always preserved.',
+    body: 'Once an idea is submitted, use the five action buttons to develop it:<br><br><strong>Modify Manually</strong> — edit the idea yourself<br><strong>Modify Automatically</strong> — allow AI to modify your idea automatically<br><strong>Modify by Chatting</strong> — interact with the AI to get suggestions<br><strong>AI Feedback</strong> — get a short critique<br><strong>Finalize</strong> — mark the idea as complete<br><br>The first three actions create a new node — the original is always preserved.',
   },
   {
-    title: '4 · Modify with AI',
+    title: '4 · Modify by Chatting',
     img: 'instructions/slide4.png',
-    body: 'Type what you want to change and press Enter — AI will reply with specific suggestions to pick from. Select the ones you want and click <strong>Apply Selected</strong>. Or use <strong>Auto Improve</strong> for one-click AI refinement without typing. Click <strong>Update Idea</strong> to save your changes as a new node.',
+    body: 'Interact with the AI and use the "Provide Suggestions" button to receive suggestions. Select the suggestions you want and click <strong>Apply Selected</strong>.',
   },
   {
     title: '5 · Navigation Bar',
     img: 'instructions/slide5.png',
-    body: 'The top bar has everything you need:<br><br><strong>TEXT / GRAPH</strong> — switch between idea editor and visual graph<br><strong>Export CSV</strong> — save your ideas (do this before switching challenges!)<br><strong>+ New Idea</strong> — start a brand new idea branch<br><strong>Instructions</strong> — re-open this guide at any time',
+    body: 'Use the top bar to navigate IdeaGit:<br><br><strong>Instructions</strong> — re-open this guide at any time<br><strong>TEXT / GRAPH</strong> — switch between idea editor and visual graph<br><strong>Export CSV</strong> — save your ideas (do this before switching challenges!)<br><strong>+ New Idea</strong> — start a brand new idea branch',
   },
   {
     title: '6 · Graph View',
     img: 'instructions/slide6.png',
-    body: 'Click <strong>GRAPH</strong> to see all your ideas as a branching tree. Each node is a version of an idea — modifications branch off from the original. Colours indicate how each node was created (user, AI generated, manual edit, etc.). <strong>Drag</strong> the canvas to pan. <strong>Click any node</strong> to jump back to that version in the editor.',
+    body: 'Click <strong>GRAPH</strong> to see all your ideas as a branching tree. Each node is a version of an idea — modifications branch off from the original. Colours indicate how each node was created (user, AI generated, manual edit, etc.). <strong>Drag</strong> the canvas to pan. <strong>Click any node</strong> to jump back to that version in the text view.',
   },
   {
-    title: '7 · Your Task',
-    img: 'instructions/slide7.png',
-    body: 'Select <strong>one design challenge</strong> and generate at least <strong>5 distinct ideas</strong> using any combination of tools. When done, click <strong>Export CSV</strong> to save your work — this is your submission.<br><br>You are welcome to explore the tool as much as you like. The minimum is <strong>5 ideas for 1 challenge</strong>.',
+    title: '7 · Create Branches',
+    img: 'instructions/slide6.png',
+    body: 'In the Graph View, click on an existing node to jump back to that version in the text view. Modifying an existing node creates a branch in the graph',
+  },
+  {
+    title: '8 · Your Task',
+    img: 'instructions/slide8.png',
+    body: 'Create <strong>one design challenge</strong> and generate at least <strong>5 distinct ideas</strong>. When done, click <strong>Export CSV</strong> to save your work — the csv files are your submission.<br><br>You are welcome to explore the tool as much as you like. The minimum is <strong>5 ideas for 1 challenge</strong>.',
   },
 ];
 
