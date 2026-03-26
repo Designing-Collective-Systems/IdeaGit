@@ -55,7 +55,9 @@ app.get('/', (req, res) => {
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
-
+app.get('/instructor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'instructor.html'));
+});
 // Fallback — redirect everything else to landing
 app.get('*', (req, res) => {
   res.redirect('/');
