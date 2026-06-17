@@ -134,7 +134,7 @@ function tagInfo(tag) {
 //  CLAUDE API
 // ============================================================
 async function callClaude(messages, system='') {
-  const body = { model: 'claude-sonnet-4-20250514', max_tokens: 1024, messages };
+  const body = { model: 'claude-sonnet-4-6', max_tokens: 1024, messages };
   if (system) body.system = system;
   const res = await fetch('/api/claude', {
     method: 'POST',
