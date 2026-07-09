@@ -463,11 +463,15 @@ function renderIdeas() {
   const area  = document.getElementById('ideas-area');
   const empty = document.getElementById('ideas-empty');
   const { finalized, ongoing } = getDisplayIdeas();
+
+  // Remove all children except the empty-state element
+  Array.from(area.children).forEach(c => { if (c.id !== 'ideas-empty') c.remove(); });
+
   if (!finalized.length && !ongoing.length) {
-    area.innerHTML = ''; area.appendChild(empty); empty.style.display = 'flex'; return;
+    empty.style.display = 'flex';
+    return;
   }
   empty.style.display = 'none';
-  area.innerHTML = '';
 
   if (finalized.length) {
     const lbl = document.createElement('div');
