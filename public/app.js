@@ -151,7 +151,6 @@ function startIdeation(){
 
   updateFinalizedCounter();
   renderIdeas();
-  if(isManual()&&S.condition===1) renderC1Cards();
   if(hasTree()) renderTree();
 }
 function goHome(){
@@ -219,51 +218,59 @@ function submitManualCreate(){
   closeCreateModal();
   const node=mkNode({type:'creation',tag:'user-created',title,body});
   addNode(node);
-  if(isManual()) renderC1Cards();
   renderIdeas();
   if(hasTree()){ S.currentGroupId=node.groupId; renderTree(); }
   toast('Idea created');
 }
 
+let _rendering = false; // guard: prevent stopEditTrack cascade during DOM re-render
+
 function renderDraftForm(area){
-  const existing=area.querySelector('.c1-draft-form');
-  if(existing) return; // already present
+  if(area.querySelector('.c1-draft-form')) return; // already present
   const form=document.createElement('div');
   form.className='c1-idea-block c1-draft-form';
+  // Identical look to other idea blocks — contenteditable, no button
   form.innerHTML=`
     <div class="c1-idea-num">New Idea</div>
-    <input type="text" class="c1-idea-title c1-draft-title" placeholder="Enter title…" autocomplete="off" autocorrect="off" spellcheck="false"/>
-    <textarea class="c1-idea-body c1-draft-body" placeholder="Describe your idea…" rows="4"></textarea>
-    <div class="c1-idea-actions">
-      <button class="btn btn-primary btn-sm" onclick="saveDraftIdea()">Save Idea</button>
-    </div>`;
+    <div class="c1-idea-title" contenteditable="true" spellcheck="false"
+      placeholder="Enter title…"
+      data-draft="title"
+      onblur="draftBlur()"></div>
+    <div class="c1-idea-body" contenteditable="true" spellcheck="false"
+      placeholder="Describe your idea…"
+      data-draft="body"
+      onblur="draftBlur()"></div>`;
   area.appendChild(form);
-  // auto-focus title on first render
-  setTimeout(()=>form.querySelector('.c1-draft-title')?.focus(),80);
+  // Focus title immediately (only on first render, i.e. no nodes yet)
+  const leaves=S.nodes.filter(n=>n.title);
+  if(!leaves.length) setTimeout(()=>form.querySelector('[data-draft="title"]')?.focus(),80);
 }
 
-function saveDraftIdea(){
-  const titleEl=document.querySelector('.c1-draft-title');
-  const bodyEl =document.querySelector('.c1-draft-body');
-  if(!titleEl||!bodyEl) return;
-  const title=titleEl.value.trim();
-  const body =bodyEl.value.trim();
-  if(!title){ toast('Please enter a title.'); titleEl.focus(); return; }
-  if(!body) { toast('Please describe your idea.'); bodyEl.focus(); return; }
-  // Remove draft form so it gets re-created next time
-  const form=document.querySelector('.c1-draft-form');
-  if(form) form.remove();
-  const node=mkNode({type:'creation',tag:'user-created',title,body});
-  addNode(node);
-  if(S.condition===2){ S.currentGroupId=node.groupId; renderTree(); }
-  renderIdeas();
-  if(S.condition===1) renderC1Cards();
+function draftBlur(){
+  // Small delay lets focus move to sibling field without prematurely saving
+  setTimeout(()=>{
+    const form=document.querySelector('.c1-draft-form'); if(!form) return;
+    if(form.contains(document.activeElement)) return; // still inside form
+    const titleEl=form.querySelector('[data-draft="title"]');
+    const bodyEl =form.querySelector('[data-draft="body"]');
+    if(!titleEl||!bodyEl) return;
+    const title=titleEl.innerText.trim();
+    const body =bodyEl.innerText.trim();
+    if(!title&&!body) return; // empty, leave the form open
+    if(!title||!body) return; // partial, wait for both
+    // Save as creation node
+    form.remove(); // remove before render to avoid duplication
+    const node=mkNode({type:'creation',tag:'user-created',title,body});
+    addNode(node);
+    if(S.condition===2){ S.currentGroupId=node.groupId; renderTree(); }
+    renderIdeas(); // re-renders cards (which appends a fresh draft form)
+  },180);
 }
 
 function renderC1Cards(){
   if(S.condition!==1) return;
+  _rendering=true; // block stopEditTrack cascade during DOM rebuild
   const area=document.getElementById('c1-cards');
-  // Remove old idea blocks but keep draft form
   Array.from(area.children).forEach(c=>{ if(!c.classList.contains('c1-draft-form')) c.remove(); });
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
   const leaves=S.nodes.filter(n=>!parentIds.has(n.id)&&n.title);
@@ -291,6 +298,7 @@ function renderC1Cards(){
     area.appendChild(block);
   });
   renderDraftForm(area);
+  _rendering=false;
 }
 
 // Read current DOM content for a C1 node
@@ -336,6 +344,7 @@ function onEditInput(el){
   S._editTimer=setTimeout(()=>autoNodeFromEdit('time'),delay);
 }
 function stopEditTrack(el){
+  if(_rendering) return; // ignore blur events caused by programmatic DOM re-render
   if(!S._editState) return;
   const node=S.nodes.find(n=>n.id===S._editState.nodeId); if(!node) return;
   const {title:newTitle,body:newBody}=getC1NodeCurrentContent(node.id);
@@ -385,7 +394,6 @@ function createEditNode(parentId,title,body,trigger){
   addNode(child);
   S.currentGroupId=child.groupId;
   S._editState={ nodeId:child.id, origTitle:title, origBody:body, startTime:Date.now() };
-  if(isManual()) renderC1Cards();
   renderIdeas();
   if(hasTree()) renderTree();
 }
@@ -393,7 +401,6 @@ function createEditNode(parentId,title,body,trigger){
 function finalizeNode(nodeId){
   const node=S.nodes.find(n=>n.id===nodeId); if(!node||node.isFinalized) return;
   node.isFinalized=true;
-  if(isManual()) renderC1Cards();
   renderIdeas(); if(hasTree()) renderTree();
   updateFinalizedCounter();
   checkThreeDone();
@@ -402,7 +409,6 @@ function finalizeNode(nodeId){
 function unfinalizeNode(nodeId){
   const node=S.nodes.find(n=>n.id===nodeId); if(!node||!node.isFinalized) return;
   node.isFinalized=false;
-  if(isManual()) renderC1Cards();
   renderIdeas(); if(hasTree()) renderTree();
   updateFinalizedCounter();
   toast('Idea unfinalized');
@@ -848,7 +854,7 @@ function closeDonePopup(){ document.getElementById('done-popup').style.display='
 function confirmDone(){
   closeDonePopup();
   if([3,4].includes(S.condition)){ openSelfReport(); }
-  else { exportCSV(); setTimeout(()=>window.location.href='/',1200); }
+  else { exportCSV(); toast('Session exported. You may now close the page.','var(--green)'); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1045,7 +1051,7 @@ function srSubmit(){
   const nodesContent=buildNodesCSV();
   dlFile(nodesContent,`ideagit_nodes_c${S.condition}_${dstamp()}.csv`,'text/csv');
 
-  // Download self-report CSV 700ms later
+  // Download self-report CSV 800ms later (ensures both files are triggered)
   setTimeout(()=>{
     const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
     const hdr=['condition','ai_used','ai_for','idea_1_title','idea_1_contrib','idea_2_title','idea_2_contrib','idea_3_title','idea_3_contrib'];
@@ -1056,10 +1062,8 @@ function srSubmit(){
       csvC(finalized[2]?.title||''), csvC(contributions[2].join('|')),
     ];
     dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_self_report_c${S.condition}_${dstamp()}.csv`,'text/csv');
-
-    // Redirect 700ms after second download
-    setTimeout(()=>window.location.href='/',700);
-  },700);
+    // No redirect — stay on the page
+  },800);
 }
 
 // ═══════════════════════════════════════════════════════════════
