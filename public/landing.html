@@ -4,93 +4,58 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IdeaGit</title>
-  <link rel="stylesheet" href="styles.css"/>
   <style>
-    .landing { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; gap:40px; background:var(--bg); }
-    .landing-hero h1 { font-size:42px; font-weight:700; letter-spacing:-.5px; text-align:center; }
-    .landing-hero h1 em { font-style:normal; color:var(--blue); }
-    .landing-hero p { font-size:18px; color:var(--text2); text-align:center; margin-top:10px; }
-    .condition-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; width:100%; max-width:880px; }
-    .condition-card { background:var(--surface); border:2px solid var(--border); border-radius:14px; padding:28px; display:flex; flex-direction:column; gap:14px; transition:border-color .15s, box-shadow .15s; }
-    .condition-card:hover { border-color:var(--blue-mid); box-shadow:0 4px 20px rgba(0,0,0,.1); }
-    .cond-badge { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:4px 10px; border-radius:99px; display:inline-block; width:fit-content; }
-    .cond-1 .cond-badge { background:var(--amber-lt); color:var(--amber); border:1px solid var(--amber-mid); }
-    .cond-2 .cond-badge { background:var(--blue-lt);  color:var(--blue);  border:1px solid var(--blue-mid); }
-    .cond-3 .cond-badge { background:var(--teal-lt);  color:var(--teal);  border:1px solid var(--teal-mid); }
-    .cond-4 .cond-badge { background:var(--purple-lt);color:var(--purple);border:1px solid var(--purple-mid); }
-    .cond-name { font-size:20px; font-weight:700; }
-    .cond-desc { font-size:15px; color:var(--text2); line-height:1.65; flex:1; }
-    .cond-features { display:flex; flex-direction:column; gap:4px; }
-    .cond-feature { font-size:13px; color:var(--text2); display:flex; align-items:center; gap:6px; }
-    .feat-yes { color:var(--green); font-weight:700; }
-    .feat-no  { color:var(--text3); }
-    .condition-card .btn { width:100%; margin-top:4px; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f4f8;color:#111827}
+    .page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:28px}
+    h1{font-size:36px;font-weight:700;letter-spacing:-.5px;color:#111827}
+    h1 em{font-style:normal;color:#2563eb}
+    .subtitle{font-size:16px;color:#6b7280;text-align:center}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;max-width:760px}
+    .card{background:#fff;border:1.5px solid #d1d5db;border-radius:12px;padding:22px 24px;display:flex;flex-direction:column;gap:12px}
+    .cond-num{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280}
+    .cond-name{font-size:17px;font-weight:700;color:#111827}
+    .cond-desc{font-size:14px;color:#6b7280;line-height:1.6;flex:1}
+    .btn{display:block;width:100%;padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;text-align:center;transition:background .15s;margin-top:4px}
+    .btn:hover{background:#1d4ed8}
+    @media(max-width:560px){.grid{grid-template-columns:1fr}.page{padding:16px}}
   </style>
 </head>
 <body>
-<div class="landing">
-  <div class="landing-hero">
+<div class="page">
+  <div style="text-align:center">
     <h1>Idea<em>Git</em></h1>
-    <p>A design ideation tool. Select your assigned condition to begin.</p>
+    <p class="subtitle">A design ideation tool. Select your assigned condition below to begin.</p>
   </div>
-
-  <div class="condition-grid">
-
-    <div class="condition-card cond-1">
-      <div class="cond-badge">Condition 1</div>
+  <div class="grid">
+    <div class="card">
+      <div class="cond-num">Condition 1</div>
       <div class="cond-name">Manual Ideation</div>
-      <div class="cond-desc">Create and develop design ideas by writing. Edit ideas directly and finalize them when ready.</div>
-      <div class="cond-features">
-        <div class="cond-feature"><span class="feat-yes">✓</span> Manual idea creation and editing</div>
-        <div class="cond-feature"><span class="feat-no">✗</span> Process tree (tracked in background)</div>
-        <div class="cond-feature"><span class="feat-no">✗</span> AI assistance</div>
-      </div>
-      <button class="btn btn-amber" onclick="go(1)">Start Condition 1 →</button>
+      <div class="cond-desc">Create and develop design ideas through writing. Edit and finalize ideas at your own pace.</div>
+      <button class="btn" onclick="go(1)">Start Condition 1</button>
     </div>
-
-    <div class="condition-card cond-2">
-      <div class="cond-badge">Condition 2</div>
+    <div class="card">
+      <div class="cond-num">Condition 2</div>
       <div class="cond-name">Structured Manual Ideation</div>
-      <div class="cond-desc">Same as Condition 1 but with a visible process tree that tracks how each idea evolves through your edits.</div>
-      <div class="cond-features">
-        <div class="cond-feature"><span class="feat-yes">✓</span> Manual idea creation and editing</div>
-        <div class="cond-feature"><span class="feat-yes">✓</span> Process tree (visible)</div>
-        <div class="cond-feature"><span class="feat-no">✗</span> AI assistance</div>
-      </div>
-      <button class="btn btn-primary" onclick="go(2)">Start Condition 2 →</button>
+      <div class="cond-desc">Same as Condition 1, with a process tree on the left that tracks how each idea evolves over time.</div>
+      <button class="btn" onclick="go(2)">Start Condition 2</button>
     </div>
-
-    <div class="condition-card cond-3">
-      <div class="cond-badge">Condition 3</div>
+    <div class="card">
+      <div class="cond-num">Condition 3</div>
       <div class="cond-name">AI-Assisted Ideation</div>
-      <div class="cond-desc">Chat with AI to generate and develop your ideas. The process tree is tracked in the background.</div>
-      <div class="cond-features">
-        <div class="cond-feature"><span class="feat-yes">✓</span> AI chat for idea generation</div>
-        <div class="cond-feature"><span class="feat-no">✗</span> Process tree (tracked in background)</div>
-        <div class="cond-feature"><span class="feat-yes">✓</span> AI modification and feedback</div>
-      </div>
-      <button class="btn btn-teal" onclick="go(3)">Start Condition 3 →</button>
+      <div class="cond-desc">Chat with AI to generate and develop your design ideas. Ideas and modifications are tracked automatically.</div>
+      <button class="btn" onclick="go(3)">Start Condition 3</button>
     </div>
-
-    <div class="condition-card cond-4">
-      <div class="cond-badge">Condition 4</div>
+    <div class="card">
+      <div class="cond-num">Condition 4</div>
       <div class="cond-name">AI-Assisted Structured Ideation</div>
       <div class="cond-desc">Chat with AI to develop ideas while a full process tree shows how each idea evolved through your conversation.</div>
-      <div class="cond-features">
-        <div class="cond-feature"><span class="feat-yes">✓</span> AI chat for idea generation</div>
-        <div class="cond-feature"><span class="feat-yes">✓</span> Process tree (visible)</div>
-        <div class="cond-feature"><span class="feat-yes">✓</span> AI modification and feedback</div>
-      </div>
-      <button class="btn btn-purple-solid" onclick="go(4)">Start Condition 4 →</button>
+      <button class="btn" onclick="go(4)">Start Condition 4</button>
     </div>
-
   </div>
 </div>
 <script>
-function go(n) {
-  sessionStorage.setItem('ideagit-condition', n);
-  window.location.href = '/app';
-}
+function go(n){ sessionStorage.setItem('ideagit-condition',n); window.location.href='/app'; }
 </script>
 </body>
 </html>

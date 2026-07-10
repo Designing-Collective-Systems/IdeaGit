@@ -11,6 +11,7 @@ const S = {
   _pendingMsg: null,
   _replyToNodeId: null,
   _editState: null,      // for C1/C2 auto-node
+  _postContextSwitch: false, // after a context switch, next edit creates node immediately
   _editTimer: null,
 };
 
@@ -223,67 +224,101 @@ function renderC1Cards(){
   if(S.condition!==1) return;
   const area=document.getElementById('c1-cards');
   area.innerHTML='';
-  // Get leaf nodes (latest version of each group)
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
   const leaves=S.nodes.filter(n=>!parentIds.has(n.id)&&n.title);
   if(!leaves.length){
-    area.innerHTML='<p style="color:var(--text3);font-size:15px;text-align:center;padding:40px">Click "+ New Idea" above to create your first idea.</p>';
+    const empty=document.createElement('div');
+    empty.className='c1-empty';
+    empty.textContent='Click "+ New Idea" above to create your first idea.';
+    area.appendChild(empty);
     return;
   }
-  leaves.forEach(node=>{
-    const card=document.createElement('div');
-    card.className='c1-card'+(node.isFinalized?' c1-finalized':'');
-    card.innerHTML=`
-      <div class="c1-card-head">
-        <div class="c1-card-title" contenteditable="${!node.isFinalized}" spellcheck="false"
-          data-nodeid="${node.id}" data-field="title"
-          onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.title)}</div>
-        ${node.isFinalized?'<span class="badge-finalized" style="padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700">Finalized</span>':''}
+  leaves.forEach((node,idx)=>{
+    const block=document.createElement('div');
+    block.className='c1-idea-block'+(node.isFinalized?' c1-finalized':'');
+    block.innerHTML=`
+      <div class="c1-idea-num">
+        Idea ${idx+1}
+        ${node.isFinalized?'<span class="badge-finalized" style="padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">Finalized</span>':''}
       </div>
-      <div class="c1-card-body" contenteditable="${!node.isFinalized}" spellcheck="false"
+      <div class="c1-idea-title" contenteditable="${!node.isFinalized}" spellcheck="false"
+        placeholder="Enter title…"
+        data-nodeid="${node.id}" data-field="title"
+        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.title)}</div>
+      <div class="c1-idea-body" contenteditable="${!node.isFinalized}" spellcheck="false"
+        placeholder="Describe your idea…"
         data-nodeid="${node.id}" data-field="body"
         onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.body)}</div>
-      <div class="c1-card-actions">
+      <div class="c1-idea-actions">
         ${!node.isFinalized?`<button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}')">Finalize</button>`:''}
         ${node.isFinalized?`<button class="btn btn-outline btn-sm" onclick="unfinalizeNode('${node.id}')">Unfinalize</button>`:''}
       </div>`;
-    area.appendChild(card);
+    area.appendChild(block);
   });
 }
 
+// Read current DOM content for a C1 node
+function getC1NodeCurrentContent(nodeId){
+  const titleEl=document.querySelector(`[data-nodeid="${nodeId}"][data-field="title"]`);
+  const bodyEl =document.querySelector(`[data-nodeid="${nodeId}"][data-field="body"]`);
+  return {
+    title: titleEl?titleEl.innerText.trim():'',
+    body:  bodyEl ?bodyEl.innerText.trim():'',
+  };
+}
+
 // C1/C2 auto-node tracking
+// Rule: context switch = version checkpoint. When you leave an idea and come
+// back, the NEXT edit creates a new node immediately (not after 10s/5 words).
+// This applies across C1, C2 and anywhere else editing occurs.
 function startEditTrack(el){
   const nodeId=el.dataset.nodeid;
   const node=S.nodes.find(n=>n.id===nodeId); if(!node||node.isFinalized) return;
+  // Switching away from a different idea — save it if changed
+  if(S._editState && S._editState.nodeId!==nodeId){
+    clearTimeout(S._editTimer);
+    const prev=S.nodes.find(n=>n.id===S._editState.nodeId);
+    if(prev){
+      const {title:t,body:b}=getC1NodeCurrentContent(S._editState.nodeId);
+      if(t!==S._editState.origTitle||b!==S._editState.origBody){
+        createEditNode(prev.id,t||prev.title,b||prev.body,'context-switch');
+      }
+    }
+    S._editState=null;
+    // Mark that the idea we're switching INTO is in "post-switch" mode:
+    // the first save here creates a new node for ANY change, no thresholds.
+    S._postContextSwitch=true;
+  }
   S._editState={ nodeId, origTitle:node.title, origBody:node.body, startTime:Date.now() };
   clearTimeout(S._editTimer);
 }
 function onEditInput(el){
   if(!S._editState) return;
   clearTimeout(S._editTimer);
-  S._editTimer=setTimeout(()=>autoNodeFromEdit('time'),10000);
+  // After a context switch, use a short 2s debounce instead of 10s
+  const delay=S._postContextSwitch?2000:10000;
+  S._editTimer=setTimeout(()=>autoNodeFromEdit('time'),delay);
 }
 function stopEditTrack(el){
   if(!S._editState) return;
   clearTimeout(S._editTimer);
   const node=S.nodes.find(n=>n.id===S._editState.nodeId); if(!node) return;
-  // Get current content from DOM
-  const card=el.closest('.c1-card');
-  if(!card) return;
-  const titleEl=card.querySelector('[data-field="title"]');
-  const bodyEl =card.querySelector('[data-field="body"]');
-  const newTitle=titleEl?titleEl.innerText.trim():node.title;
-  const newBody =bodyEl ?bodyEl.innerText.trim():node.body;
-  const wordChanges=countWordChanges(S._editState.origBody,newBody);
-  const elapsed=Date.now()-S._editState.startTime;
-  if(wordChanges>5 || elapsed>=10000){
-    if(newTitle!==S._editState.origTitle||newBody!==S._editState.origBody){
+  const {title:newTitle,body:newBody}=getC1NodeCurrentContent(node.id);
+  const changed=newTitle!==S._editState.origTitle||newBody!==S._editState.origBody;
+  if(changed){
+    // Post-context-switch: create new node for ANY change, no word/time threshold
+    if(S._postContextSwitch){
+      S._postContextSwitch=false;
+      createEditNode(node.id,newTitle,newBody,'context-switch-edit');
+      return;
+    }
+    const wordChanges=countWordChanges(S._editState.origBody,newBody);
+    const elapsed=Date.now()-S._editState.startTime;
+    if(wordChanges>5||elapsed>=10000){
       createEditNode(node.id,newTitle,newBody,'manual-edit');
       return;
     }
-  }
-  // Minor change — just update node in place
-  if(newTitle!==node.title||newBody!==node.body){
+    // Minor change under threshold — update node in place
     node.title=newTitle; node.body=newBody;
   }
   S._editState=null;
@@ -291,21 +326,14 @@ function stopEditTrack(el){
 function autoNodeFromEdit(trigger){
   if(!S._editState) return;
   const node=S.nodes.find(n=>n.id===S._editState.nodeId); if(!node) return;
-  // Read current DOM content
-  const cards=document.querySelectorAll('.c1-card');
-  let newTitle=node.title, newBody=node.body;
-  cards.forEach(card=>{
-    const t=card.querySelector('[data-field="title"]');
-    const b=card.querySelector('[data-field="body"]');
-    if(t&&t.dataset.nodeid===node.id){ newTitle=t.innerText.trim(); }
-    if(b&&b.dataset.nodeid===node.id){ newBody=b.innerText.trim(); }
-  });
+  const {title:newTitle,body:newBody}=getC1NodeCurrentContent(node.id);
   if(newTitle!==S._editState.origTitle||newBody!==S._editState.origBody){
-    createEditNode(node.id,newTitle,newBody,trigger);
+    createEditNode(node.id,newTitle||node.title,newBody||node.body,trigger);
   } else { S._editState=null; }
 }
 function createEditNode(parentId,title,body,trigger){
   const parent=S.nodes.find(n=>n.id===parentId); if(!parent) return;
+  S._postContextSwitch=false; // clear flag — new node is the new baseline
   const child=mkNode({parentId,type:'modification',tag:'manual-modification',title,body,
     meta:{trigger}});
   addNode(child);
@@ -619,9 +647,26 @@ function renderIdeas(){
 function makeIdeaCard(node,status){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
+  // C2 ongoing cards are inline-editable like C1
+  if(S.condition===2 && status==='ongoing'){
+    card.innerHTML=`
+      <div class="idea-card-badge badge-ongoing">In Progress</div>
+      <div class="c1-idea-title" contenteditable="true" spellcheck="false"
+        placeholder="Title…"
+        data-nodeid="${node.id}" data-field="title"
+        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.title)}</div>
+      <div class="c1-idea-body" contenteditable="true" spellcheck="false"
+        placeholder="Description…"
+        data-nodeid="${node.id}" data-field="body"
+        style="margin-top:8px;font-size:14px"
+        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.body)}</div>
+      <div class="idea-card-actions" style="margin-top:10px">
+        <button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button>
+      </div>`;
+    return card;
+  }
   const actions=isManual()?`
-    ${!node.isFinalized?`<div class="idea-card-actions"><button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button>
-      <button class="btn btn-outline btn-sm" onclick="openEditCard('${node.id}');event.stopPropagation()">Edit</button></div>`:''}
+    ${!node.isFinalized?`<div class="idea-card-actions"><button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button></div>`:''}
     ${node.isFinalized?`<div class="idea-card-actions"><button class="btn btn-outline btn-sm" onclick="unfinalizeNode('${node.id}');event.stopPropagation()">Unfinalize</button></div>`:''}
   `:'';
   card.innerHTML=`
@@ -729,7 +774,7 @@ function renderTree(customGid){
     el.className=`tree-node ${tc}${isCur?' current':''}`;
     el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
     el.innerHTML=`<div class="tree-node-inner"><div class="tree-node-type" style="color:${typeColor}">${typeLabel}</div><div class="tree-node-title">${esc(node.title||'(untitled)')}</div></div>`;
-    el.addEventListener('click',()=>selectNode(node.id));
+    el.addEventListener('click',()=>{ if(S.condition===2) openNodeVersionModal(node.id); else selectNode(node.id); });
     nodesEl.appendChild(el);
   });
   resetPan();
@@ -904,41 +949,74 @@ function srNext(){
   if(_srPage<totalPages-1) srShowPage(_srPage+1);
 }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
+
+// ── C2: Modify from tree node ─────────────────────────────────────
+function openNodeVersionModal(nodeId){
+  const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;
+  S.currentNodeId=nodeId; S.currentGroupId=node.groupId;
+  // Navigating via tree is a context switch — next edit on this node creates new node immediately
+  S._postContextSwitch=true;
+  if(S._editState){ clearTimeout(S._editTimer); S._editState=null; }
+  document.getElementById('node-version-title').value=node.title;
+  document.getElementById('node-version-body').value=node.body;
+  document.getElementById('modal-node-version').style.display='flex';
+  setTimeout(()=>document.getElementById('node-version-title').focus(),60);
+}
+function closeNodeVersionModal(){ document.getElementById('modal-node-version').style.display='none'; }
+function submitNodeVersionModify(){
+  const title=document.getElementById('node-version-title').value.trim();
+  const body =document.getElementById('node-version-body').value.trim();
+  if(!title){ toast('Please enter a title.'); return; }
+  if(!body) { toast('Please enter a description.'); return; }
+  closeNodeVersionModal();
+  createEditNode(S.currentNodeId,title,body,'tree-branch');
+}
+
+// ── Self-report: toggle "other" textarea ──────────────────────────
+function toggleOtherBox(cb){
+  const ta=document.getElementById('ai-for-other');
+  if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); }
+}
+
 function srSubmit(){
-  // Collect answers
   const aiUsed=document.querySelector('input[name="ai-used"]:checked')?.value||'n/a';
   const aiFor=Array.from(document.querySelectorAll('input[name="ai-for"]:checked')).map(c=>c.value);
-  const aiOther=document.getElementById('ai-for-other')?.value||'';
+  const aiOtherTa=document.getElementById('ai-for-other');
+  const aiOther=aiOtherTa&&aiOtherTa.style.display!=='none'?aiOtherTa.value.trim():'';
   if(aiOther) aiFor.push('other:'+aiOther);
   const contributions=[];
   [0,1,2].forEach(i=>{
     const vals=Array.from(document.querySelectorAll(`input[name="contrib-${i}"]:checked`)).map(c=>c.value);
     contributions.push(vals);
   });
-  // Export nodes CSV
-  exportCSV();
-  // Export self-report CSV
+  document.getElementById('self-report-modal').style.display='none';
+  toast('Submitting and exporting…','var(--green)');
+
+  // Download nodes CSV first
+  const nodesContent=buildNodesCSV();
+  dlFile(nodesContent,`ideagit_nodes_c${S.condition}_${dstamp()}.csv`,'text/csv');
+
+  // Download self-report CSV 700ms later
   setTimeout(()=>{
     const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
-    const rows=[['condition','ai_used','ai_for','idea_1_title','idea_1_contrib','idea_2_title','idea_2_contrib','idea_3_title','idea_3_contrib']];
-    rows.push([
-      S.condition, aiUsed, aiFor.join('|'),
-      csvC(finalized[0]?.title||''), contributions[0].join('|'),
-      csvC(finalized[1]?.title||''), contributions[1].join('|'),
-      csvC(finalized[2]?.title||''), contributions[2].join('|'),
-    ]);
-    dlFile(rows.map(r=>r.join(',')).join('\n'),`ideagit_self_report_${dstamp()}.csv`,'text/csv');
-    setTimeout(()=>window.location.href='/',800);
-  },500);
-  document.getElementById('self-report-modal').style.display='none';
-  toast('Submitted! Exporting and redirecting…','var(--green)');
+    const hdr=['condition','ai_used','ai_for','idea_1_title','idea_1_contrib','idea_2_title','idea_2_contrib','idea_3_title','idea_3_contrib'];
+    const row=[
+      S.condition, aiUsed, csvC(aiFor.join('|')),
+      csvC(finalized[0]?.title||''), csvC(contributions[0].join('|')),
+      csvC(finalized[1]?.title||''), csvC(contributions[1].join('|')),
+      csvC(finalized[2]?.title||''), csvC(contributions[2].join('|')),
+    ];
+    dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_self_report_c${S.condition}_${dstamp()}.csv`,'text/csv');
+
+    // Redirect 700ms after second download
+    setTimeout(()=>window.location.href='/',700);
+  },700);
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  EXPORT
 // ═══════════════════════════════════════════════════════════════
-function exportCSV(){
-  if(!S.nodes.length){ toast('Nothing to export yet.'); return; }
+function buildNodesCSV(){
   const hdr=['node_id','group_id','parent_id','type','tag','title','body',
              'is_finalized','user_prompt','ai_response','timestamp','extras_count','extras_json'];
   const rows=S.nodes.map(n=>[
@@ -948,7 +1026,11 @@ function exportCSV(){
     new Date(n.ts).toISOString(),
     n.extras.length, csvC(JSON.stringify(n.extras))
   ].join(','));
-  dlFile([hdr.join(','),...rows].join('\n'),`ideagit_nodes_c${S.condition}_${dstamp()}.csv`,'text/csv');
+  return [hdr.join(','),...rows].join('\n');
+}
+function exportCSV(){
+  if(!S.nodes.length){ toast('Nothing to export yet.'); return; }
+  dlFile(buildNodesCSV(),`ideagit_nodes_c${S.condition}_${dstamp()}.csv`,'text/csv');
   toast('Exported','var(--green)');
 }
 function csvC(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; }

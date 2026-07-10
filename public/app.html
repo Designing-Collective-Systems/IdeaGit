@@ -277,8 +277,8 @@
             <label class="sr-option"><input type="checkbox" name="ai-for" value="modifying"> Modifying the idea</label>
             <label class="sr-option"><input type="checkbox" name="ai-for" value="feedback"> Receiving feedback</label>
             <label class="sr-option"><input type="checkbox" name="ai-for" value="clarifying"> Clarifying questions</label>
-            <label class="sr-option"><input type="checkbox" name="ai-for" value="other">
-              Other: <input type="text" id="ai-for-other" class="field-input" style="display:inline;width:150px;margin-left:6px;padding:4px 8px;font-size:14px"/></label>
+            <label class="sr-option"><input type="checkbox" name="ai-for" value="other" onchange="toggleOtherBox(this)"> Other</label>
+            <textarea id="ai-for-other" class="sr-other-textarea" placeholder="Please describe…" style="display:none" rows="3"></textarea>
           </div>
         </div>
         <div class="sr-foot"><button class="btn btn-primary" onclick="srNext()">Next →</button></div>
@@ -316,6 +316,29 @@
           <button class="btn btn-green" onclick="srSubmit()">Submit and Export</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- C2: Modify from tree node popup -->
+<div class="modal-overlay" id="modal-node-version" style="display:none" onclick="if(event.target===this)closeNodeVersionModal()">
+  <div class="modal">
+    <div class="modal-head">Modify this version</div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text2);margin:0">This will create a new branch from the selected node in the process tree.</p>
+      <div class="field-group">
+        <label class="field-label">Title *</label>
+        <input type="text" id="node-version-title" class="field-input" placeholder="Idea title…" autocomplete="off"/>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Description *</label>
+        <textarea id="node-version-body" class="field-textarea" rows="6" placeholder="Describe your modified idea…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeNodeVersionModal()">Cancel</button>
+      <button class="btn btn-amber" onclick="submitNodeVersionModify()">Save as New Version</button>
     </div>
   </div>
 </div>
