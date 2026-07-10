@@ -12,6 +12,7 @@ const S = {
   _replyToNodeId: null,
   _editState: null,      // for C1/C2 auto-node
   _postContextSwitch: false, // after a context switch, next edit creates node immediately
+  draft: null, // { title, body } when an unsaved idea is open; null otherwise
   _editTimer: null,
 };
 
@@ -137,6 +138,7 @@ function startIdeation(){
   if(!desc){ toast('Please enter a design challenge.'); return; }
   S.challenge=con?`${desc} The solution must meet the following constraint: ${con}`:desc;
   S.nodes=[]; S.currentNodeId=null; S.currentGroupId=null; S._pendingMsg=null; S._replyToNodeId=null;
+  S.draft=isManual()?{title:'',body:''}:null; // C1/C2 start with one empty idea block
   document.getElementById('page-setup').style.display='none';
   document.getElementById('page-ideation').style.display='flex';
   document.getElementById('challenge-banner-text').textContent=S.challenge;
@@ -204,6 +206,20 @@ function closeInstructions(){ document.getElementById('instructions-modal').styl
 //  CONDITION 1 & 2 — MANUAL EDITOR
 // ═══════════════════════════════════════════════════════════════
 function createNewIdea(){
+  if(isManual()){
+    if(S.draft!==null){
+      // Draft already open — just focus it
+      const el=document.querySelector('[data-draft="title"]');
+      if(el) el.focus();
+      else toast('Complete the current idea before adding another.');
+      return;
+    }
+    S.draft={title:'',body:''};
+    renderIdeas();
+    setTimeout(()=>document.querySelector('[data-draft="title"]')?.focus(),80);
+    return;
+  }
+  // C3/C4: modal
   document.getElementById('create-title').value='';
   document.getElementById('create-body').value='';
   document.getElementById('modal-create').style.display='flex';
@@ -692,34 +708,29 @@ function renderIdeas(){
     area.appendChild(l); finalized.forEach(n=>area.appendChild(makeIdeaCard(n,'finalized')));
   }
   if(ongoing.length){
-    const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='In Progress';
-    area.appendChild(l); ongoing.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing')));
+    if(S.condition===2){
+      // C2: full-width editable blocks (like C1)
+      const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='In Progress';
+      area.appendChild(l);
+      const parentIds2=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
+      const allLeaves=S.nodes.filter(n=>!parentIds2.has(n.id)&&n.title);
+      ongoing.forEach(n=>{
+        const idx=allLeaves.indexOf(n);
+        area.appendChild(makeIdeaBlock(n,idx+1));
+      });
+    } else {
+      const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='In Progress';
+      area.appendChild(l); ongoing.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing')));
+    }
   }
-  // C2: always show inline draft form for adding new ideas
-  if(S.condition===2) renderDraftForm(area);
+  // C2: show draft block at end of ideas list
+  if(S.condition===2) renderDraftBlock(area);
 }
 function makeIdeaCard(node,status){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
   // C2 ongoing cards are inline-editable like C1
-  if(S.condition===2 && status==='ongoing'){
-    // Full-width editable block (same style as C1)
-    card.className='c1-idea-block'; // override idea-card class
-    card.innerHTML=`
-      <div class="c1-idea-num" style="display:flex;align-items:center;justify-content:space-between">
-        <span>In Progress</span>
-        <button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button>
-      </div>
-      <div class="c1-idea-title" contenteditable="true" spellcheck="false"
-        placeholder="Title…"
-        data-nodeid="${node.id}" data-field="title"
-        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.title)}</div>
-      <div class="c1-idea-body" contenteditable="true" spellcheck="false"
-        placeholder="Description…"
-        data-nodeid="${node.id}" data-field="body"
-        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.body)}</div>`;
-    return card;
-  }
+
   const actions=isManual()?`
     ${!node.isFinalized?`<div class="idea-card-actions"><button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button></div>`:''}
     ${node.isFinalized?`<div class="idea-card-actions"><button class="btn btn-outline btn-sm" onclick="unfinalizeNode('${node.id}');event.stopPropagation()">Unfinalize</button></div>`:''}
@@ -867,7 +878,7 @@ let _srSubTab='chat';
 function openSelfReport(){
   const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
   if(!finalized.length){ toast('No finalized ideas to report on.'); return; }
-  _srPage=0; _srCurrentIdea=0; _srSubTab='chat';
+  _srPage=0; _srCurrentIdea=0; _srSubTab=S.condition===4?'tree':'chat';
 
   // Build idea tabs
   const tabs=document.getElementById('sr-idea-tabs'); tabs.innerHTML='';
@@ -895,6 +906,7 @@ function openSelfReport(){
   srUpdateStep();
   srSelectIdea(0,finalized);
   srShowPage(0);
+  srSubTab(_srSubTab); // apply correct default tab
   document.getElementById('self-report-modal').style.display='flex';
 }
 
