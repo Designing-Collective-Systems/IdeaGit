@@ -48,7 +48,7 @@ app.post('/api/claude', async (req, res) => {
 
 // Landing page at root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 // The IdeaGit app
