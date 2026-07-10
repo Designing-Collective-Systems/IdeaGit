@@ -140,13 +140,18 @@ function startIdeation(){
   document.getElementById('page-setup').style.display='none';
   document.getElementById('page-ideation').style.display='flex';
   document.getElementById('challenge-banner-text').textContent=S.challenge;
-  document.getElementById(`c${S.condition}-layout`).style.display=S.condition===4?'flex':'flex';
+  const layoutEl=document.getElementById(`c${S.condition}-layout`);
+  layoutEl.style.flex='1';
+  layoutEl.style.overflow='hidden';
+  layoutEl.style.display=S.condition===1?'flex':'grid';
+  if(S.condition===1) layoutEl.style.flexDirection='column';
 
   if(isManual()) initTreePan();
   else if(hasTree()) initTreePan();
 
   updateFinalizedCounter();
   renderIdeas();
+  if(isManual()&&S.condition===1) renderC1Cards();
   if(hasTree()) renderTree();
 }
 function goHome(){
@@ -220,19 +225,49 @@ function submitManualCreate(){
   toast('Idea created');
 }
 
+function renderDraftForm(area){
+  const existing=area.querySelector('.c1-draft-form');
+  if(existing) return; // already present
+  const form=document.createElement('div');
+  form.className='c1-idea-block c1-draft-form';
+  form.innerHTML=`
+    <div class="c1-idea-num">New Idea</div>
+    <input type="text" class="c1-idea-title c1-draft-title" placeholder="Enter title…" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <textarea class="c1-idea-body c1-draft-body" placeholder="Describe your idea…" rows="4"></textarea>
+    <div class="c1-idea-actions">
+      <button class="btn btn-primary btn-sm" onclick="saveDraftIdea()">Save Idea</button>
+    </div>`;
+  area.appendChild(form);
+  // auto-focus title on first render
+  setTimeout(()=>form.querySelector('.c1-draft-title')?.focus(),80);
+}
+
+function saveDraftIdea(){
+  const titleEl=document.querySelector('.c1-draft-title');
+  const bodyEl =document.querySelector('.c1-draft-body');
+  if(!titleEl||!bodyEl) return;
+  const title=titleEl.value.trim();
+  const body =bodyEl.value.trim();
+  if(!title){ toast('Please enter a title.'); titleEl.focus(); return; }
+  if(!body) { toast('Please describe your idea.'); bodyEl.focus(); return; }
+  // Remove draft form so it gets re-created next time
+  const form=document.querySelector('.c1-draft-form');
+  if(form) form.remove();
+  const node=mkNode({type:'creation',tag:'user-created',title,body});
+  addNode(node);
+  if(S.condition===2){ S.currentGroupId=node.groupId; renderTree(); }
+  renderIdeas();
+  if(S.condition===1) renderC1Cards();
+}
+
 function renderC1Cards(){
   if(S.condition!==1) return;
   const area=document.getElementById('c1-cards');
-  area.innerHTML='';
+  // Remove old idea blocks but keep draft form
+  Array.from(area.children).forEach(c=>{ if(!c.classList.contains('c1-draft-form')) c.remove(); });
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
   const leaves=S.nodes.filter(n=>!parentIds.has(n.id)&&n.title);
-  if(!leaves.length){
-    const empty=document.createElement('div');
-    empty.className='c1-empty';
-    empty.textContent='Click "+ New Idea" above to create your first idea.';
-    area.appendChild(empty);
-    return;
-  }
+  // Render existing ideas BEFORE the draft form
   leaves.forEach((node,idx)=>{
     const block=document.createElement('div');
     block.className='c1-idea-block'+(node.isFinalized?' c1-finalized':'');
@@ -255,6 +290,7 @@ function renderC1Cards(){
       </div>`;
     area.appendChild(block);
   });
+  renderDraftForm(area);
 }
 
 // Read current DOM content for a C1 node
@@ -301,27 +337,37 @@ function onEditInput(el){
 }
 function stopEditTrack(el){
   if(!S._editState) return;
-  clearTimeout(S._editTimer);
   const node=S.nodes.find(n=>n.id===S._editState.nodeId); if(!node) return;
   const {title:newTitle,body:newBody}=getC1NodeCurrentContent(node.id);
   const changed=newTitle!==S._editState.origTitle||newBody!==S._editState.origBody;
-  if(changed){
-    // Post-context-switch: create new node for ANY change, no word/time threshold
-    if(S._postContextSwitch){
-      S._postContextSwitch=false;
-      createEditNode(node.id,newTitle,newBody,'context-switch-edit');
-      return;
-    }
-    const wordChanges=countWordChanges(S._editState.origBody,newBody);
-    const elapsed=Date.now()-S._editState.startTime;
-    if(wordChanges>5||elapsed>=10000){
-      createEditNode(node.id,newTitle,newBody,'manual-edit');
-      return;
-    }
-    // Minor change under threshold — update node in place
-    node.title=newTitle; node.body=newBody;
+
+  if(!changed){
+    clearTimeout(S._editTimer);
+    S._editState=null;
+    return;
   }
-  S._editState=null;
+
+  // Context switch: create node for any change
+  if(S._postContextSwitch){
+    S._postContextSwitch=false;
+    clearTimeout(S._editTimer);
+    createEditNode(node.id,newTitle,newBody,'context-switch-edit');
+    return;
+  }
+
+  const wordChanges=countWordChanges(S._editState.origBody,newBody);
+  const elapsed=Date.now()-S._editState.startTime;
+
+  if(wordChanges>5||elapsed>=10000){
+    clearTimeout(S._editTimer);
+    createEditNode(node.id,newTitle,newBody,'manual-edit');
+    return;
+  }
+
+  // Below threshold on blur: update in place but keep timer running.
+  // autoNodeFromEdit will fire after 10s of inactivity regardless of blur.
+  node.title=newTitle; node.body=newBody;
+  // Do NOT clear _editState or timer — they stay alive after blur
 }
 function autoNodeFromEdit(trigger){
   if(!S._editState) return;
@@ -643,14 +689,21 @@ function renderIdeas(){
     const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='In Progress';
     area.appendChild(l); ongoing.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing')));
   }
+  // C2: always show inline draft form for adding new ideas
+  if(S.condition===2) renderDraftForm(area);
 }
 function makeIdeaCard(node,status){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
   // C2 ongoing cards are inline-editable like C1
   if(S.condition===2 && status==='ongoing'){
+    // Full-width editable block (same style as C1)
+    card.className='c1-idea-block'; // override idea-card class
     card.innerHTML=`
-      <div class="idea-card-badge badge-ongoing">In Progress</div>
+      <div class="c1-idea-num" style="display:flex;align-items:center;justify-content:space-between">
+        <span>In Progress</span>
+        <button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button>
+      </div>
       <div class="c1-idea-title" contenteditable="true" spellcheck="false"
         placeholder="Title…"
         data-nodeid="${node.id}" data-field="title"
@@ -658,11 +711,7 @@ function makeIdeaCard(node,status){
       <div class="c1-idea-body" contenteditable="true" spellcheck="false"
         placeholder="Description…"
         data-nodeid="${node.id}" data-field="body"
-        style="margin-top:8px;font-size:14px"
-        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.body)}</div>
-      <div class="idea-card-actions" style="margin-top:10px">
-        <button class="btn btn-green btn-sm" onclick="finalizeNode('${node.id}');event.stopPropagation()">Finalize</button>
-      </div>`;
+        onfocus="startEditTrack(this)" oninput="onEditInput(this)" onblur="stopEditTrack(this)">${esc(node.body)}</div>`;
     return card;
   }
   const actions=isManual()?`

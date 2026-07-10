@@ -52,7 +52,7 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkM
 
 /* Ideation page */
 #page-ideation{height:100vh;display:flex;flex-direction:column}
-.c-layout{flex:1;overflow:hidden;display:flex}
+.c-layout{flex:1;overflow:hidden}
 .two-col{display:grid;grid-template-columns:1fr 1fr}.two-col>.panel{min-width:0}
 .three-col{display:grid;grid-template-columns:1fr 1fr 1fr}.three-col>.panel{min-width:0}
 
@@ -210,3 +210,21 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkM
 /* Instructions content */
 #instructions-content p{margin-bottom:10px}
 #instructions-content strong{color:var(--text)}
+
+/* Draft form (inline new idea input for C1/C2) */
+.c1-draft-form { border: 2px dashed var(--blue-mid); background: var(--blue-lt); }
+.c1-draft-form:focus-within { border-color: var(--blue); border-style: solid; }
+.c1-draft-title {
+  width: 100%; font-size: 18px; font-weight: 600;
+  border: none; outline: none; background: transparent;
+  color: var(--text); font-family: inherit; padding: 0;
+  margin-bottom: 4px;
+}
+.c1-draft-title::placeholder { color: var(--text3); }
+.c1-draft-body {
+  width: 100%; font-size: 15px; line-height: 1.7;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  outline: none; background: var(--surface); resize: vertical;
+  padding: 8px 10px; font-family: inherit; color: var(--text);
+}
+.c1-draft-body:focus { border-color: var(--blue); }
