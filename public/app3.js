@@ -156,17 +156,22 @@ function submitManualModify(){
   const title=document.getElementById('modify-title').value.trim();
   const body =document.getElementById('modify-body').value.trim();
   if(!title||!body){ toast('Please fill in both fields.'); return; }
-  closeModifyModal();
   const parent=S.nodes.find(n=>n.id===S.currentNodeId); if(!parent) return;
+  if(title===parent.title&&body===parent.body){
+    toast('No changes detected. Please modify the idea before saving.');
+    return;
+  }
+  closeModifyModal();
   const node=mkNode({type:'modification',tag:'manual-modification',title,body,parentId:parent.id,userPrompt:'[Manual modification]'});
-  addNode(node); updateChatHeader(); rebuildChat(node.id); renderIdeasPanel();
+  addNode(node); updateChatHeader(); rebuildChat(node.id);
+  if(typeof renderAll==='function') renderAll(); else renderIdeasPanel();
   toast('Idea updated');
 }
 
 // ── Finalize ──────────────────────────────────────────────────
 function finalizeCurrentIdea(){
   const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
-  node.isFinalized=!node.isFinalized;
+  if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
   updateChatHeader(); updateFinalizedCounter(); renderIdeasPanel();
   if(node.isFinalized) checkThreeDone();
   toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');

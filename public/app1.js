@@ -62,16 +62,22 @@ function createOrSaveIdea(){
     addNode(node);
     editingNodeId = node.id;
     editorMode = 'edit';
+    updateEditorUI(); renderAll();
+    toast('Idea created', 'var(--green)');
   } else {
     const parent = S.nodes.find(n => n.id === editingNodeId);
     if(!parent){ toast('No idea loaded.'); return; }
+    if(title === parent.title && body === parent.body){
+      toast('No changes detected. Please modify the idea before saving.');
+      return;
+    }
     const child = mkNode({type:'modification', tag:'manual-modification',
                            title, body, parentId: parent.id});
     addNode(child);
     editingNodeId = child.id;
+    updateEditorUI(); renderAll();
+    toast('Modification saved', 'var(--green)');
   }
-  updateEditorUI(); renderAll();
-  toast(editorMode === 'new' ? 'Idea created' : 'Modification saved', 'var(--green)');
 }
 
 function loadIdeaInEditor(nodeId){
@@ -92,11 +98,43 @@ function startNewIdea(){
 }
 
 function finalizeCurrentIdea(){
-  const node = S.nodes.find(n => n.id === editingNodeId); if(!node) return;
-  node.isFinalized = !node.isFinalized;
-  updateEditorUI(); updateFinalizedCounter(); renderAll();
-  if(node.isFinalized) checkThreeDone();
-  toast(node.isFinalized ? 'Idea finalized' : 'Idea unfinalized', 'var(--green)');
+  const title = document.getElementById('idea-title-input').value.trim();
+  const body  = document.getElementById('idea-body-input').value.trim();
+  if(editorMode === 'edit' && editingNodeId){
+    const current = S.nodes.find(n => n.id === editingNodeId);
+    if(current){
+      const hasChanges = title !== current.title || body !== current.body;
+      if(hasChanges){
+        // Save modification first, then finalize the new node
+        if(!title || !body){ toast('Please fill in both fields before finalizing.'); return; }
+        const child = mkNode({type:'modification', tag:'manual-modification',
+                               title, body, parentId: current.id});
+        addNode(child);
+        editingNodeId = child.id;
+        child.isFinalized = true;
+        updateEditorUI(); updateFinalizedCounter(); renderAll();
+        checkThreeDone();
+        toast('Modification saved and finalized', 'var(--green)');
+        return;
+      }
+      // No changes — toggle finalize on existing node
+      current.isFinalized = !current.isFinalized;
+      updateEditorUI(); updateFinalizedCounter(); renderAll();
+      if(current.isFinalized) checkThreeDone();
+      toast(current.isFinalized ? 'Idea finalized' : 'Idea unfinalized', 'var(--green)');
+      return;
+    }
+  }
+  // 'new' mode: create first
+  if(editorMode === 'new'){
+    if(!title || !body){ toast('Please fill in both fields before finalizing.'); return; }
+    const node = mkNode({type:'creation', tag:'user-created', title, body});
+    node.isFinalized = true;
+    addNode(node); editingNodeId = node.id; editorMode = 'edit';
+    updateEditorUI(); updateFinalizedCounter(); renderAll();
+    checkThreeDone();
+    toast('Idea created and finalized', 'var(--green)');
+  }
 }
 
 function renderAll(){

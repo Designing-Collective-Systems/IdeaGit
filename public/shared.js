@@ -74,8 +74,20 @@ function existingSummary(){
 function getDisplayIdeas(){
   const finalized=S.nodes.filter(n=>n.isFinalized);
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
+  // In-progress: leaf nodes that are not finalized
   const ongoing=S.nodes.filter(n=>!parentIds.has(n.id)&&!n.isFinalized&&n.title);
-  return {finalized,ongoing};
+  // Unfinalized: nodes that WERE finalized (isFinalized=false) but have children,
+  // so they're not leaves — they'd otherwise be invisible
+  const ongoingIds=new Set(ongoing.map(n=>n.id));
+  const finalizedIds=new Set(finalized.map(n=>n.id));
+  const unfinalized=S.nodes.filter(n=>
+    !n.isFinalized && n.title &&
+    parentIds.has(n.id) &&          // has children (not a leaf)
+    !finalizedIds.has(n.id) &&
+    !ongoingIds.has(n.id) &&
+    n.meta && n.meta._wasFinalized  // only show if explicitly unfinalized
+  );
+  return {finalized,ongoing,unfinalized};
 }
 function makeIdeaCard(node,status,onSelect){
   const card=document.createElement('div');
@@ -93,9 +105,9 @@ function renderIdeasList(containerId,emptyId,onSelect){
   const area=document.getElementById(containerId);
   const emptyEl=document.getElementById(emptyId);
   if(!area) return;
-  const {finalized,ongoing}=getDisplayIdeas();
+  const {finalized,ongoing,unfinalized}=getDisplayIdeas();
   Array.from(area.children).forEach(c=>{ if(c.id!==emptyId) c.remove(); });
-  if(!finalized.length&&!ongoing.length){
+  if(!finalized.length&&!ongoing.length&&!unfinalized.length){
     if(emptyEl) emptyEl.style.display='flex'; return;
   }
   if(emptyEl) emptyEl.style.display='none';
@@ -106,6 +118,10 @@ function renderIdeasList(containerId,emptyId,onSelect){
   if(ongoing.length){
     const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='In Progress';
     area.appendChild(l); ongoing.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing',onSelect)));
+  }
+  if(unfinalized.length){
+    const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='Unfinalized';
+    area.appendChild(l); unfinalized.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing',onSelect)));
   }
 }
 
@@ -427,4 +443,12 @@ function srSubmit(){
     dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_c${S.condition}_self_report_${dstamp()}.csv`,'text/csv');
     toast('Both files exported. You may now close the page.','var(--green)');
   },800);
+}
+
+// Called when a node is unfinalized — marks it so it stays visible in the list
+function markUnfinalized(nodeId){
+  const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;
+  node.isFinalized=false;
+  node.meta=node.meta||{};
+  node.meta._wasFinalized=true;
 }
