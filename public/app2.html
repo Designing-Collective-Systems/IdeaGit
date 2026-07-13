@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IdeaGit — Condition 2</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div id="page-setup" style="display:flex">
+  <div class="setup-hero"><h1>Idea<em>Git</em></h1><p id="setup-subtitle">Enter your design challenge to begin.</p></div>
+  <div class="setup-card">
+    <div class="setup-card-head">Design Challenge</div>
+    <div class="setup-card-body">
+      <div class="field-group"><label class="field-label">Challenge Description *</label>
+        <textarea id="challenge-input" class="field-textarea" rows="3" placeholder="Describe the design challenge…" oninput="onChallengeInput()"></textarea></div>
+      <div class="field-group"><label class="field-label">Constraint (optional)</label>
+        <textarea id="challenge-constraint" class="field-textarea" rows="2" placeholder="e.g. must cost less than $50…"></textarea></div>
+    </div>
+    <div class="setup-card-foot">
+      <button class="btn btn-outline" onclick="openInstructions()">Instructions</button>
+      <button class="btn btn-primary" id="start-btn" onclick="startIdeation()" disabled>Start Ideation →</button>
+    </div>
+  </div>
+</div>
+<div id="page-ideation" style="display:none">
+  <nav class="top-nav">
+    <div class="nav-logo" onclick="goHome()">IdeaGit</div>
+    <div class="nav-challenge" id="challenge-banner-text"></div>
+    <div class="nav-actions">
+      <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
+      <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions</button>
+      <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </nav>
+  <div class="three-col ideation-grid">
+      <div class="panel">
+        <div class="panel-header">Process Tree <span class="panel-header-sub" id="tree-label"></span></div>
+        <div class="tree-area" id="tree-area">
+          <div id="tree-canvas" class="tree-canvas">
+            <svg id="tree-svg"></svg><div id="tree-nodes"></div>
+          </div>
+          <div class="tree-empty" id="tree-empty">No idea selected</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">Ideas</div>
+        <div class="ideas-area" id="ideas-list">
+          <div class="ideas-empty" id="ideas-empty"><span>No ideas yet.</span></div>
+        </div>
+      </div>
+      <div class="panel editor-panel">
+        <div class="panel-header"><span id="editor-mode-label">New Idea</span></div>
+        <div class="editor-body">
+          <input type="text" id="idea-title-input" class="editor-title" placeholder="Idea title…" autocomplete="off"/>
+          <textarea id="idea-body-input" class="editor-body-ta" placeholder="Describe your idea…"></textarea>
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-primary" id="btn-create-save" onclick="createOrSaveIdea()">Create Idea</button>
+          <button class="btn btn-green" id="btn-finalize" onclick="finalizeCurrentIdea()" style="display:none">Finalize</button>
+          <button class="btn btn-outline" onclick="startNewIdea()">+ New Idea</button>
+        </div>
+      </div>
+  </div>
+</div>
+
+  <!-- Done popup -->
+  <div class="modal-overlay" id="done-popup" style="display:none">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head" style="justify-content:center">Are you done with the task?</div>
+      <div class="modal-body" style="text-align:center">
+        <p style="font-size:16px;color:var(--text2)">You have finalized <strong id="done-count">3</strong> ideas.<br>Have you completed the task?</p>
+      </div>
+      <div class="modal-foot" style="justify-content:center;gap:12px">
+        <button class="btn btn-outline" onclick="closeDonePopup()">No, keep working</button>
+        <button class="btn btn-green" onclick="confirmDone()">Yes, I am done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
+    <div class="modal">
+      <div class="modal-head" id="instructions-head">Instructions</div>
+      <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+        <div id="instructions-content" style="font-size:15px;line-height:1.85;color:var(--text2)"></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-outline" onclick="closeInstructions()">Close</button></div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toasts"></div>
+  <script src="prompts.js"></script>
+  <script src="shared.js"></script>
+  <script src="app2.js"></script>
+</body></html>

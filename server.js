@@ -51,10 +51,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
-// The IdeaGit app
-app.get('/app', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+// IdeaGit conditions
+[1,2,3,4].forEach(n => {
+  app.get('/app'+n, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'app'+n+'.html'));
+  });
 });
+// Legacy route
+app.get('/app', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'app4.html')); });
 
 // Fallback — redirect everything else to landing
 app.get('*', (req, res) => {

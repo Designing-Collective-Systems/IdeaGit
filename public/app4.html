@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IdeaGit — Condition 4</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div id="page-setup" style="display:flex">
+  <div class="setup-hero"><h1>Idea<em>Git</em></h1><p id="setup-subtitle">Enter your design challenge to begin.</p></div>
+  <div class="setup-card">
+    <div class="setup-card-head">Design Challenge</div>
+    <div class="setup-card-body">
+      <div class="field-group"><label class="field-label">Challenge Description *</label>
+        <textarea id="challenge-input" class="field-textarea" rows="3" placeholder="Describe the design challenge…" oninput="onChallengeInput()"></textarea></div>
+      <div class="field-group"><label class="field-label">Constraint (optional)</label>
+        <textarea id="challenge-constraint" class="field-textarea" rows="2" placeholder="e.g. must cost less than $50…"></textarea></div>
+    </div>
+    <div class="setup-card-foot">
+      <button class="btn btn-outline" onclick="openInstructions()">Instructions</button>
+      <button class="btn btn-primary" id="start-btn" onclick="startIdeation()" disabled>Start Ideation →</button>
+    </div>
+  </div>
+</div>
+<div id="page-ideation" style="display:none">
+  <nav class="top-nav">
+    <div class="nav-logo" onclick="goHome()">IdeaGit</div>
+    <div class="nav-challenge" id="challenge-banner-text"></div>
+    <div class="nav-actions">
+      <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
+      <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions</button>
+      <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </nav>
+  <div class="three-col ideation-grid">
+      <div class="panel">
+        <div class="panel-header">Process Tree <span class="panel-header-sub" id="tree-label"></span></div>
+        <div class="tree-area" id="tree-area">
+          <div id="tree-canvas" class="tree-canvas">
+            <svg id="tree-svg"></svg><div id="tree-nodes"></div>
+          </div>
+          <div class="tree-empty" id="tree-empty">No idea selected</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">Ideas</div>
+        <div class="ideas-area" id="ideas-list">
+          <div class="ideas-empty" id="ideas-empty"><span>No ideas yet.</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">AI Chat</div>
+        <div class="chat-initial" id="chat-initial">
+          <h2>Start a new idea</h2>
+          <p>Choose how to create your first idea.</p>
+          <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
+          <button class="btn btn-teal" onclick="startAICreate()">Generate Idea with AI</button>
+        </div>
+        <div class="chat-active" id="chat-active" style="display:none">
+          <div class="chat-idea-header">
+            <span class="current-idea-label">Current idea</span>
+            <span class="current-idea-title" id="current-idea-title">—</span>
+            <div class="chat-idea-actions">
+              <button class="btn btn-green btn-sm" id="btn-finalize" onclick="finalizeCurrentIdea()">Finalize</button>
+              <button class="btn btn-amber btn-sm" onclick="openManualModify()">Modify Manually</button>
+              <button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button>
+            </div>
+          </div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
+          <div class="classify-area" id="classify-area" style="display:none">
+            <p>How should I handle this?</p>
+            <div class="classify-options">
+              <label class="classify-option"><input type="radio" name="classify" value="modification"> Modification — update the idea</label>
+              <label class="classify-option"><input type="radio" name="classify" value="feedback"> Feedback — evaluate without changing</label>
+              <label class="classify-option"><input type="radio" name="classify" value="clarification"> Clarification — general question</label>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="confirmClassification()">Confirm and Send</button>
+            <button class="btn btn-outline btn-sm" onclick="cancelClassification()" style="margin-left:8px">Cancel</button>
+          </div>
+          <div class="reply-indicator" id="reply-indicator" style="display:none">
+            <span>↩ Replying to: <em id="reply-text"></em></span>
+            <button onclick="clearReply()" class="reply-clear-btn">✕</button>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" placeholder="Type a message…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+            <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+  </div>
+</div>
+
+  <!-- Done popup -->
+  <div class="modal-overlay" id="done-popup" style="display:none">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head" style="justify-content:center">Are you done with the task?</div>
+      <div class="modal-body" style="text-align:center">
+        <p style="font-size:16px;color:var(--text2)">You have finalized <strong id="done-count">3</strong> ideas.<br>Have you completed the task?</p>
+      </div>
+      <div class="modal-foot" style="justify-content:center;gap:12px">
+        <button class="btn btn-outline" onclick="closeDonePopup()">No, keep working</button>
+        <button class="btn btn-green" onclick="confirmDone()">Yes, I am done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
+    <div class="modal">
+      <div class="modal-head" id="instructions-head">Instructions</div>
+      <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+        <div id="instructions-content" style="font-size:15px;line-height:1.85;color:var(--text2)"></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-outline" onclick="closeInstructions()">Close</button></div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toasts"></div>
+  <!-- Create idea modal -->
+  <div class="modal-overlay" id="modal-create" style="display:none" onclick="if(event.target===this)closeCreateModal()">
+    <div class="modal"><div class="modal-head">Create Idea Manually</div>
+      <div class="modal-body">
+        <div class="field-group"><label class="field-label">Title *</label><input type="text" id="create-title" class="field-input" autocomplete="off"/></div>
+        <div class="field-group"><label class="field-label">Description *</label><textarea id="create-body" class="field-textarea" rows="6"></textarea></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-outline" onclick="closeCreateModal()">Cancel</button><button class="btn btn-primary" onclick="submitManualCreate()">Create Idea</button></div>
+    </div>
+  </div>
+  <!-- Modify modal -->
+  <div class="modal-overlay" id="modal-modify" style="display:none" onclick="if(event.target===this)closeModifyModal()">
+    <div class="modal"><div class="modal-head">Modify Idea Manually</div>
+      <div class="modal-body">
+        <div class="field-group"><label class="field-label">Title *</label><input type="text" id="modify-title" class="field-input" autocomplete="off"/></div>
+        <div class="field-group"><label class="field-label">Description *</label><textarea id="modify-body" class="field-textarea" rows="6"></textarea></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-outline" onclick="closeModifyModal()">Cancel</button><button class="btn btn-amber" onclick="submitManualModify()">Save Changes</button></div>
+    </div>
+  </div>
+  <!-- Self-report (C3/C4) -->
+  <div class="modal-overlay" id="self-report-modal" style="display:none">
+    <div class="self-report-modal">
+      <div class="sr-left" id="sr-left">
+        <div class="sr-idea-tabs" id="sr-idea-tabs"></div>
+        <div class="sr-sub-tabs" id="sr-sub-tabs" style="display:none">
+          <button class="sr-sub-tab sr-sub-active" id="sr-tab-chat" onclick="srSubTab('chat')">Chat History</button>
+          <button class="sr-sub-tab" id="sr-tab-tree" onclick="srSubTab('tree')">Process Tree</button>
+        </div>
+        <div class="sr-content" id="sr-idea-display"></div>
+      </div>
+      <div class="sr-right">
+        <div class="sr-step-indicator" id="sr-step-indicator"></div>
+        <div class="sr-page" id="sr-page-0">
+          <h2 class="sr-page-title">About your ideation process</h2>
+          <div class="sr-question"><p class="sr-q-label">a) Did you use AI to help generate any of these ideas?</p>
+            <div class="sr-options"><label class="sr-option"><input type="radio" name="ai-used" value="yes" onchange="srToggleB(true)"> Yes</label><label class="sr-option"><input type="radio" name="ai-used" value="no" onchange="srToggleB(false)"> No</label></div>
+          </div>
+          <div class="sr-question" id="sr-q-b" style="display:none"><p class="sr-q-label">b) What did you use AI for? (Select all that apply)</p>
+            <div class="sr-options"><label class="sr-option"><input type="checkbox" name="ai-for" value="generating"> Generating the idea</label><label class="sr-option"><input type="checkbox" name="ai-for" value="modifying"> Modifying the idea</label><label class="sr-option"><input type="checkbox" name="ai-for" value="feedback"> Receiving feedback</label><label class="sr-option"><input type="checkbox" name="ai-for" value="clarifying"> Clarifying questions</label>
+            <label class="sr-option"><input type="checkbox" name="ai-for" value="other" onchange="toggleOtherBox(this)"> Other</label>
+            <textarea id="ai-for-other" class="sr-other-textarea" placeholder="Please describe…" style="display:none" rows="3"></textarea></div>
+          </div>
+          <div class="sr-foot"><button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+        </div>
+        <div class="sr-page" id="sr-page-1" style="display:none">
+          <h2 class="sr-page-title">Idea 1: <span id="sr-title-0" style="font-weight:400;font-size:16px"></span></h2>
+          <div class="sr-question"><p class="sr-q-label">c) What did you contribute? (Select all that apply)</p><div class="sr-options" id="sr-contrib-0"></div></div>
+          <div class="sr-foot"><button class="btn btn-outline" onclick="srPrev()">← Back</button><button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+        </div>
+        <div class="sr-page" id="sr-page-2" style="display:none">
+          <h2 class="sr-page-title">Idea 2: <span id="sr-title-1" style="font-weight:400;font-size:16px"></span></h2>
+          <div class="sr-question"><p class="sr-q-label">c) What did you contribute? (Select all that apply)</p><div class="sr-options" id="sr-contrib-1"></div></div>
+          <div class="sr-foot"><button class="btn btn-outline" onclick="srPrev()">← Back</button><button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+        </div>
+        <div class="sr-page" id="sr-page-3" style="display:none">
+          <h2 class="sr-page-title">Idea 3: <span id="sr-title-2" style="font-weight:400;font-size:16px"></span></h2>
+          <div class="sr-question"><p class="sr-q-label">c) What did you contribute? (Select all that apply)</p><div class="sr-options" id="sr-contrib-2"></div></div>
+          <div class="sr-foot"><button class="btn btn-outline" onclick="srPrev()">← Back</button><button class="btn btn-green" onclick="srSubmit()">Submit and Export</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="prompts.js"></script>
+  <script src="shared.js"></script>
+  <script src="app4.js"></script>
+</body></html>

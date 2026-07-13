@@ -32,30 +32,28 @@
       <div class="cond-num">Condition 1</div>
       <div class="cond-name">Manual Ideation</div>
       <div class="cond-desc">Create and develop design ideas through writing. Edit and finalize ideas at your own pace.</div>
-      <button class="btn" onclick="go(1)">Start Condition 1</button>
+      <button class="btn" onclick="window.location.href='/app1'">Start Condition 1</button>
     </div>
     <div class="card">
       <div class="cond-num">Condition 2</div>
       <div class="cond-name">Structured Manual Ideation</div>
       <div class="cond-desc">Same as Condition 1, with a process tree on the left that tracks how each idea evolves over time.</div>
-      <button class="btn" onclick="go(2)">Start Condition 2</button>
+      <button class="btn" onclick="window.location.href='/app2'">Start Condition 2</button>
     </div>
     <div class="card">
       <div class="cond-num">Condition 3</div>
       <div class="cond-name">AI-Assisted Ideation</div>
       <div class="cond-desc">Chat with AI to generate and develop your design ideas. Ideas and modifications are tracked automatically.</div>
-      <button class="btn" onclick="go(3)">Start Condition 3</button>
+      <button class="btn" onclick="window.location.href='/app3'">Start Condition 3</button>
     </div>
     <div class="card">
       <div class="cond-num">Condition 4</div>
       <div class="cond-name">AI-Assisted Structured Ideation</div>
       <div class="cond-desc">Chat with AI to develop ideas while a full process tree shows how each idea evolved through your conversation.</div>
-      <button class="btn" onclick="go(4)">Start Condition 4</button>
+      <button class="btn" onclick="window.location.href='/app4'">Start Condition 4</button>
     </div>
   </div>
 </div>
-<script>
-function go(n){ sessionStorage.setItem('ideagit-condition',n); window.location.href='/app'; }
-</script>
+<script>/* routes now direct */</script>
 </body>
 </html>
