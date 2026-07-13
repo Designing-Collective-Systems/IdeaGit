@@ -19,7 +19,7 @@ function startIdeation(){
   S.challenge=con?`${desc} The solution must meet the following constraint: ${con}`:desc;
   S.nodes=[]; S.currentNodeId=null; S.currentGroupId=null;
   document.getElementById('page-setup').style.display='none';
-  document.getElementById('page-ideation').style.display='grid';
+  document.getElementById('page-ideation').style.display='flex';
   document.getElementById('challenge-banner-text').textContent=S.challenge;
   initTreePanOn('tree-area','tree-canvas');
   showChatInitial(); updateFinalizedCounter(); renderAll();

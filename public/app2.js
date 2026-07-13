@@ -22,7 +22,7 @@ function startIdeation(){
   S.nodes = []; S.currentNodeId = null; S.currentGroupId = null;
   editorMode = 'new'; editingNodeId = null;
   document.getElementById('page-setup').style.display = 'none';
-  document.getElementById('page-ideation').style.display = 'grid';
+  document.getElementById('page-ideation').style.display = 'flex';
   document.getElementById('challenge-banner-text').textContent = S.challenge;
   initTreePanOn('tree-area','tree-canvas');
   updateEditorUI(); updateFinalizedCounter(); renderAll();
