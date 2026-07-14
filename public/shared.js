@@ -3,7 +3,8 @@
 // ============================================================
 
 // isAICondition: true for conditions 3 & 4 (string or number)
-function isAICondition(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("ai") : isAICondition(); }
+function isAICondition(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("ai") : [3,4].includes(S.condition); }
+function isCondition4(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("structured") && S.condition.toLowerCase().includes("ai") : S.condition===4; }
 
 const S = {
   condition: 0,
