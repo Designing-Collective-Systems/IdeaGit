@@ -314,7 +314,7 @@ function openSelfReport(){
   const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
   if(!finalized.length) return;
   _srPage=0; _srCurrentIdea=0;
-  _srSubTab=S.condition===4?'tree':'chat';
+  _srSubTab=isCondition4()?'tree':'chat';
   const tabs=document.getElementById('sr-idea-tabs'); if(!tabs) return;
   tabs.innerHTML='';
   finalized.forEach((n,i)=>{
@@ -326,7 +326,7 @@ function openSelfReport(){
   const subTabs=document.getElementById('sr-sub-tabs');
   if(subTabs) subTabs.style.display=isAICondition()?'flex':'none';
   const treeTab=document.getElementById('sr-tab-tree');
-  if(treeTab) treeTab.style.display=S.condition===4?'':'none';
+  if(treeTab) treeTab.style.display=isCondition4()?'':'none';
   const srLeft=document.getElementById('sr-left');
   if(srLeft) srLeft.style.display=isAICondition()?'flex':'none';
   srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
