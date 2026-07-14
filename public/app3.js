@@ -1,15 +1,18 @@
 // ============================================================
 //  IdeaGit — Condition 3: AI-Assisted Ideation
 // ============================================================
-S.condition = 3;
+S.condition = "AI-Assisted Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>Condition 3 — AI-Assisted Ideation</strong></p>
-  <p>1. Enter your design challenge, then click Start Ideation.</p>
-  <p>2. In the chat panel (right), click <strong>Create Idea Manually</strong> or <strong>Generate with AI</strong>.</p>
-  <p>3. Chat to modify the idea, get feedback, or ask questions. Modifications create new versions tracked in the background.</p>
-  <p>4. Click any idea in the left panel to switch to it. Click <strong>Finalize</strong> when satisfied.</p>
-  <p>5. Aim for at least 3 finalized ideas. Click <strong>Export CSV</strong> when done.</p>`;
+  <p><strong>AI-Assisted Ideation</strong></p>
+  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
+  <p>2. In the chat panel (right), click "Create Idea Manually" or "Generate with AI".</p>
+  <p>3. Chat with the AI to further modify the idea, get feedback, or ask questions.</p>
+  <p>4. Reply to any chat bubble (↩) to branch from that specific version.</p>
+  <p>5. Click "Finalize" when satisfied with an idea.</p>
+  <p>6. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.</p>
+  <p>7. Click "+ New Idea" to start a fresh idea.</p>
+  <p>8. Create and finalize three ideas.</p>`;
 
 function startIdeation(){
   const desc = document.getElementById('challenge-input').value.trim();

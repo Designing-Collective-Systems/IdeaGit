@@ -1,15 +1,16 @@
 // ============================================================
 //  IdeaGit — Condition 1: Manual Ideation
 // ============================================================
-S.condition = 1;
+S.condition = "Manual Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>Condition 1 — Manual Ideation</strong></p>
-  <p>1. Enter your design challenge, then click Start Ideation.</p>
-  <p>2. Type a title and description for your idea in the right panel, then click <strong>Create Idea</strong>.</p>
-  <p>3. Click any idea in the left panel to load it for editing. Click <strong>Save Modification</strong> to save changes as a new version.</p>
-  <p>4. Click <strong>Finalize</strong> when satisfied with an idea. Aim to finalize at least 3 ideas.</p>
-  <p>5. Click <strong>+ New Idea</strong> to start a fresh idea. Click <strong>Export CSV</strong> when done.</p>`;
+  <p><strong>Manual Ideation</strong></p>
+  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
+  <p>2. Type a title and description for your idea in the right panel, then click "Create Idea".</p>
+  <p>3. Click "Finalize" when satisfied with an idea.</p>
+  <p>4. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to load it for editing. Click "Save Modification" to save changes as a new version.</p>
+  <p>5. Click "+ New Idea" to start a fresh idea.</p>
+  <p>6. Create and finalize three ideas.</p>`;
 
 // ── Editor state ──────────────────────────────────────────────
 let editorMode = 'new'; // 'new' | 'edit'

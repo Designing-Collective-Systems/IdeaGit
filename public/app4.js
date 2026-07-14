@@ -1,16 +1,19 @@
 // ============================================================
 //  IdeaGit — Condition 4: AI-Assisted Structured Ideation
 // ============================================================
-S.condition = 4;
+S.condition = "AI-Assisted Structured Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>Condition 4 — AI-Assisted Structured Ideation</strong></p>
-  <p>1. Enter your design challenge, then click Start Ideation.</p>
-  <p>2. In the chat (right), create an idea manually or with AI.</p>
-  <p>3. The process tree (left) shows how your ideas evolve. Click any node to load that version.</p>
-  <p>4. Modifications via chat create new tree nodes. Feedback and questions do not.</p>
-  <p>5. Reply to any chat bubble (↩) to branch from that specific version.</p>
-  <p>6. Finalize ideas when satisfied. Aim for at least 3. Export CSV when done.</p>`;
+  <p><strong>AI-Assisted Structured Ideation</strong></p>
+  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
+  <p>2. In the chat panel (right), click "Create Idea Manually" or "Generate with AI".</p>
+  <p>3. Chat with the AI to further modify the idea, get feedback, or ask questions.</p>
+  <p>4. Click "Finalize" when satisfied with an idea.</p>
+  <p>5. The process tree (left) shows how your ideas evolve. Click any node to load that version.</p>
+  <p>6. Reply to any chat bubble (↩) to branch from that specific version.</p>
+  <p>7. The middle panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.
+  <p>8. Click "+ New Idea" to start a fresh idea.
+  <p>9. Create and finalize three ideas.</p>`;
 
 function startIdeation(){
   const desc=document.getElementById('challenge-input').value.trim();

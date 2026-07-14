@@ -1,15 +1,17 @@
 // ============================================================
 //  IdeaGit — Condition 2: Structured Manual Ideation
 // ============================================================
-S.condition = 2;
+S.condition = "Structured Manual Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>Condition 2 — Structured Manual Ideation</strong></p>
-  <p>1. Enter your design challenge, then click Start Ideation.</p>
-  <p>2. Type a title and description in the right panel, then click <strong>Create Idea</strong>.</p>
+  <p><strong>Structured Manual Ideation</strong></p>
+  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
+  <p>2. Type a title and description for your idea in the right panel, then click "Create Idea".</p>
   <p>3. The process tree on the left tracks how your ideas evolve. Click any tree node to load that version.</p>
-  <p>4. Click an idea from the middle panel to load it for editing. Click <strong>Save Modification</strong> to save a new version.</p>
-  <p>5. Finalize ideas when satisfied. Aim for at least 3. Click <strong>Export CSV</strong> when done.</p>`;
+  <p>4. Click "Finalize" when satisfied with an idea.</p>
+  <p>5. The middle panel contains ideas that are finalized or in-progress. Click an idea from the middle panel to load it for editing. Click "Save Modification" to save a new version.</p>
+  <p>6. Click "+ New Idea" to start a fresh idea.</p>
+  <p>7. Create and finalize three ideas.</p>`;
 
 let editorMode = 'new';
 let editingNodeId = null;
