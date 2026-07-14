@@ -48,7 +48,7 @@ function updateChatHeader(){
   const node=S.nodes.find(n=>n.id===S.currentNodeId);
   document.getElementById('current-idea-title').textContent=node?node.title:'—';
   const btn=document.getElementById('btn-finalize');
-  if(btn){ btn.textContent=node&&node.isFinalized?'Finalized':'Finalize'; btn.disabled=!!(node&&node.isFinalized); }
+  if(btn){ btn.textContent=node&&node.isFinalized?'Unfinalize':'Finalize'; btn.disabled=false; btn.className=node&&node.isFinalized?'btn btn-outline btn-sm':'btn btn-green btn-sm'; }
 }
 function rebuildChat(nodeId){
   const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
