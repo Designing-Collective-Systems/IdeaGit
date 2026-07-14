@@ -2,6 +2,9 @@
 //  IdeaGit — Shared Utilities (included by all conditions)
 // ============================================================
 
+// isAICondition: true for conditions 3 & 4 (string or number)
+function isAICondition(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("ai") : isAICondition(); }
+
 const S = {
   condition: 0,
   challenge: '',
@@ -270,7 +273,7 @@ function goHome(){
 
 // ── Instructions ───────────────────────────────────────────────
 function openInstructions(){
-  document.getElementById('instructions-head').textContent=`Instructions — ${S.condition}`;
+  document.getElementById('instructions-head').textContent=`Instructions — Condition ${S.condition}`;
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
@@ -301,7 +304,7 @@ function handleDone(){
 function closeDonePopup(){ document.getElementById('done-popup').style.display='none'; }
 function confirmDone(){
   closeDonePopup();
-  if([3,4].includes(S.condition)) openSelfReport();
+  if(isAICondition()) openSelfReport();
   else{ exportCSV(); toast('Session exported. You may now close the page.','var(--green)'); }
 }
 
@@ -321,11 +324,11 @@ function openSelfReport(){
     const cb=document.getElementById(`sr-contrib-${i}`); if(cb) cb.innerHTML=srContribOptions(i);
   });
   const subTabs=document.getElementById('sr-sub-tabs');
-  if(subTabs) subTabs.style.display=[3,4].includes(S.condition)?'flex':'none';
+  if(subTabs) subTabs.style.display=isAICondition()?'flex':'none';
   const treeTab=document.getElementById('sr-tab-tree');
   if(treeTab) treeTab.style.display=S.condition===4?'':'none';
   const srLeft=document.getElementById('sr-left');
-  if(srLeft) srLeft.style.display=[3,4].includes(S.condition)?'flex':'none';
+  if(srLeft) srLeft.style.display=isAICondition()?'flex':'none';
   srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
   document.getElementById('self-report-modal').style.display='flex';
 }
@@ -410,7 +413,7 @@ function srSubTab(tab){
 function srToggleB(show){ const el=document.getElementById('sr-q-b'); if(el) el.style.display=show?'block':'none'; }
 function toggleOtherBox(cb){ const ta=document.getElementById('ai-for-other'); if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); } }
 function srUpdateStep(){
-  const total=[3,4].includes(S.condition)?4:3;
+  const total=isAICondition()?4:3;
   const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Step ${_srPage+1} of ${total}`;
 }
 function srShowPage(n){
@@ -420,7 +423,7 @@ function srShowPage(n){
   if(n>=1){ const f=S.nodes.filter(nd=>nd.isFinalized).slice(0,3); srSelectIdea(n-1,f); }
   srUpdateStep();
 }
-function srNext(){ const t=[3,4].includes(S.condition)?4:3; if(_srPage<t-1) srShowPage(_srPage+1); }
+function srNext(){ const t=isAICondition()?4:3; if(_srPage<t-1) srShowPage(_srPage+1); }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 function srSubmit(){
   const aiUsed=document.querySelector('input[name="ai-used"]:checked')?.value||'n/a';
