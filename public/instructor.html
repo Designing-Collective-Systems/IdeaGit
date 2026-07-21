@@ -35,7 +35,7 @@
   .instr-card > p.instr-lede { color: var(--text2); font-size: 14px; line-height: 1.7; margin-bottom: 30px; max-width: 52ch; }
   .instr-steps { list-style: none; display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
   .instr-step { display: flex; gap: 14px; align-items: flex-start; }
-  .instr-step-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); background: rgba(76,110,245,0.1); border: 1px solid rgba(76,110,245,0.3); width: 13px; height: 13px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .instr-step-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); background: rgba(76,110,245,0.1); border: 1px solid rgba(76,110,245,0.3); width: 12px; height: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .instr-step-body h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 3px; }
   .instr-step-body p { color: var(--text2); font-size: 13px; line-height: 1.6; }
   .instr-step-body code { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--text2); }
@@ -342,7 +342,7 @@ let ALL_NODES = [], GROUPS = [], activeGroup = null, activeFilter = 'all';
 let _pan = { dragging:false, startX:0, startY:0, tx:0, ty:0 };
 
 function parseCSV(text) {
-  // Robust parser that handles newlines inside quoted fields
+  // handles newlines inside quoted fields
   const rows = [];
   let cur = '', inQ = false, fields = [], headers = null;
   for (let i = 0; i < text.length; i++) {
@@ -492,7 +492,8 @@ function renderStudentList() {
   }).join('');
 }
 
-function selectGroup(gIdx) {
+function selectGroup(gIdx, opts) {
+  const pan = !opts || opts.pan !== false;
   activeGroup = gIdx;
   renderStudentList();
   const nodes = getGroupNodes(gIdx), latest = nodes[nodes.length-1];
@@ -502,10 +503,10 @@ function selectGroup(gIdx) {
   document.getElementById('rh-versions').textContent = nodes.length;
   document.getElementById('rh-ai').textContent = nodes.filter(n=>['ai-generated','ai-auto','ai-chat'].includes(n.tag)).length;
   document.getElementById('rh-manual').textContent = nodes.filter(n=>['user-created','user-modified'].includes(n.tag)).length;
-  // Highlight selected group nodes and pan to them
+  // Highlight selected group nodes; only pan the camera when requested (e.g. from the left list, not a direct node click)
   document.querySelectorAll('.gnode').forEach(el => el.classList.remove('group-highlight'));
   document.querySelectorAll(`.gnode[data-group="${gIdx}"]`).forEach(el => el.classList.add('group-highlight'));
-  scrollToGroup(gIdx);
+  if (pan) scrollToGroup(gIdx);
 }
 
 function scrollToGroup(gIdx) {
@@ -634,7 +635,7 @@ function renderGraph(gIdx) {
     el.innerHTML=`<span class="gnode-badge ${tagCls(node.tag)}">${tagLabel(node.tag)}</span>
       <div class="gnode-title">${esc(node.title||'(untitled)')}</div>
       <div class="gnode-step">v${node.step}</div>`;
-    el.addEventListener('click',()=>{ selectGroup(p.group); openNodeDetail(node.id); });
+    el.addEventListener('click',()=>{ selectGroup(p.group, {pan:false}); openNodeDetail(node.id); });
     nodeWrap.appendChild(el);
   });
 
