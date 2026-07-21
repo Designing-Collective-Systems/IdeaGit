@@ -30,21 +30,36 @@
 
   #instructions-page { display: flex; align-items: center; justify-content: center; height: calc(100vh - 54px); overflow-y: auto; padding: 24px; }
   .instr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); padding: 44px 48px; max-width: 640px; width: 100%; }
-  .instr-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
-  .instr-card h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.5px; margin-bottom: 10px; }
-  .instr-card > p.instr-lede { color: var(--text2); font-size: 14px; line-height: 1.7; margin-bottom: 30px; max-width: 52ch; }
+  .instr-eyebrow { font-family: 'DM Mono', monospace; font-size: 20px; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+  .instr-card h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .instr-card > p.instr-lede { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 20px; max-width: 52ch; }
   .instr-steps { list-style: none; display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
   .instr-step { display: flex; gap: 14px; align-items: flex-start; }
-  .instr-step-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); background: rgba(76,110,245,0.1); border: 1px solid rgba(76,110,245,0.3); width: 12px; height: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .instr-step-body h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 3px; }
-  .instr-step-body p { color: var(--text2); font-size: 13px; line-height: 1.6; }
+  .instr-step-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); background: rgba(76,110,245); border: 1px solid rgba(76,110,245); width: 12px; height: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .instr-step-body p { color: var(--text2); font-size: 16px; line-height: 1; }
   .instr-step-body code { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--text2); }
-  .instr-legend-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .instr-legend-row { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 8px; }
   .instr-tag-chip { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; }
   .instr-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border); }
   .instr-footer p { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
   .btn-continue { background: var(--accent); color: #fff; border: none; border-radius: var(--r); padding: 11px 26px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer; flex-shrink: 0; }
   .btn-continue:hover { opacity: 0.85; }
+
+
+    #research-page { display: flex; align-items: center; justify-content: center; height: calc(100vh - 54px); overflow-y: auto; padding: 24px; }
+  .research-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); padding: 44px 48px; max-width: 640px; width: 100%; }
+  .research-eyebrow { font-family: 'DM Mono', monospace; font-size: 20px; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+  .research-card h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .research-card > p.instr-lede { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 20px; max-width: 52ch; }
+  .research-steps { list-style: none; display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
+  .research-step { display: flex; gap: 14px; align-items: flex-start; }
+  .research-step-num { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); background: rgba(76,110,245); border: 1px solid rgba(76,110,245); width: 12px; height: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .research-step-body p { color: var(--text2); font-size: 16px; line-height: 1; }
+  .research-step-body code { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--text2); }
+  .research-legend-row { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 8px; }
+  .research-tag-chip { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .research-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .research-footer p { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
 
   #upload-zone { display: none; align-items: center; justify-content: center; height: calc(100vh - 54px); }
   .upload-card { background: var(--surface); border: 1.5px dashed var(--border2); border-radius: var(--r2); padding: 52px 60px; text-align: center; max-width: 480px; width: 90%; cursor: pointer; transition: border-color .2s, background .2s; }
@@ -147,6 +162,7 @@
   <div id="nav-stats" style="display:none;align-items:center;gap:12px">
     <span id="ns-summary" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text3)"></span>
     <button class="btn-sm" onclick="resetDashboard()">↑ New CSV</button>
+    <button class="btn-sm" onclick="openSurvey()">Survey</button>
   </div>
 </nav>
 
@@ -161,22 +177,22 @@
       <li class="instr-step">
         <div class="instr-step-num"></div>
         <div class="instr-step-body">
-          <h3>Start by uploading student data (CSV file)</h3>
-          <p></p>
+          <h3></h3>
+          <p>Start by uploading student data (CSV file)</p>
         </div>
       </li>
       <li class="instr-step">
         <div class="instr-step-num"></div>
         <div class="instr-step-body">
-          <h3>Use the left side of the screen to quickly browse through different ideas</h3>
-          <p></p>
+          <h3></h3>
+          <p>Use the left side of the screen to quickly browse through different ideas</p>
         </div>
       </li>
       <li class="instr-step">
         <div class="instr-step-num"></div>
         <div class="instr-step-body">
-          <h3>A node represents one version of an idea. Tags help indicate how much AI was used.</h3>
-          <p></p>
+          <h3></h3>
+          <p>A node represents one version of an idea. Tags help indicate how much AI was used.</p>
           <div class="instr-legend-row">
             <span class="instr-tag-chip tag-user">User Created</span>
             <span class="instr-tag-chip tag-ai-gen">AI Generated</span>
@@ -190,8 +206,8 @@
       <li class="instr-step">
         <div class="instr-step-num"></div>
         <div class="instr-step-body">
-          <h3>Drag to see all ideas on the graph. Use the new CSV button to upload a different data file. </h3>
-          <p></p>
+          <h3></h3>
+          <p>Drag to see all ideas on the graph. Use the new CSV button to upload a different data file. </p>
         </div>
       </li>
     </ul>
@@ -207,44 +223,22 @@
 <div id="research-page">
   <div class="research-card fadein">
     <div class="research-eyebrow">ABOUT RESEARCH</div>
-    <p class="research-lede">Ideagit uses a process graph to help instructors observe and understand student-AI use.
-</p>
+    <p class="research-lede"> </p>
 
-    <ul class="instr-steps">
-      <li class="instr-step">
-        <div class="instr-step-num"></div>
-        <div class="instr-step-body">
-          <h3></h3>
-          <p></p>
-        </div>
-      </li>
-      <li class="instr-step">
-        <div class="instr-step-num"></div>
-        <div class="instr-step-body">
-          <h3></h3>
-          <p></p>
-        </div>
-      </li>
-      <li class="instr-step">
-        <div class="instr-step-num"></div>
-        <div class="instr-step-body">
-          <h3></h3>
-          <p></p>
-          <div class="instr-legend-row">
-            <span class="instr-tag-chip tag-user"></span>
-            <span class="instr-tag-chip tag-ai-gen"></span>
-            <span class="instr-tag-chip tag-manual"></span>
-            <span class="instr-tag-chip tag-ai-auto"></span>
-            <span class="instr-tag-chip tag-ai-chat"></span>
-            <span class="instr-tag-chip tag-final"></span>
-          </div>
-        </div>
-      </li>
+    <ul class="research-steps">
       <li class="research-step">
         <div class="research-step-num"></div>
         <div class="research-step-body">
           <h3></h3>
-          <p></p>
+          <p>Researching the effectiveness of Ideagit as a tool to help instructors understand AI use</p>
+        </div>
+      </li>
+
+      <li class="research-step">
+        <div class="research-step-num"></div>
+        <div class="research-step-body">
+          <h3></h3>
+          <p>Use the Survey button in the top right corner to access to the research survey</p>
         </div>
       </li>
     </ul>
@@ -341,6 +335,15 @@ async function callClaude(messages, system='') {
 let ALL_NODES = [], GROUPS = [], activeGroup = null, activeFilter = 'all';
 let _pan = { dragging:false, startX:0, startY:0, tx:0, ty:0 };
 
+// SURVEY
+const SURVEY_URL = "LINK";
+let graphStartTime=null;
+let graphElapsedSeconds=0;
+function startGraphTimer(){graphStartTime=Date.now();}
+function stopGraphTimer(){if(!graphStartTime)return;graphElapsedSeconds=Math.floor((Date.now()-graphStartTime)/1000);console.log("Graph viewed for",graphElapsedSeconds,"seconds");}
+function openSurvey(){stopGraphTimer();window.open(SURVEY_URL,"_blank");}
+
+
 function parseCSV(text) {
   // handles newlines inside quoted fields
   const rows = [];
@@ -436,6 +439,7 @@ function setupDragDrop() {
 }
 
 function resetDashboard() {
+  stopGraphTimer();
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('upload-zone').style.display = 'flex';
   document.getElementById('nav-stats').style.display = 'none';
@@ -447,6 +451,7 @@ function initDashboard() {
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
   document.getElementById('nav-stats').style.display = 'flex';
+  startGraphTimer();
   const fin = ALL_NODES.filter(n=>n.tag==='finalized').length;
   document.getElementById('ns-summary').textContent = `${ALL_NODES.length} nodes · ${GROUPS.length} ideas · ${fin} finalized`;
   renderStudentList();
@@ -667,6 +672,7 @@ function openNodeDetail(nodeId) {
 
 function closeDetail(){ document.getElementById('node-detail').classList.remove('open'); }
 
+window.addEventListener("beforeunload", stopGraphTimer);
 document.addEventListener('DOMContentLoaded',()=>{ setupDragDrop(); initGraphPan(); });
 </script>
 </body>
