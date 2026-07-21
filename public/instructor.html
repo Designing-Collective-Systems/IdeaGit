@@ -194,7 +194,7 @@
   <div class="nav-spacer"></div>
   <div id="nav-stats" style="display:none;align-items:center;gap:12px">
     <span id="ns-summary" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text3)"></span>
-    <button class="btn-sm" onclick="resetDashboard()">↑ New CSV</button>
+    <button class="btn-sm" onclick="resetDashboard()">New CSV</button>
     <button class="btn-sm" onclick="openQuestions()">Questions</button>
   </div>
 </nav>
@@ -204,6 +204,7 @@
   <div class="instr-card fadein">
     <div class="instr-eyebrow">ABOUT IDEAGIT</div>
     <p class="instr-lede">Ideagit uses a process graph to help instructors observe and understand student-AI use.
+      We are focused on researching the effectiveness of Ideagit in a classroom setting.
 </p>
 
     <ul class="instr-steps">
@@ -242,17 +243,23 @@
           <h3></h3>
           <p>Drag to see all ideas on the graph. Use the new CSV button to upload a different data file. </p>
         </div>
+      </li><li class="instr-step">
+        <div class="instr-step-num"></div>
+        <div class="instr-step-body">
+          <h3></h3>
+          <p>Use the Questions button in the top right corner to access to the research questions once you are done looking at a student's work</p>
+        </div>
       </li>
     </ul>
 
     <div class="instr-footer">
       <p></p>
-      <button class="btn-continue" onclick="goToResearch()">Next</button>
+      <button class="btn-continue" onclick="goToUpload()">Next</button>
     </div>
   </div>
 </div>
 
-<!-- research page -->
+<!-- research page
 <div id="research-page">
   <div class="research-card fadein">
     <div class="research-eyebrow">ABOUT RESEARCH</div>
@@ -281,7 +288,7 @@
       <button class="btn-continue" onclick="goToUpload()">Get Started</button>
     </div>
   </div>
-</div>
+</div> -->
 
 <!-- uploadscreen -->
 <div id="upload-zone">
@@ -384,7 +391,7 @@
         </label>
         <label class="q-option" data-val="5">
           <input type="radio" name="q-ai-use" value="5" onchange="onQAnswerChange(this)"/>
-          <span class="q-option-label"><strong>5</strong> — Completely AI (student only edited AI ideas)</span>
+          <span class="q-option-label"><strong>5</strong> — Completely AI</span>
         </label>
       </div>
     </div>
@@ -525,14 +532,14 @@ function buildGroups(nodes) {
 }
 
 function goToUpload() {
-  document.getElementById('research-page').style.display = 'none';
+  document.getElementById('instructions-page').style.display = 'none';
   document.getElementById('upload-zone').style.display = 'flex';
 }
 
-function goToResearch(){
-document.getElementById('instructions-page').style.display = 'none';
-  document.getElementById('research-page').style.display = 'flex';
-}
+// function goToResearch(){
+// document.getElementById('instructions-page').style.display = 'none';
+//   document.getElementById('research-page').style.display = 'flex';
+// }s
 function handleFileSelect(e) { const f=e.target.files[0]; if(f) loadCSVFile(f); }
 
 function loadCSVFile(file) {
