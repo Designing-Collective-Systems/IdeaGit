@@ -2,6 +2,9 @@
 //  IdeaGit — Shared Utilities (included by all conditions)
 // ============================================================
 
+// ── CONFIGURABLE ─────────────────────────────────────────────
+const REQUIRED_IDEAS = 5; // Change this to set the number of ideas required
+
 // isAICondition: true for conditions 3 & 4 (string or number)
 function isAICondition(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("ai") : [3,4].includes(S.condition); }
 function isCondition4(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("structured") && S.condition.toLowerCase().includes("ai") : S.condition===4; }
@@ -274,7 +277,7 @@ function goHome(){
 
 // ── Instructions ───────────────────────────────────────────────
 function openInstructions(){
-  document.getElementById('instructions-head').textContent=`Instructions — ${S.condition}`;
+  document.getElementById('instructions-head').textContent=`Instructions — Condition ${S.condition}`;
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
@@ -290,10 +293,10 @@ function onChallengeInput(){
 function finalizedCount(){ return S.nodes.filter(n=>n.isFinalized).length; }
 function updateFinalizedCounter(){
   const el=document.getElementById('nav-finalized-count');
-  if(el) el.textContent=`${finalizedCount()} / 3 finalized`;
+  if(el) el.textContent=`${finalizedCount()} / ${REQUIRED_IDEAS} finalized`;
 }
 function checkThreeDone(){
-  if(finalizedCount()>=3){
+  if(finalizedCount()>=REQUIRED_IDEAS){
     document.getElementById('done-count').textContent=finalizedCount();
     document.getElementById('done-popup').style.display='flex';
   }
@@ -312,17 +315,20 @@ function confirmDone(){
 // ── Self-report (C3/C4 only) ──────────────────────────────────
 let _srPage=0,_srCurrentIdea=0,_srSubTab='chat';
 function openSelfReport(){
-  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
+  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
   if(!finalized.length) return;
   _srPage=0; _srCurrentIdea=0;
   _srSubTab=isCondition4()?'tree':'chat';
+
+  // ── Left panel: idea tabs ────────────────────────────────────
   const tabs=document.getElementById('sr-idea-tabs'); if(!tabs) return;
   tabs.innerHTML='';
   finalized.forEach((n,i)=>{
-    const btn=document.createElement('button'); btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
-    btn.textContent=`Idea ${i+1}`; btn.onclick=()=>srSelectIdea(i,finalized); tabs.appendChild(btn);
-    const t=document.getElementById(`sr-title-${i}`); if(t) t.textContent=n.title;
-    const cb=document.getElementById(`sr-contrib-${i}`); if(cb) cb.innerHTML=srContribOptions(i);
+    const btn=document.createElement('button');
+    btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
+    btn.textContent=`Idea ${i+1}`;
+    btn.onclick=()=>{ srSelectIdea(i,finalized); srShowPage(i); };
+    tabs.appendChild(btn);
   });
   const subTabs=document.getElementById('sr-sub-tabs');
   if(subTabs) subTabs.style.display=isAICondition()?'flex':'none';
@@ -330,18 +336,40 @@ function openSelfReport(){
   if(treeTab) treeTab.style.display=isCondition4()?'':'none';
   const srLeft=document.getElementById('sr-left');
   if(srLeft) srLeft.style.display=isAICondition()?'flex':'none';
+
+  // ── Right panel: generate one page per idea ──────────────────
+  const srRight=document.querySelector('.sr-right');
+  if(srRight){
+    srRight.innerHTML='<div class="sr-step-indicator" id="sr-step-indicator"></div>';
+    finalized.forEach((node,i)=>{
+      const isLast=i===finalized.length-1;
+      const page=document.createElement('div');
+      page.className='sr-page'; page.id=`sr-page-${i}`;
+      page.style.display=i===0?'flex':'none';
+      page.innerHTML=`
+        <h2 class="sr-page-title">Idea ${i+1}: <span style="font-weight:400;font-size:16px">${esc(node.title)}</span></h2>
+        <div class="sr-question">
+          <p class="sr-q-label">How did you use AI for this idea?</p>
+          <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
+            placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
+            rows="6"></textarea>
+        </div>
+        <div class="sr-foot">
+          ${i>0?'<button class="btn btn-outline" onclick="srPrev()">← Back</button>':''}
+          ${isLast
+            ?'<button class="btn btn-green" onclick="srSubmit()">Submit and Export</button>'
+            :'<button class="btn btn-primary" onclick="srNext()">Next →</button>'}
+        </div>`;
+      srRight.appendChild(page);
+    });
+  }
+
   srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
   document.getElementById('self-report-modal').style.display='flex';
 }
-function srContribOptions(idx){
-  return [['created','Created the initial idea'],['minor-mod','Made minor modifications (do not affect overall functionality)'],
-    ['major-mod','Made major modifications (affect overall functionality)'],['prompts','Provided detailed prompts to help AI'],
-    ['none','Did not contribute to this idea']].map(([v,l])=>
-    `<label class="sr-option"><input type="checkbox" name="contrib-${idx}" value="${v}"> ${l}</label>`).join('');
-}
 function srSelectIdea(idx,finalizedArg){
   _srCurrentIdea=idx;
-  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized).slice(0,3);
+  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
   document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-idea-active',i===idx));
   srRenderContent(finalized[idx]);
 }
@@ -408,47 +436,43 @@ function srSubTab(tab){
   _srSubTab=tab;
   document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',tab==='chat');
   document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',tab==='tree');
-  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
+  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
   srRenderContent(finalized[_srCurrentIdea]);
 }
 function srToggleB(show){ const el=document.getElementById('sr-q-b'); if(el) el.style.display=show?'block':'none'; }
 function toggleOtherBox(cb){ const ta=document.getElementById('ai-for-other'); if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); } }
 function srUpdateStep(){
-  const total=isAICondition()?4:3;
-  const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Step ${_srPage+1} of ${total}`;
+  const el=document.getElementById('sr-step-indicator');
+  if(el) el.textContent=`Idea ${_srPage+1} of ${REQUIRED_IDEAS}`;
 }
 function srShowPage(n){
   _srPage=n;
-  [0,1,2,3].forEach(i=>{ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; });
-  const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='block';
-  if(n>=1){ const f=S.nodes.filter(nd=>nd.isFinalized).slice(0,3); srSelectIdea(n-1,f); }
+  for(let i=0;i<REQUIRED_IDEAS;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
+  const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='flex';
+  const f=S.nodes.filter(nd=>nd.isFinalized).slice(0,REQUIRED_IDEAS);
+  srSelectIdea(n,f);
   srUpdateStep();
 }
-function srNext(){ const t=isAICondition()?4:3; if(_srPage<t-1) srShowPage(_srPage+1); }
+function srNext(){ if(_srPage<REQUIRED_IDEAS-1) srShowPage(_srPage+1); }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 function srSubmit(){
-  const aiUsed=document.querySelector('input[name="ai-used"]:checked')?.value||'n/a';
-  const aiFor=Array.from(document.querySelectorAll('input[name="ai-for"]:checked')).map(c=>c.value);
-  const aiOtherTa=document.getElementById('ai-for-other');
-  const aiOther=aiOtherTa&&aiOtherTa.style.display!=='none'?aiOtherTa.value.trim():'';
-  if(aiOther) aiFor.push('other:'+aiOther);
-  const contributions=[];
-  [0,1,2].forEach(i=>{ contributions.push(Array.from(document.querySelectorAll(`input[name="contrib-${i}"]:checked`)).map(c=>c.value)); });
+  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
+  const aiUses=finalized.map((_,i)=>{
+    const ta=document.getElementById(`sr-ai-use-${i}`);
+    return ta?ta.value.trim():'';
+  });
   document.getElementById('self-report-modal').style.display='none';
   toast('Exporting…','var(--green)');
-  dlFile(buildNodesCSV(),`ideagit_c${S.condition}_nodes_${dstamp()}.csv`,'text/csv');
+  dlFile(buildNodesCSV(),`ideagit_nodes_${dstamp()}.csv`,'text/csv');
   setTimeout(()=>{
-    const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,3);
-    const hdr=['condition','ai_used','ai_for','idea_1_title','idea_1_contrib','idea_2_title','idea_2_contrib','idea_3_title','idea_3_contrib'];
-    const row=[S.condition,aiUsed,csvC(aiFor.join('|')),
-      csvC(finalized[0]?.title||''),csvC(contributions[0].join('|')),
-      csvC(finalized[1]?.title||''),csvC(contributions[1].join('|')),
-      csvC(finalized[2]?.title||''),csvC(contributions[2].join('|'))];
-    dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_c${S.condition}_self_report_${dstamp()}.csv`,'text/csv');
+    const titleHdr=finalized.map((_,i)=>`idea_${i+1}_title`);
+    const aiHdr  =finalized.map((_,i)=>`idea_${i+1}_ai_use`);
+    const hdr=['condition',...titleHdr,...aiHdr];
+    const row=[csvC(String(S.condition)),...finalized.map(n=>csvC(n.title)),...aiUses.map(a=>csvC(a))];
+    dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_self_report_${dstamp()}.csv`,'text/csv');
     toast('Both files exported. You may now close the page.','var(--green)');
   },800);
 }
-
 // Called when a node is unfinalized — marks it so it stays visible in the list
 function markUnfinalized(nodeId){
   const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;

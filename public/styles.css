@@ -244,3 +244,21 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkM
   background:var(--surface2); display:flex; gap:10px;
   align-items:center; flex-shrink:0;
 }
+
+/* ── Self-report: AI use textarea ─────────────────────────── */
+.sr-ai-use-ta {
+  width: 100%; padding: 12px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  font-family: inherit; font-size: 15px; line-height: 1.7;
+  color: var(--text); background: var(--surface);
+  resize: vertical; min-height: 140px; outline: none;
+  transition: border-color .15s;
+}
+.sr-ai-use-ta:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+/* ── Self-report: idea tabs wrap for 5+ ideas ─────────────── */
+.sr-idea-tabs { flex-wrap: wrap; }
+.sr-idea-tab {
+  flex: 1; min-width: 56px; padding: 8px 6px;
+  font-size: 12px; white-space: nowrap;
+}
