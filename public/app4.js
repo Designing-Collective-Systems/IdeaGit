@@ -13,7 +13,7 @@ window.CONDITION_INSTRUCTIONS = `
   <p>6. Reply to any chat bubble (↩) to branch from that specific version.</p>
   <p>7. The middle panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.
   <p>8. Click "+ New Idea" to start a fresh idea.
-  <p>9. Create and finalize three ideas.</p>`;
+  <p>9. Create and finalize five ideas.</p>`;
 
 function startIdeation(){
   const desc=document.getElementById('challenge-input').value.trim();

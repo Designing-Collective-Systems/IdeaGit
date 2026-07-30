@@ -12,7 +12,7 @@ window.CONDITION_INSTRUCTIONS = `
   <p>5. Click "Finalize" when satisfied with an idea.</p>
   <p>6. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.</p>
   <p>7. Click "+ New Idea" to start a fresh idea.</p>
-  <p>8. Create and finalize three ideas.</p>`;
+  <p>8. Create and finalize five ideas.</p>`;
 
 function startIdeation(){
   const desc = document.getElementById('challenge-input').value.trim();

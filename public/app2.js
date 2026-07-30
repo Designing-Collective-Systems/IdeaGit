@@ -11,7 +11,7 @@ window.CONDITION_INSTRUCTIONS = `
   <p>4. Click "Finalize" when satisfied with an idea.</p>
   <p>5. The middle panel contains ideas that are finalized or in-progress. Click an idea from the middle panel to load it for editing. Click "Save Modification" to save a new version.</p>
   <p>6. Click "+ New Idea" to start a fresh idea.</p>
-  <p>7. Create and finalize three ideas.</p>`;
+  <p>7. Create and finalize five ideas.</p>`;
 
 let editorMode = 'new';
 let editingNodeId = null;

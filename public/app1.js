@@ -10,7 +10,7 @@ window.CONDITION_INSTRUCTIONS = `
   <p>3. Click "Finalize" when satisfied with an idea.</p>
   <p>4. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to load it for editing. Click "Save Modification" to save changes as a new version.</p>
   <p>5. Click "+ New Idea" to start a fresh idea.</p>
-  <p>6. Create and finalize three ideas.</p>`;
+  <p>6. Create and finalize five ideas.</p>`;
 
 // ── Editor state ──────────────────────────────────────────────
 let editorMode = 'new'; // 'new' | 'edit'
