@@ -12,17 +12,14 @@ window.CONDITION_INSTRUCTIONS = `
   <p>5. Click "Finalize" when satisfied with an idea.</p>
   <p>6. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.</p>
   <p>7. Click "+ New Idea" to start a fresh idea.</p>
-  <p>8. Create and finalize five ideas.</p>`;
+  <p>8. Create and finalize three ideas.</p>`;
+
+document.addEventListener('DOMContentLoaded', startIdeation);
 
 function startIdeation(){
-  const desc = document.getElementById('challenge-input').value.trim();
-  const con  = document.getElementById('challenge-constraint').value.trim();
-  if(!desc){ toast('Please enter a design challenge.'); return; }
-  S.challenge = con ? `${desc} The solution must meet the following constraint: ${con}` : desc;
+  S.challenge = FIXED_CHALLENGE;
   S.nodes = []; S.currentNodeId = null; S.currentGroupId = null;
-  document.getElementById('page-setup').style.display = 'none';
-  document.getElementById('page-ideation').style.display = 'flex';
-  document.getElementById('challenge-banner-text').textContent = S.challenge;
+  initChallengeBanner();
   showChatInitial();
   updateFinalizedCounter(); renderIdeasPanel();
 }
@@ -187,6 +184,13 @@ function sendChatMessage(){
   const inp=document.getElementById('chat-input');
   const msg=inp.value.trim(); if(!msg) return;
   if(!S.currentNodeId){ toast('Create an idea first.'); return; }
+  // Intercept requests to generate a new idea — direct to the button
+  if(isNewIdeaRequest(msg)){
+    inp.value=''; inp.style.height='';
+    appendToChat(makeMsgBubble('user',msg,''));
+    appendToChat(makeMsgBubble('assistant','To start a new idea, please use the “+ New Idea” button at the top of the chat panel. This keeps each idea tracked separately in the system.',''));
+    return;
+  }
   document.getElementById('classify-area').style.display='none';
   const type=classifyMsg(msg);
   if(type){ inp.value=''; inp.style.height=''; processMessage(msg,type); }

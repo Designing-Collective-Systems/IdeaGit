@@ -262,3 +262,26 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkM
   flex: 1; min-width: 56px; padding: 8px 6px;
   font-size: 12px; white-space: nowrap;
 }
+
+/* ── Challenge strip (below nav) ─────────────────────────── */
+#challenge-strip {
+  flex-shrink: 0;
+  background: var(--blue-lt);
+  border-bottom: 1px solid var(--blue-mid);
+  padding: 10px 20px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text);
+  overflow-y: auto;
+  max-height: 140px;
+}
+.challenge-preamble {
+  color: var(--blue);
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.challenge-text-content {
+  white-space: pre-line;
+  color: var(--text);
+}

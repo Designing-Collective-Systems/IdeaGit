@@ -3,7 +3,44 @@
 // ============================================================
 
 // ── CONFIGURABLE ─────────────────────────────────────────────
-const REQUIRED_IDEAS = 5; // Change this to set the number of ideas required
+const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
+
+
+const FIXED_CHALLENGE = ["Design a smartphone feature to reduce the duration and frequency of \u201cdoom-scrolling\u201d.",
+  "Doom-scrolling refers to the compulsive, endless scrolling, often on social media.",
+  "The feature should not turn off the phone, delete apps, or block the user from using an app.",
+  "",
+  "Imagine you\u2019re pitching these ideas to a team that will implement your ideas.",
+  "Describe each idea with enough detail that they could implement it without needing to ask you follow-up questions."
+].join("\n");
+
+const TASK_PREAMBLE = {
+  'AI-Assisted Ideation': 'For the following design challenge, please brainstorm and finalize three ideas within 15 minutes. Feel free to use the AI tab to generate or modify any idea. The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly.',
+  'AI-Assisted Structured Ideation': 'For the following design challenge, please brainstorm and finalize three ideas within 15 minutes. Feel free to use the AI tab to generate or modify any idea. You can use the process tree tab to visit and modify prior versions of your ideas. The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly.'
+};
+
+const NEW_IDEA_KW = [
+  'generate a new idea','create a new idea','give me a new idea','new idea please',
+  'start a new idea','make a new idea','come up with a new idea','another idea',
+  'generate another','create another idea','i need a new idea',
+  'can you generate an idea','generate an idea','create an idea for me',
+  'think of a new idea','brainstorm a new idea'
+];
+function isNewIdeaRequest(msg){
+  const lc = msg.toLowerCase();
+  return NEW_IDEA_KW.some(k => lc.includes(k));
+}
+
+function initChallengeBanner(){
+  const preambleEl = document.getElementById('task-preamble');
+  const textEl     = document.getElementById('challenge-text');
+  if(preambleEl){
+    const p = TASK_PREAMBLE[S.condition] || '';
+    preambleEl.textContent = p;
+    preambleEl.style.display = p ? '' : 'none';
+  }
+  if(textEl) textEl.textContent = FIXED_CHALLENGE;
+}
 
 // isAICondition: true for conditions 3 & 4 (string or number)
 function isAICondition(){ return typeof S.condition==="string" ? S.condition.toLowerCase().includes("ai") : [3,4].includes(S.condition); }
@@ -277,7 +314,7 @@ function goHome(){
 
 // ── Instructions ───────────────────────────────────────────────
 function openInstructions(){
-  document.getElementById('instructions-head').textContent=`Instructions — ${S.condition}`;
+  document.getElementById('instructions-head').textContent=`Instructions — Condition ${S.condition}`;
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
@@ -315,7 +352,7 @@ function confirmDone(){
 // ── Self-report (C3/C4 only) ──────────────────────────────────
 let _srPage=0,_srCurrentIdea=0,_srSubTab='chat';
 function openSelfReport(){
-  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
+  const finalized=S.nodes.filter(n=>n.isFinalized);
   if(!finalized.length) return;
   _srPage=0; _srCurrentIdea=0;
   _srSubTab=isCondition4()?'tree':'chat';
@@ -369,7 +406,7 @@ function openSelfReport(){
 }
 function srSelectIdea(idx,finalizedArg){
   _srCurrentIdea=idx;
-  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
+  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized);
   document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-idea-active',i===idx));
   srRenderContent(finalized[idx]);
 }
@@ -436,24 +473,24 @@ function srSubTab(tab){
   _srSubTab=tab;
   document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',tab==='chat');
   document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',tab==='tree');
-  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
+  const finalized=S.nodes.filter(n=>n.isFinalized);
   srRenderContent(finalized[_srCurrentIdea]);
 }
 function srToggleB(show){ const el=document.getElementById('sr-q-b'); if(el) el.style.display=show?'block':'none'; }
 function toggleOtherBox(cb){ const ta=document.getElementById('ai-for-other'); if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); } }
 function srUpdateStep(){
-  const el=document.getElementById('sr-step-indicator');
-  if(el) el.textContent=`Idea ${_srPage+1} of ${REQUIRED_IDEAS}`;
+  const tot=S.nodes.filter(n=>n.isFinalized).length;
+  const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Idea ${_srPage+1} of ${tot}`;
 }
 function srShowPage(n){
   _srPage=n;
   for(let i=0;i<REQUIRED_IDEAS;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
   const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='flex';
-  const f=S.nodes.filter(nd=>nd.isFinalized).slice(0,REQUIRED_IDEAS);
+  const f=S.nodes.filter(nd=>nd.isFinalized);
   srSelectIdea(n,f);
   srUpdateStep();
 }
-function srNext(){ if(_srPage<REQUIRED_IDEAS-1) srShowPage(_srPage+1); }
+function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPage<total-1) srShowPage(_srPage+1); }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 function srSubmit(){
   const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);

@@ -5,33 +5,27 @@ S.condition = "Manual Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
   <p><strong>Manual Ideation</strong></p>
-  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
-  <p>2. Type a title and description for your idea in the right panel, then click "Create Idea".</p>
-  <p>3. Click "Finalize" when satisfied with an idea.</p>
-  <p>4. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to load it for editing. Click "Save Modification" to save changes as a new version.</p>
-  <p>5. Click "+ New Idea" to start a fresh idea.</p>
-  <p>6. Create and finalize five ideas.</p>`;
+  <p>1. Type a title and description for your idea in the right panel, then click "Create Idea".</p>
+  <p>2. Click "Finalize" when satisfied with an idea.</p>
+  <p>3. The left panel contains ideas that are finalized or in-progress. Click any idea in the left panel to load it for editing. Click "Save Modification" to save changes as a new version.</p>
+  <p>4. Click "+ New Idea" to start a fresh idea.</p>
+  <p>5. Create and finalize three ideas.</p>`;
 
-// ── Editor state ──────────────────────────────────────────────
-let editorMode = 'new'; // 'new' | 'edit'
+let editorMode = 'new';
 let editingNodeId = null;
 
+document.addEventListener('DOMContentLoaded', startIdeation);
+
 function startIdeation(){
-  const desc = document.getElementById('challenge-input').value.trim();
-  const con  = document.getElementById('challenge-constraint').value.trim();
-  if(!desc){ toast('Please enter a design challenge.'); return; }
-  S.challenge = con ? `${desc} The solution must meet the following constraint: ${con}` : desc;
+  S.challenge = FIXED_CHALLENGE;
   S.nodes = []; S.currentNodeId = null; S.currentGroupId = null;
   editorMode = 'new'; editingNodeId = null;
-  document.getElementById('page-setup').style.display = 'none';
-  document.getElementById('page-ideation').style.display = 'flex';
-  document.getElementById('challenge-banner-text').textContent = S.challenge;
+  initChallengeBanner();
   updateEditorUI();
   updateFinalizedCounter();
   renderAll();
 }
 
-// ── Editor ────────────────────────────────────────────────────
 function updateEditorUI(){
   const modeLabel = document.getElementById('editor-mode-label');
   const saveBtn   = document.getElementById('btn-create-save');
@@ -60,24 +54,17 @@ function createOrSaveIdea(){
   if(!body) { toast('Please describe your idea.'); return; }
   if(editorMode === 'new'){
     const node = mkNode({type:'creation', tag:'user-created', title, body});
-    addNode(node);
-    editingNodeId = node.id;
-    editorMode = 'edit';
-    updateEditorUI(); renderAll();
-    toast('Idea created', 'var(--green)');
+    addNode(node); editingNodeId = node.id; editorMode = 'edit';
+    updateEditorUI(); renderAll(); toast('Idea created', 'var(--green)');
   } else {
     const parent = S.nodes.find(n => n.id === editingNodeId);
     if(!parent){ toast('No idea loaded.'); return; }
     if(title === parent.title && body === parent.body){
-      toast('No changes detected. Please modify the idea before saving.');
-      return;
+      toast('No changes detected. Please modify the idea before saving.'); return;
     }
-    const child = mkNode({type:'modification', tag:'manual-modification',
-                           title, body, parentId: parent.id});
-    addNode(child);
-    editingNodeId = child.id;
-    updateEditorUI(); renderAll();
-    toast('Modification saved', 'var(--green)');
+    const child = mkNode({type:'modification', tag:'manual-modification', title, body, parentId: parent.id});
+    addNode(child); editingNodeId = child.id;
+    updateEditorUI(); renderAll(); toast('Modification saved', 'var(--green)');
   }
 }
 
@@ -91,8 +78,7 @@ function loadIdeaInEditor(nodeId){
 }
 
 function startNewIdea(){
-  editorMode = 'new'; editingNodeId = null;
-  S.currentNodeId = null;
+  editorMode = 'new'; editingNodeId = null; S.currentNodeId = null;
   document.getElementById('idea-title-input').value = '';
   document.getElementById('idea-body-input').value  = '';
   updateEditorUI(); renderAll();
@@ -106,35 +92,24 @@ function finalizeCurrentIdea(){
     if(current){
       const hasChanges = title !== current.title || body !== current.body;
       if(hasChanges){
-        // Save modification first, then finalize the new node
         if(!title || !body){ toast('Please fill in both fields before finalizing.'); return; }
-        const child = mkNode({type:'modification', tag:'manual-modification',
-                               title, body, parentId: current.id});
-        addNode(child);
-        editingNodeId = child.id;
-        child.isFinalized = true;
+        const child = mkNode({type:'modification', tag:'manual-modification', title, body, parentId: current.id});
+        addNode(child); editingNodeId = child.id; child.isFinalized = true;
         updateEditorUI(); updateFinalizedCounter(); renderAll();
-        checkThreeDone();
-        toast('Modification saved and finalized', 'var(--green)');
-        return;
+        checkThreeDone(); toast('Modification saved and finalized', 'var(--green)'); return;
       }
-      // No changes — toggle finalize on existing node
-      current.isFinalized = !current.isFinalized;
+      if(current.isFinalized){ markUnfinalized(current.id); } else { current.isFinalized = true; }
       updateEditorUI(); updateFinalizedCounter(); renderAll();
       if(current.isFinalized) checkThreeDone();
-      toast(current.isFinalized ? 'Idea finalized' : 'Idea unfinalized', 'var(--green)');
-      return;
+      toast(current.isFinalized ? 'Idea finalized' : 'Idea unfinalized', 'var(--green)'); return;
     }
   }
-  // 'new' mode: create first
   if(editorMode === 'new'){
     if(!title || !body){ toast('Please fill in both fields before finalizing.'); return; }
     const node = mkNode({type:'creation', tag:'user-created', title, body});
-    node.isFinalized = true;
-    addNode(node); editingNodeId = node.id; editorMode = 'edit';
+    node.isFinalized = true; addNode(node); editingNodeId = node.id; editorMode = 'edit';
     updateEditorUI(); updateFinalizedCounter(); renderAll();
-    checkThreeDone();
-    toast('Idea created and finalized', 'var(--green)');
+    checkThreeDone(); toast('Idea created and finalized', 'var(--green)');
   }
 }
 
