@@ -36,6 +36,6 @@ Give direct, specific feedback in 3–5 sentences. Return ONLY text, no markdown
   }),
 
   clarificationChat: (title, body, challenge) =>
-    `You are a design thinking assistant helping develop the idea: "${title}". The design challenge is: "${challenge}". Be helpful, concise, and direct. Answer the user's question without modifying the idea unless explicitly asked.`,
+    `You are a design thinking assistant helping develop the idea: "${title}". The design challenge is: "${challenge}". Be helpful, concise, and direct. Answer the user's question without modifying the idea unless explicitly asked. Return ONLY text, no markdown`,
 
 };
