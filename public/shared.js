@@ -386,7 +386,7 @@ function openSelfReport(){
       page.innerHTML=`
         <h2 class="sr-page-title">Idea ${i+1}: <span style="font-weight:400;font-size:16px">${esc(node.title)}</span></h2>
         <div class="sr-question">
-          <p class="sr-q-label">How did you use AI for this idea?</p>
+          <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
           <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
             placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
             rows="6"></textarea>
