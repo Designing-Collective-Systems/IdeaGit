@@ -314,7 +314,7 @@ function goHome(){
 
 // ── Instructions ───────────────────────────────────────────────
 function openInstructions(){
-  document.getElementById('instructions-head').textContent=`Instructions — Condition ${S.condition}`;
+  document.getElementById('instructions-head').textContent='Instructions';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
@@ -377,7 +377,7 @@ function openSelfReport(){
   // ── Right panel: generate one page per idea ──────────────────
   const srRight=document.querySelector('.sr-right');
   if(srRight){
-    srRight.innerHTML='<div class="sr-step-indicator" id="sr-step-indicator"></div>';
+    srRight.innerHTML='<div class="sr-right-header"><div class="sr-step-indicator" id="sr-step-indicator"></div><button class="btn btn-outline btn-sm" onclick="closeSelfReport()">Close ✕</button></div>';
     finalized.forEach((node,i)=>{
       const isLast=i===finalized.length-1;
       const page=document.createElement('div');
@@ -484,7 +484,8 @@ function srUpdateStep(){
 }
 function srShowPage(n){
   _srPage=n;
-  for(let i=0;i<REQUIRED_IDEAS;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
+  const _tot=S.nodes.filter(nd=>nd.isFinalized).length;
+  for(let i=0;i<_tot;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
   const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='flex';
   const f=S.nodes.filter(nd=>nd.isFinalized);
   srSelectIdea(n,f);
@@ -510,6 +511,10 @@ function srSubmit(){
     toast('Both files exported. You may now close the page.','var(--green)');
   },800);
 }
+function closeSelfReport(){
+  document.getElementById('self-report-modal').style.display='none';
+}
+
 // Called when a node is unfinalized — marks it so it stays visible in the list
 function markUnfinalized(nodeId){
   const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;

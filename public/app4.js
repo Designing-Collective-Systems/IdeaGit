@@ -4,16 +4,17 @@
 S.condition = "AI-Assisted Structured Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>AI-Assisted Structured Ideation</strong></p>
-  <p>1. Begin by entering your design challenge and clicking "Start Ideation" to reach the ideation screen.</p>
-  <p>2. In the chat panel (right), click "Create Idea Manually" or "Generate with AI".</p>
-  <p>3. Chat with the AI to further modify the idea, get feedback, or ask questions.</p>
-  <p>4. Click "Finalize" when satisfied with an idea.</p>
-  <p>5. The process tree (left) shows how your ideas evolve. Click any node to load that version.</p>
-  <p>6. Reply to any chat bubble (↩) to branch from that specific version.</p>
-  <p>7. The middle panel contains ideas that are finalized or in-progress. Click any idea in the left panel to switch to it.
-  <p>8. Click "+ New Idea" to start a fresh idea.
-  <p>9. Create and finalize three ideas.</p>`;
+  <p><strong>Instructions</strong></p>
+  <ol style="padding-left:20px;line-height:2">
+    <li>In the chat panel (right), click "Create Idea Manually" or "Generate with AI" to generate a new idea.</li>
+    <li>Chat with the AI to further modify the idea, get feedback, or ask questions.</li>
+    <li>Click "Finalize" when satisfied with an idea.</li>
+    <li>The process tree (left) shows how your ideas evolve. Click any node to load that version.</li>
+    <li>Reply to any chat bubble (&#x21A9;) to branch from that specific version.</li>
+    <li>The middle panel contains ideas that are finalized or in-progress. Click any idea to switch to it.</li>
+    <li>Click "+ New Idea" to start a fresh idea.</li>
+    <li>Create and finalize three ideas.</li>
+  </ol>`;
 
 document.addEventListener('DOMContentLoaded', startIdeation);
 

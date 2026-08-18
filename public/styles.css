@@ -268,20 +268,28 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,BlinkM
   flex-shrink: 0;
   background: var(--blue-lt);
   border-bottom: 1px solid var(--blue-mid);
-  padding: 10px 20px;
-  font-size: 13.5px;
+  padding: 12px 20px;
+  font-size: 15px;
   line-height: 1.65;
   color: var(--text);
-  overflow-y: auto;
-  max-height: 140px;
 }
 .challenge-preamble {
   color: var(--blue);
   font-weight: 500;
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 6px;
 }
 .challenge-text-content {
-  white-space: pre-line;
   color: var(--text);
+}
+/* ── Self-report right header row ─────────────────────────── */
+.sr-right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 0;
+  flex-shrink: 0;
+}
+.sr-right-header .sr-step-indicator {
+  padding: 0;
 }
