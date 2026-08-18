@@ -3,13 +3,13 @@
 const PROMPTS = {
 
   generateIdea: (challenge, existingIdeas='') => ({
-    system: 'You are a creative design thinking assistant. Generate original, specific, feasible design ideas. Every idea must be meaningfully different from any listed.',
+    system: 'You are a creative design thinking assistant. Generate design ideas to solve the design challenge. Every idea must be meaningfully different from any listed.',
     user: `Generate a creative design idea for this challenge.
 
 Challenge: "${challenge}"${existingIdeas}
 
 Return ONLY valid JSON, no markdown:
-{"title":"concise idea title (max 8 words)","body":"clear 2–4 sentence description of what it is, how it works, and why it addresses the challenge."}`
+{"title":"concise idea title (max 8 words)","body":"clear 2–4 sentence description of what the idea is."}`
   }),
 
   modifyIdeaChat: (currentTitle, currentBody, challenge, request) => ({
@@ -32,7 +32,7 @@ Return ONLY valid JSON:
 Challenge: "${challenge}"
 User asks: "${question}"
 
-Give direct, specific feedback in 3–5 sentences.`
+Give direct, specific feedback in 3–5 sentences. Return ONLY text, no markdown`
   }),
 
   clarificationChat: (title, body, challenge) =>
