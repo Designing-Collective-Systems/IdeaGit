@@ -16,7 +16,7 @@ window.CONDITION_INSTRUCTIONS = `
     <li>Create and finalize three ideas.</li>
   </ol>`;
 
-document.addEventListener('DOMContentLoaded', startIdeation);
+document.addEventListener('DOMContentLoaded', ()=>{ startIdeation(); openInstructions(); });
 
 function startIdeation(){
   S.challenge=FIXED_CHALLENGE;

@@ -494,7 +494,7 @@ function srShowPage(n){
 function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPage<total-1) srShowPage(_srPage+1); }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 function srSubmit(){
-  const finalized=S.nodes.filter(n=>n.isFinalized).slice(0,REQUIRED_IDEAS);
+  const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
   const aiUses=finalized.map((_,i)=>{
     const ta=document.getElementById(`sr-ai-use-${i}`);
     return ta?ta.value.trim():'';
