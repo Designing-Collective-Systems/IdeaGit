@@ -6,17 +6,16 @@
 const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
-const FIXED_CHALLENGE = ["Design a smartphone feature to reduce the duration and frequency of \u201cdoom-scrolling\u201d.",
-  "Doom-scrolling refers to the compulsive, endless scrolling, often on social media.",
-  "The feature should not turn off the phone, delete apps, or block the user from using an app.",
-  "",
-  "Imagine you\u2019re pitching these ideas to a team that will implement your ideas.",
-  "Describe each idea with enough detail that they could implement it without needing to ask you follow-up questions."
-].join("\n");
+const FIXED_CHALLENGE = [
+  "Task: You are a designer tasked with designing a smartphone feature to reduce the duration and frequency of \u201cdoom-scrolling\u201d. Doom-scrolling refers to compulsive, endless scrolling, often on social media.",
+  "Constraints: The feature should not turn off the phone, delete apps, or block the user from using an app.",
+  "Scenario: Imagine you're pitching these ideas to a team that will implement your ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
+].join("\n\n");
 
+const TASK_PREAMBLE_TEXT = 'For the following design challenge, please brainstorm and write down at least three ideas within 15 minutes (after you read the instructions). The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly. Please let the research team member know once you are done brainstorming ideas.';
 const TASK_PREAMBLE = {
-  'AI-Assisted Ideation': 'For the following design challenge, please brainstorm and finalize three ideas within 15 minutes. Feel free to use the AI tab to generate or modify any idea. The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly.',
-  'AI-Assisted Structured Ideation': 'For the following design challenge, please brainstorm and finalize three ideas within 15 minutes. Feel free to use the AI tab to generate or modify any idea. You can use the process tree tab to visit and modify prior versions of your ideas. The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly.'
+  'AI-Assisted Ideation': TASK_PREAMBLE_TEXT,
+  'AI-Assisted Structured Ideation': TASK_PREAMBLE_TEXT
 };
 
 const NEW_IDEA_KW = [
@@ -329,14 +328,12 @@ function onChallengeInput(){
 // ── Done / Finalize tracking ──────────────────────────────────
 function finalizedCount(){ return S.nodes.filter(n=>n.isFinalized).length; }
 function updateFinalizedCounter(){
+  // Idea counter removed — participants may finalize as many ideas as they want.
   const el=document.getElementById('nav-finalized-count');
-  if(el) el.textContent=`${finalizedCount()} / ${REQUIRED_IDEAS} finalized`;
+  if(el) el.style.display='none';
 }
 function checkThreeDone(){
-  if(finalizedCount()>=REQUIRED_IDEAS){
-    document.getElementById('done-count').textContent=finalizedCount();
-    document.getElementById('done-popup').style.display='flex';
-  }
+  // No-op: idea count target removed. Participants finish via the "Done with Task" button only.
 }
 function handleDone(){
   document.getElementById('done-count').textContent=finalizedCount();
