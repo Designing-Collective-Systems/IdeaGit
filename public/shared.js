@@ -52,6 +52,7 @@ const S = {
   currentNodeId: null,
   currentGroupId: null,
   activityLog: [],
+  selfReportData: null, // populated when self-report is submitted; exported only via Export CSV
 };
 
 // ── Utilities ─────────────────────────────────────────────────
@@ -302,7 +303,20 @@ function buildNodesCSV(){
 function exportCSV(){
   if(!S.nodes.length){ toast('Nothing to export yet.'); return; }
   dlFile(buildNodesCSV(),`ideagit_c${S.condition}_nodes_${dstamp()}.csv`,'text/csv');
-  toast('Exported','var(--green)');
+
+  if(S.selfReportData){
+    const { finalized, aiUses } = S.selfReportData;
+    setTimeout(()=>{
+      const titleHdr=finalized.map((_,i)=>`idea_${i+1}_title`);
+      const aiHdr  =finalized.map((_,i)=>`idea_${i+1}_ai_use`);
+      const hdr=['condition',...titleHdr,...aiHdr];
+      const row=[csvC(String(S.condition)),...finalized.map(n=>csvC(n.title)),...aiUses.map(a=>csvC(a))];
+      dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_c${S.condition}_self_report_${dstamp()}.csv`,'text/csv');
+    },400);
+    toast('Exporting nodes and self-report…','var(--green)');
+  } else {
+    toast('Exported','var(--green)');
+  }
 }
 
 // ── Navigation ─────────────────────────────────────────────────
@@ -318,6 +332,9 @@ function openInstructions(){
   document.getElementById('instructions-modal').style.display='flex';
 }
 function closeInstructions(){ document.getElementById('instructions-modal').style.display='none'; }
+
+function openDetailsModal(){ document.getElementById('details-modal').style.display='flex'; }
+function closeDetailsModal(){ document.getElementById('details-modal').style.display='none'; }
 
 // ── Setup page ─────────────────────────────────────────────────
 function onChallengeInput(){
@@ -492,21 +509,23 @@ function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPa
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 function srSubmit(){
   const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
+  // Validate all fields are filled before allowing submission
+  const hasEmpty=finalized.some((_,i)=>{
+    const ta=document.getElementById(`sr-ai-use-${i}`);
+    return !ta||!ta.value.trim();
+  });
+  if(hasEmpty){ toast('Please fill in all fields before submitting.'); return; }
+
   const aiUses=finalized.map((_,i)=>{
     const ta=document.getElementById(`sr-ai-use-${i}`);
     return ta?ta.value.trim():'';
   });
+
+  // Store self-report data in S — exported later only when "Export CSV" is clicked
+  S.selfReportData = { finalized, aiUses };
+
   document.getElementById('self-report-modal').style.display='none';
-  toast('Exporting…','var(--green)');
-  dlFile(buildNodesCSV(),`ideagit_nodes_${dstamp()}.csv`,'text/csv');
-  setTimeout(()=>{
-    const titleHdr=finalized.map((_,i)=>`idea_${i+1}_title`);
-    const aiHdr  =finalized.map((_,i)=>`idea_${i+1}_ai_use`);
-    const hdr=['condition',...titleHdr,...aiHdr];
-    const row=[csvC(String(S.condition)),...finalized.map(n=>csvC(n.title)),...aiUses.map(a=>csvC(a))];
-    dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_self_report_${dstamp()}.csv`,'text/csv');
-    toast('Both files exported. You may now close the page.','var(--green)');
-  },800);
+  toast('Self-report saved. Click "Export CSV" to download your files.','var(--green)');
 }
 function closeSelfReport(){
   document.getElementById('self-report-modal').style.display='none';

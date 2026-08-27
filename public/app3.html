@@ -13,24 +13,24 @@
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions for using IdeaGit</button>
+      <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
       <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
     </div>
   </nav>
-  <div id="challenge-strip">
-    <div id="task-preamble" class="challenge-preamble" style="display:none"></div>
     <div id="challenge-text" class="challenge-text-content"></div>
   </div>
   <div class="two-col ideation-grid">
     <div class="panel">
       <div class="panel-header">Ideas</div>
       <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><span>No ideas yet.</span></div>
+        <div class="ideas-empty" id="ideas-empty"><div class="panel-big-label">CURRENT IDEAS PANEL</div><span>No ideas yet.</span></div>
       </div>
     </div>
     <div class="panel">
       <div class="panel-header">AI Chat</div>
       <div class="chat-initial" id="chat-initial">
+        <div class="panel-big-label">CHAT PANEL</div>
         <h2>Start a new idea</h2>
         <p>Choose how to create your first idea.</p>
         <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
@@ -121,6 +121,26 @@
       <div class="sr-content" id="sr-idea-display"></div>
     </div>
     <div class="sr-right"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="details-modal" style="display:none" onclick="if(event.target===this)closeDetailsModal()">
+  <div class="modal">
+    <div class="modal-head">Details about the design challenge</div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <p><strong>Instructions for the task</strong></p>
+      <ol>
+        <li>This task will provide you a design challenge.</li>
+        <li>Your goal is to write at least three ideas within 15 minutes. The research team member will start the timer after you have read the instructions.</li>
+        <li>Your ideas need to meet the requirements of the design challenge.</li>
+        <li>Your goal is NOT to complete the task as quickly as possible.</li>
+      </ol>
+      <p><strong>Design challenge:</strong></p>
+      <p><strong>Prompt:</strong> You are a designer tasked with designing a smartphone feature to reduce how much time users spend “doom-scrolling”. Doom-scrolling refers to compulsive, endless scrolling, often performed on social media.</p>
+      <p>If you don't know what doomscolling is, please let the researcher know</p>
+      <p><strong>Constraints:</strong> Any feature you propose should not turn off the phone, delete apps, or block the user from using an app.</p>
+      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement your ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>
   </div>
 </div>
 <div class="toast-wrap" id="toasts"></div>
