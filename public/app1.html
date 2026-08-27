@@ -25,7 +25,7 @@
     <div class="panel">
       <div class="panel-header">Ideas</div>
       <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><span>No ideas yet.</span></div>
+        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
       </div>
     </div>
     <div class="panel editor-panel">
@@ -59,7 +59,7 @@
   <div class="modal">
     <div class="modal-head" id="instructions-head">Instructions</div>
     <div class="modal-body" style="max-height:60vh;overflow-y:auto">
-      <div id="instructions-content" style="font-size:15px;line-height:1.85;color:var(--text2)"></div>
+      <div id="instructions-content" class="instructions-body"></div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeInstructions()">Close</button></div>
   </div>

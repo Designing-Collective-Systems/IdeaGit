@@ -245,8 +245,8 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick}){
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
     const typeLabel=node.isFinalized?'Finalized':node.type==='creation'?(node.tag==='ai-generated'?'AI Creation':'Creation'):
                     node.tag==='manual-modification'?'Manual Edit':'AI Modification';
-    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--purple)':
-                    tc==='t-creation'?'var(--blue)':tc==='t-manual'?'var(--amber)':'var(--teal)';
+    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
+                    tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
     const el=document.createElement('div');
     el.className=`tree-node ${tc}${isCur?' current':''}`;
     el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
@@ -289,34 +289,30 @@ function classifyMsg(msg){
 }
 
 // ── Export ─────────────────────────────────────────────────────
-function buildNodesCSV(){
+function buildCombinedCSV(){
+  // Build a lookup: node_id -> self-report AI-use answer (only for finalized ideas that were self-reported)
+  const srMap = new Map();
+  if(S.selfReportData){
+    const { finalized, aiUses } = S.selfReportData;
+    finalized.forEach((n,i)=>{ srMap.set(n.id, aiUses[i] || ''); });
+  }
+
   const hdr=['node_id','group_id','parent_id','type','tag','title','body',
-             'is_finalized','user_prompt','ai_response','timestamp','extras_json'];
+             'is_finalized','user_prompt','ai_response','timestamp','extras_json',
+             'self_report_ai_use'];
   const rows=S.nodes.map(n=>[
     n.id,n.groupId,n.parentId||'',n.type,n.tag,
     csvC(n.title),csvC(n.body),n.isFinalized?'1':'0',
     csvC(n.userPrompt),csvC(n.aiResponse),
-    new Date(n.ts).toISOString(), csvC(JSON.stringify(n.extras))
+    new Date(n.ts).toISOString(), csvC(JSON.stringify(n.extras)),
+    csvC(srMap.get(n.id) || '')
   ].join(','));
   return [hdr.join(','),...rows].join('\n');
 }
 function exportCSV(){
   if(!S.nodes.length){ toast('Nothing to export yet.'); return; }
-  dlFile(buildNodesCSV(),`ideagit_c${S.condition}_nodes_${dstamp()}.csv`,'text/csv');
-
-  if(S.selfReportData){
-    const { finalized, aiUses } = S.selfReportData;
-    setTimeout(()=>{
-      const titleHdr=finalized.map((_,i)=>`idea_${i+1}_title`);
-      const aiHdr  =finalized.map((_,i)=>`idea_${i+1}_ai_use`);
-      const hdr=['condition',...titleHdr,...aiHdr];
-      const row=[csvC(String(S.condition)),...finalized.map(n=>csvC(n.title)),...aiUses.map(a=>csvC(a))];
-      dlFile([hdr.join(','),row.join(',')].join('\n'),`ideagit_c${S.condition}_self_report_${dstamp()}.csv`,'text/csv');
-    },400);
-    toast('Exporting nodes and self-report…','var(--green)');
-  } else {
-    toast('Exported','var(--green)');
-  }
+  dlFile(buildCombinedCSV(),`ideagit_c${S.condition}_${dstamp()}.csv`,'text/csv');
+  toast('Exported','var(--green)');
 }
 
 // ── Navigation ─────────────────────────────────────────────────
@@ -398,7 +394,7 @@ function openSelfReport(){
       page.className='sr-page'; page.id=`sr-page-${i}`;
       page.style.display=i===0?'flex':'none';
       page.innerHTML=`
-        <h2 class="sr-page-title">Idea ${i+1}: <span style="font-weight:400;font-size:16px">${esc(node.title)}</span></h2>
+        <h2 class="sr-page-title">Idea ${i+1}: <span class="sr-idea-title-inline">${esc(node.title)}</span></h2>
         <div class="sr-question">
           <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
           <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
@@ -408,11 +404,23 @@ function openSelfReport(){
         <div class="sr-foot">
           ${i>0?'<button class="btn btn-outline" onclick="srPrev()">← Back</button>':''}
           ${isLast
-            ?'<button class="btn btn-green" onclick="srSubmit()">Submit and Export</button>'
+            ?'<button class="btn btn-green" onclick="srSubmit()">Submit Self-Reports</button>'
             :'<button class="btn btn-primary" onclick="srNext()">Next →</button>'}
         </div>`;
       srRight.appendChild(page);
     });
+
+    // Prefill previously saved answers (matched by node id) if reopening after a prior submit
+    if(S.selfReportData){
+      const savedMap = new Map();
+      S.selfReportData.finalized.forEach((n,i)=>{ savedMap.set(n.id, S.selfReportData.aiUses[i]); });
+      finalized.forEach((node,i)=>{
+        if(savedMap.has(node.id)){
+          const ta=document.getElementById(`sr-ai-use-${i}`);
+          if(ta) ta.value = savedMap.get(node.id);
+        }
+      });
+    }
   }
 
   srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
@@ -475,11 +483,11 @@ function renderSrTree(gid){
     const p=pos[node.id]; if(!p) return;
     const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
-    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--purple)':
-                    tc==='t-creation'?'var(--blue)':tc==='t-manual'?'var(--amber)':'var(--teal)';
+    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
+                    tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
     const el=document.createElement('div');
     el.className=`tree-node ${tc}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`<div class="tree-node-inner" style="padding:7px 9px"><div class="tree-node-type" style="color:${typeColor};font-size:10px">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:12px">${esc(node.title||'(untitled)')}</div></div>`;
+    el.innerHTML=`<div class="tree-node-inner" style="padding:7px 9px"><div class="tree-node-type" style="color:${typeColor};font-size:0.45rem">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:0.55rem">${esc(node.title||'(untitled)')}</div></div>`;
     nodesEl.appendChild(el);
   });
 }

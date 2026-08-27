@@ -54,7 +54,7 @@ function updateChatHeader(){
 function rebuildChat(nodeId){
   const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
   getPath(nodeId).forEach(node=>{
-    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,node.tag==='ai-generated'?'AI-Generated Idea':'Your Idea',''));
+    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,node.tag==='ai-generated'?'AI-Generated Idea':'Your Idea',node.tag==='ai-generated'?'ai-created':'manual-created'));
     else if(node.type==='modification'){
       if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt,node.id));
       wrap.appendChild(makeIdeaBubble(node,node.tag==='manual-modification'?'Manually Modified':'AI-Modified',node.tag==='manual-modification'?'manual':'modified'));
