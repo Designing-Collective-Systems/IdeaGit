@@ -4,16 +4,31 @@
 S.condition = "AI-Assisted Structured Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <p><strong>Instructions</strong></p>
   <ol style="padding-left:20px;line-height:2">
-    <li>In the chat panel (right), click "Create Idea Manually" or "Generate with AI" to generate a new idea.</li>
+    <li><strong>In the chat panel (right):</strong></li>
+    <ul style="padding-left:20px;line-height:2">
+    <li>Click "Create Idea Manually" or "Generate Idea with AI" to generate a new idea.</li>
     <li>Chat with the AI to further modify the idea, get feedback, or ask questions.</li>
     <li>Click "Finalize" when satisfied with an idea.</li>
-    <li>The process tree (left) shows how your ideas evolve. Click any node to load that version.</li>
     <li>Reply to any chat bubble (&#x21A9;) to branch from that specific version.</li>
-    <li>The middle panel contains ideas that are finalized or in-progress. Click any idea to switch to it.</li>
     <li>Click "+ New Idea" to start a fresh idea.</li>
-    <li>Create and finalize three ideas.</li>
+    </ul>      
+    <li><strong>In the process tree panel (left):</strong></li>
+    <ul style="padding-left:20px;line-height:2">
+    <li>You can find the evolution of your ideas in the form of a tree structure</li>
+    <li>A new node is created each time an idea is created or modified.</li>
+    <li>Click on a node to modify with that version of the idea.</li>
+    </ul>
+    <li><strong>In the current ideas panel (middle):</strong></li>
+    <ul style="padding-left:20px;line-height:2">
+    <li>You can find ideas that are finalized or in-progress.</li>
+    <li>Click any idea to switch to it.</li>
+    </ul>     
+    <li><strong>In the navigation panel (top):</strong></li>
+    <ul style="padding-left:20px;line-height:2">
+    <li>Click on the "Done with Task" button when you are done brainstorming at least three ideas.</li>
+    <li>Click on the "Export CSV" button to export your ideas. Please press this button at the end of the task (after clicking "Done with Task").</li>
+    </ul> 
   </ol>`;
 
 document.addEventListener('DOMContentLoaded', ()=>{ startIdeation(); openInstructions(); });
