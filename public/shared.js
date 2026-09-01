@@ -450,11 +450,11 @@ function srRenderContent(node){
     });
     disp.innerHTML=html+'</div>';
   } else {
-    disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg)"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
-    renderSrTree(node.groupId);
+    disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
+    renderSrTree(node.groupId, node.id);
   }
 }
-function renderSrTree(gid){
+function renderSrTree(gid, currentNodeId){
   const nodesEl=document.getElementById('sr-tree-nodes');
   const svg=document.getElementById('sr-tree-svg');
   if(!nodesEl||!svg) return;
@@ -486,8 +486,9 @@ function renderSrTree(gid){
     const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
                     tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
     const el=document.createElement('div');
-    el.className=`tree-node ${tc}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`<div class="tree-node-inner" style="padding:7px 9px"><div class="tree-node-type" style="color:${typeColor};font-size:0.45rem">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:0.55rem">${esc(node.title||'(untitled)')}</div></div>`;
+    const isCurrent = node.id === currentNodeId;
+    el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
+    el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}<div class="tree-node-inner" style="padding:7px 9px">${isCurrent?'<div class="sr-current-ring"></div>':''}<div class="tree-node-type" style="color:${typeColor};font-size:0.45rem">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:0.55rem">${esc(node.title||'(untitled)')}</div></div>`;
     nodesEl.appendChild(el);
   });
 }

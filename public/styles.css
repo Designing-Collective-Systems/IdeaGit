@@ -96,9 +96,32 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-canvas svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
 .tree-canvas>div{position:relative}
 .tree-node{position:absolute;width:165px;transform:translate(-50%,0);cursor:pointer;user-select:none}
-.tree-node-inner{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:9px 11px;transition:border-color .15s,box-shadow .15s;box-shadow:var(--shadow)}
+.tree-node-inner{position:relative;background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:9px 11px;transition:border-color .15s,box-shadow .15s;box-shadow:var(--shadow)}
 .tree-node:hover .tree-node-inner{border-color:var(--blue);box-shadow:var(--shadow2)}
 .tree-node.current .tree-node-inner{border-color:var(--blue);background:var(--blue-lt)}
+
+/* ── Self-report tree: highlight the idea currently being reported on ─ */
+.tree-node.sr-current{ z-index:5; }
+.tree-node.sr-current .tree-node-inner{
+  border-width:3px;
+  border-color:var(--blue) !important;
+  box-shadow:0 0 0 4px rgba(37,99,235,.22), var(--shadow2);
+}
+.sr-current-ring{
+  position:absolute; inset:-3px; border-radius:inherit;
+  pointer-events:none; border:2px solid var(--blue); opacity:.35;
+  animation:sr-pulse 1.8s ease-in-out infinite;
+}
+@keyframes sr-pulse{
+  0%,100%{ transform:scale(1); opacity:.35; }
+  50%{ transform:scale(1.06); opacity:.12; }
+}
+.sr-current-badge{
+  position:absolute; left:50%; top:-1.6rem; transform:translateX(-50%);
+  background:var(--blue); color:#fff; font-size:.6rem; font-weight:700;
+  white-space:nowrap; padding:2px 8px; border-radius:999px;
+  box-shadow:var(--shadow); z-index:6;
+}
 .tree-node.t-creation .tree-node-inner{border-color:var(--yellow-mid)}
 .tree-node.t-ai-create .tree-node-inner{border-color:var(--blue-mid)}
 .tree-node.t-manual .tree-node-inner{border-color:var(--amber-mid)}
