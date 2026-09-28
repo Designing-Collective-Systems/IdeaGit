@@ -402,10 +402,10 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 /* ── Landing page (participant ID) ─────────────────────────── */
 #page-landing{height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
-.landing-card{width:min(520px,92vw);background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
+.landing-card{width:fit-content;min-width:min(520px,92vw);max-width:96vw;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
   box-shadow:var(--shadow2);padding:40px;display:flex;flex-direction:column;gap:18px}
 .landing-title{font-size:2.1rem;font-weight:700;letter-spacing:-.4px;color:var(--blue);line-height:1.15}
-.landing-tagline{font-size:1.05rem;line-height:1.6;color:var(--text)}
+.landing-tagline{font-size:min(1.05rem,1.8vw);line-height:1.6;color:var(--text);white-space:nowrap}
 .landing-label{font-size:0.95rem;font-weight:600;color:var(--text);margin-top:6px}
 .landing-card .field-input{font-size:1.05rem}
 .landing-card .btn{align-self:flex-start;padding:11px 28px;font-size:1rem}
@@ -415,11 +415,15 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .panel-header .btn{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
 
 /* ── Idea Tree: compact nodes (tag only) + hover tooltip ────── */
-.tree-node-inner.tree-node-compact{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:6px 8px}
-.tree-node-inner.tree-node-compact .tree-node-type{margin-bottom:0;text-transform:none;letter-spacing:0;font-size:0.9rem;font-weight:700}
+.tree-node-inner.tree-node-compact{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:4px 4px}
+.tree-node-inner.tree-node-compact .tree-node-type{margin-bottom:0;text-transform:none;letter-spacing:0;font-size:0.8rem;font-weight:700;white-space:nowrap}
 .tree-node-status{font-size:0.8rem;font-weight:700;color:var(--green);margin-bottom:2px}
 .tree-tooltip{position:fixed;z-index:2000;display:none;max-width:340px;max-height:60vh;overflow:hidden;
   padding:12px 14px;background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--r);
   box-shadow:var(--shadow2);pointer-events:none}
 .tree-tooltip-title{font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:6px}
 .tree-tooltip-body{font-size:0.85rem;line-height:1.55;color:var(--text2);white-space:pre-wrap}
+
+/* ── Instructions popup (app3/app4): wide enough that every instruction stays on one line ── */
+.modal.instructions-wide{width:fit-content;min-width:min(520px,92vw);max-width:96vw}
+.instructions-wide .instructions-body li{white-space:nowrap}

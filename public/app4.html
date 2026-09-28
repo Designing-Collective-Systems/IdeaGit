@@ -27,19 +27,6 @@
   </nav>
   <div class="three-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">Idea Tree</div>
-      <div class="tree-area" id="tree-area">
-        <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
-        <div class="tree-empty" id="tree-empty"><div class="empty-state-inner">No idea selected</div></div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-header">Current Ideas</div>
-      <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
-      </div>
-    </div>
-    <div class="panel">
       <div class="panel-header">AI Chat <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
@@ -80,6 +67,19 @@
         </div>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-header">Idea Tree</div>
+      <div class="tree-area" id="tree-area">
+        <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
+        <div class="tree-empty" id="tree-empty"><div class="empty-state-inner">No idea selected</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Current Ideas</div>
+      <div class="ideas-area" id="ideas-list">
+        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -96,7 +96,7 @@
   </div>
 </div>
 <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
-  <div class="modal">
+  <div class="modal instructions-wide">
     <div class="modal-head" id="instructions-head">Instructions</div>
     <div class="modal-body" style="max-height:60vh;overflow-y:auto">
       <div id="instructions-content" class="instructions-body"></div>

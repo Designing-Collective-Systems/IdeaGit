@@ -27,12 +27,6 @@
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">Current Ideas</div>
-      <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
-      </div>
-    </div>
-    <div class="panel">
       <div class="panel-header">AI Chat <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
@@ -73,6 +67,12 @@
         </div>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-header">Current Ideas</div>
+      <div class="ideas-area" id="ideas-list">
+        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -89,7 +89,7 @@
   </div>
 </div>
 <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
-  <div class="modal">
+  <div class="modal instructions-wide">
     <div class="modal-head" id="instructions-head">Instructions for using IdeaGit</div>
     <div class="modal-body" style="max-height:60vh;overflow-y:auto">
       <div id="instructions-content" class="instructions-body"></div>

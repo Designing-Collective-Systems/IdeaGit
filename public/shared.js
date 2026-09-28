@@ -54,6 +54,7 @@ const S = {
   activityLog: [],
   selfReportData: null, // populated when self-report is submitted (also used to prefill if reopened)
   participantId: '',    // entered on the landing page (app3/app4); identifies this participant in the database
+  studyCondition: '',   // label stored in the database (set by each app); S.condition stays the internal name
 };
 
 // ── Utilities ─────────────────────────────────────────────────
@@ -648,7 +649,7 @@ async function _doSync(){
   try{
     const res=await fetch('/api/save-nodes',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({participant_id:S.participantId, condition:S.condition, nodes:changed}),
+      body:JSON.stringify({participant_id:S.participantId, condition:S.studyCondition||S.condition, nodes:changed}),
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
     changed.forEach(r=>{ _synced[r.node_id]=JSON.stringify(r); });

@@ -2,6 +2,7 @@
 //  IdeaGit — Condition 4: AI-Assisted Structured Ideation
 // ============================================================
 S.condition = "AI-Assisted Structured Ideation";
+S.studyCondition = "IdeaGit"; // value stored in the database's study_condition column
 
 window.CONDITION_INSTRUCTIONS = `
   <p>IdeaGit has three components</p>
