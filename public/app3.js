@@ -7,7 +7,7 @@ S.studyCondition = "AI_only"; // value stored in the database's study_condition 
 window.CONDITION_INSTRUCTIONS = `
   <p>IdeaGit has two components</p>
   <ol>
-    <li>A chat panel where you can brainstorm with AI</li>
+    <li>An AI chat panel where you can brainstorm with AI</li>
     <li>A current ideas panel that tracks different in-progress or finalized ideas</li>
   </ol>`;
 
