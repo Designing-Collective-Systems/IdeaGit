@@ -128,6 +128,9 @@
 </div>
 
 <script>
+// The study link the participant came through, carried over from login
+const NEXT = new URLSearchParams(location.search).get('next') || '';
+
 const nameInput   = document.getElementById('signature-name');
 const hint        = document.getElementById('signature-hint');
 const signBtn     = document.getElementById('btn-sign');
@@ -157,9 +160,9 @@ async function handleSign() {
     const res = await fetch('/api/consent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: fullName }),
+      body: JSON.stringify({ full_name: fullName, next: NEXT }),
     });
-    if (res.status === 401) { window.location.href = '/login'; return; }
+    if (res.status === 401) { window.location.href = '/login' + (NEXT ? '?next=' + encodeURIComponent(NEXT) : ''); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('Server responded ' + res.status));
     showConfirmation(

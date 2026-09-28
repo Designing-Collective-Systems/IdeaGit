@@ -53,6 +53,7 @@ const S = {
   currentGroupId: null,
   activityLog: [],
   selfReportData: null, // populated when self-report is submitted (also used to prefill if reopened)
+  app: '',              // which app this page is (app1 / app2); set by app1.js / app2.js. Saved work is kept per app.
   username: '',         // the logged-in participant; set once their saved work has loaded, which also switches saving on
 };
 
@@ -625,6 +626,7 @@ function nodeToRow(n){
   };
 }
 function loginUrl(){ return '/login?next='+encodeURIComponent(location.pathname); }
+function consentUrl(){ return '/consent?next='+encodeURIComponent('/'+S.app); }
 function sessionExpired(){
   if(_expiredShown) return; _expiredShown=true;
   toast('Your session has expired. Taking you to the login page…','var(--amber)');
@@ -637,7 +639,7 @@ async function _doSync(keepalive){
   try{
     const res=await fetch('/api/save-nodes',{
       method:'POST', headers:{'Content-Type':'application/json'}, keepalive:!!keepalive,
-      body:JSON.stringify({nodes:changed}),
+      body:JSON.stringify({app:S.app, nodes:changed}),
     });
     if(res.status===401){ sessionExpired(); return false; }
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -691,10 +693,10 @@ async function initApp(){
     if(meRes.status===401){ location.href=loginUrl(); return; }
     if(!meRes.ok) throw new Error('HTTP '+meRes.status);
     const me=await meRes.json();
-    if(!me.consented){ location.href='/consent'; return; }
-    const res=await fetch('/api/load-nodes');
+    if(!me.consented){ location.href=consentUrl(); return; }
+    const res=await fetch('/api/load-nodes?app='+encodeURIComponent(S.app));
     if(res.status===401){ location.href=loginUrl(); return; }
-    if(res.status===403){ location.href='/consent'; return; }
+    if(res.status===403){ location.href=consentUrl(); return; }
     if(!res.ok) throw new Error('HTTP '+res.status);
     const {nodes}=await res.json();
     S.nodes=nodes.map(rowToNode);

@@ -113,15 +113,17 @@ function noteFail(key) {
 // ── Helpers ─────────────────────────────────────────────────
 const USERNAME_RE = /^[A-Za-z0-9._-]{3,40}$/;
 const nextToApp = next => (next === '/app1' ? 'app1' : next === '/app2' ? 'app2' : null); // allow-list: no open redirects
-const CONDITION = { app1: 'AI_only', app2: 'IdeaGit' }; // stored in study_condition
+const CONDITIONS = new Map([['app1', 'AI_only'], ['app2', 'IdeaGit']]); // app -> value stored in study_condition
 
-// Where a logged-in user goes next: consent first (once), then their assigned app
-function destinationFor(user) {
-  if (!user.assigned_app) return null;
-  return user.consented ? '/' + user.assigned_app : '/consent';
+// Where a logged-in user goes next: consent first (once), then the app they came for
+// (or, if they arrived without a study link, the app they used last)
+function destinationFor(user, nextApp) {
+  const target = nextApp || user.last_app;
+  if (!target) return null;
+  return user.consented ? '/' + target : '/consent?next=' + encodeURIComponent('/' + target);
 }
-function authResponse(user) {
-  const redirect = destinationFor(user);
+function authResponse(user, nextApp) {
+  const redirect = destinationFor(user, nextApp);
   if (redirect) return { ok: true, redirect };
   return {
     ok: true, redirect: null,
@@ -164,7 +166,7 @@ app.post('/api/register', asyncH(async (req, res) => {
     throw err;
   }
   startSession(req, res, user.id);
-  res.status(201).json(authResponse(user));
+  res.status(201).json(authResponse(user, nextToApp(next)));
 }));
 
 app.post('/api/login', asyncH(async (req, res) => {
@@ -184,12 +186,11 @@ app.post('/api/login', asyncH(async (req, res) => {
     return res.status(401).json({ error: 'Incorrect username or password.' });
   }
   failures.delete(key);
-  let current = user;
-  const app_ = nextToApp(next);
-  if (!current.assigned_app && app_) current = await db.setAssignedApp(current.id, app_);
-  await db.touchLogin(current.id);
-  startSession(req, res, current.id);
-  res.json(authResponse(current));
+  const nextApp = nextToApp(next);
+  if (nextApp && user.last_app !== nextApp) { await db.setLastApp(user.id, nextApp); user.last_app = nextApp; }
+  await db.touchLogin(user.id);
+  startSession(req, res, user.id);
+  res.json(authResponse(user, nextApp));
 }));
 
 app.post('/api/logout', (req, res) => {
@@ -198,35 +199,44 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', requireUser, (req, res) => {
-  const { username, consented, assigned_app } = req.user;
-  res.json({ username, consented, assigned_app });
+  const { username, consented, last_app } = req.user;
+  res.json({ username, consented, last_app });
 });
 
 // ── One-time consent ────────────────────────────────────────
 app.post('/api/consent', requireUser, asyncH(async (req, res) => {
-  const fullName = String((req.body || {}).full_name || '').trim().replace(/\s+/g, ' ');
+  const { full_name, next } = req.body || {};
+  const fullName = String(full_name || '').trim().replace(/\s+/g, ' ');
   if (fullName.length < 3 || fullName.length > 200 || !fullName.includes(' ')) {
     return res.status(400).json({ error: 'Please type your full name.' });
   }
+  const nextApp = nextToApp(next);
   const user = await db.recordConsent(req.user.id, fullName);
-  res.json({ ok: true, redirect: user.assigned_app ? '/' + user.assigned_app : null });
+  if (nextApp && user.last_app !== nextApp) { await db.setLastApp(user.id, nextApp); user.last_app = nextApp; }
+  const target = nextApp || user.last_app;
+  res.json({ ok: true, redirect: target ? '/' + target : null });
 }));
 
 // ── Ideas: load (to resume) and save ────────────────────────
+// Ideas are kept per participant AND per app, so each app resumes its own work
 app.get('/api/load-nodes', requireConsented, asyncH(async (req, res) => {
-  res.json({ nodes: await db.loadNodes(req.user.id) });
+  const condition = CONDITIONS.get(String(req.query.app || ''));
+  if (!condition) return res.status(400).json({ error: 'Unknown app.' });
+  res.json({ nodes: await db.loadNodes(req.user.id, condition) });
 }));
 
 app.post('/api/save-nodes', requireConsented, asyncH(async (req, res) => {
-  const { nodes } = req.body || {};
+  const { app: appName, nodes } = req.body || {};
+  const condition = CONDITIONS.get(String(appName || ''));
+  if (!condition) return res.status(400).json({ error: 'Unknown app.' });
   if (!Array.isArray(nodes) || nodes.length === 0 || nodes.length > 500) {
     return res.status(400).json({ error: 'nodes must be a non-empty array (max 500).' });
   }
   if (nodes.some(n => !n || typeof n.node_id !== 'string' || !n.node_id)) {
     return res.status(400).json({ error: 'Every node needs a node_id.' });
   }
-  // The user and condition come from the session, never from the request body
-  await db.saveNodes(req.user.id, CONDITION[req.user.assigned_app] || null, nodes);
+  // The user comes from the session; the condition from the allow-listed app name
+  await db.saveNodes(req.user.id, condition, nodes);
   res.json({ ok: true, saved: nodes.length });
 }));
 
@@ -264,26 +274,29 @@ function sendView(res, name) {
 
 // Landing page = login / registration
 app.get(['/', '/login'], (req, res) => {
-  const dest = req.user && destinationFor(req.user);
+  const dest = req.user && destinationFor(req.user, nextToApp(req.query.next));
   if (dest) return res.redirect(dest); // already logged in: straight to consent or the app
   sendView(res, 'login');
 });
 
 app.get('/consent', (req, res) => {
   const u = req.user;
-  if (!u || !u.assigned_app) return res.redirect('/login');
-  if (u.consented) return res.redirect('/' + u.assigned_app);
+  const nextApp = nextToApp(req.query.next);
+  if (!u) return res.redirect('/login' + (nextApp ? '?next=' + encodeURIComponent('/' + nextApp) : ''));
+  if (u.consented) {
+    const target = nextApp || u.last_app;
+    return res.redirect(target ? '/' + target : '/');
+  }
   sendView(res, 'consent');
 });
 
-// The two versions of the tool. Participants keep the one whose link they first used.
+// The two versions of the tool. Any consented participant can open either one.
 ['app1', 'app2'].forEach(name => {
   app.get('/' + name, asyncH(async (req, res) => {
-    let user = req.user;
+    const user = req.user;
     if (!user) return res.redirect('/login?next=' + encodeURIComponent('/' + name));
-    if (!user.assigned_app) user = await db.setAssignedApp(user.id, name);
-    if (user.assigned_app !== name) return res.redirect('/' + user.assigned_app);
-    if (!user.consented) return res.redirect('/consent');
+    if (!user.consented) return res.redirect('/consent?next=' + encodeURIComponent('/' + name));
+    if (user.last_app !== name) await db.setLastApp(user.id, name);
     sendView(res, name);
   }));
 });

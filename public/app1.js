@@ -2,6 +2,7 @@
 //  IdeaGit variant 2 — app1: AI-Assisted Ideation (AI chat only)
 // ============================================================
 S.condition = "AI-Assisted Ideation";
+S.app = 'app1'; // saved work is kept per app
 
 window.CONDITION_INSTRUCTIONS = `
   <p>IdeaGit has two components</p>

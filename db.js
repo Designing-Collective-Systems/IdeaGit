@@ -1,10 +1,12 @@
 // ============================================================
 //  IdeaGit variant 2 - Postgres storage
 //
-//  ideagit2_users : one row per account (login details, which app the
-//                   participant was assigned, and their one-time consent)
-//  ideagit2_nodes : one row per idea version, owned by a user; the
-//                   participant's self-report is stored on finalized ideas
+//  ideagit2_users : one row per account (login details, the app they used
+//                   last, and their one-time consent)
+//  ideagit2_nodes : one row per idea version, owned by a user and tagged with
+//                   the app it was made in (study_condition: AI_only = app1,
+//                   IdeaGit = app2); self-reports are stored on finalized ideas.
+//                   Participants can use both apps; work is kept per app.
 //
 //  The table names carry a "2" so variant 2 can never collide with
 //  variant 1's ideagit_nodes table, even if both share one database.
@@ -31,7 +33,7 @@ const CREATE_TABLES_SQL = `
     id             SERIAL      PRIMARY KEY,
     username       TEXT        NOT NULL,
     password_hash  TEXT        NOT NULL,
-    assigned_app   TEXT        CHECK (assigned_app IN ('app1', 'app2')),
+    last_app       TEXT        CHECK (last_app IN ('app1', 'app2')),
     consented      BOOLEAN     NOT NULL DEFAULT FALSE,
     consent_name   TEXT,
     consented_at   TIMESTAMPTZ,
@@ -40,6 +42,8 @@ const CREATE_TABLES_SQL = `
   );
   CREATE UNIQUE INDEX IF NOT EXISTS ideagit2_users_username_lower
     ON ideagit2_users (lower(username));
+  -- for databases created before last_app existed
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS last_app TEXT CHECK (last_app IN ('app1', 'app2'));
 
   CREATE TABLE IF NOT EXISTS ideagit2_nodes (
     user_id             INTEGER     NOT NULL REFERENCES ideagit2_users(id),
@@ -64,7 +68,7 @@ const CREATE_TABLES_SQL = `
 `;
 
 const USER_COLS =
-  'id, username, password_hash, assigned_app, consented, consent_name, consented_at';
+  'id, username, password_hash, last_app, consented, consent_name, consented_at';
 
 const UPSERT_NODE_SQL = `
   INSERT INTO ideagit2_nodes (
@@ -108,11 +112,11 @@ async function initDb() {
 }
 
 // ── Users ────────────────────────────────────────────────────
-async function createUser(username, passwordHash, assignedApp) {
+async function createUser(username, passwordHash, lastApp) {
   const { rows } = await pool.query(
-    `INSERT INTO ideagit2_users (username, password_hash, assigned_app)
+    `INSERT INTO ideagit2_users (username, password_hash, last_app)
      VALUES ($1, $2, $3) RETURNING ${USER_COLS}`,
-    [username, passwordHash, assignedApp]
+    [username, passwordHash, lastApp]
   );
   return rows[0];
 }
@@ -133,15 +137,10 @@ async function getUserById(id) {
   return rows[0] || null;
 }
 
-// Sets the assigned app only if none is set yet, so the first link a
-// participant used stays their condition. Returns the up-to-date user.
-async function setAssignedApp(id, app) {
-  const { rows } = await pool.query(
-    `UPDATE ideagit2_users SET assigned_app = $2
-     WHERE id = $1 AND assigned_app IS NULL RETURNING ${USER_COLS}`,
-    [id, app]
-  );
-  return rows[0] || getUserById(id);
+// Remembers the app a participant used last. It is only the default destination when
+// they log in without a study link; it never restricts which app they can open.
+async function setLastApp(id, app) {
+  await pool.query('UPDATE ideagit2_users SET last_app = $2 WHERE id = $1', [id, app]);
 }
 
 async function touchLogin(id) {
@@ -196,20 +195,21 @@ async function saveNodes(userId, condition, nodes) {
   }
 }
 
-async function loadNodes(userId) {
+// Only this participant's ideas for this app: what they resume from
+async function loadNodes(userId, condition) {
   const { rows } = await pool.query(
     `SELECT node_id, group_id, parent_id, type, tag, title, body, is_finalized,
             user_prompt, ai_response, extras, meta, self_report_ai_use,
             created_at, updated_at
-     FROM ideagit2_nodes WHERE user_id = $1
+     FROM ideagit2_nodes WHERE user_id = $1 AND study_condition = $2
      ORDER BY created_at, node_id`,
-    [userId]
+    [userId, condition]
   );
   return rows;
 }
 
 module.exports = {
   initDb, dbConfigured,
-  createUser, getUserByUsername, getUserById, setAssignedApp, touchLogin, recordConsent,
+  createUser, getUserByUsername, getUserById, setLastApp, touchLogin, recordConsent,
   saveNodes, loadNodes,
 };
