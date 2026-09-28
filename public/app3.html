@@ -3,34 +3,39 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>IdeaGit — AI-Assisted Ideation</title>
+  <title>IdeaGit</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-<div id="page-ideation" style="display:flex">
+<div id="page-landing">
+  <div class="landing-card">
+    <h1 class="landing-title">IdeaGit</h1>
+    <p class="landing-tagline">IdeaGit is a tool with which you can brainstorm with AI and track your ideation process</p>
+    <label class="landing-label" for="participant-id-input">Please enter your participant ID to begin</label>
+    <input type="text" id="participant-id-input" class="field-input" maxlength="100" autocomplete="off" spellcheck="false"/>
+    <button class="btn btn-primary" id="btn-begin" disabled onclick="beginStudy()">Begin</button>
+  </div>
+</div>
+<div id="page-ideation" style="display:none">
   <nav class="top-nav">
-    <div class="nav-logo" onclick="goHome()">IdeaGit</div>
+    <div class="nav-logo" style="cursor:default">IdeaGit</div>
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
       <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions for using IdeaGit</button>
-      <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
-      <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
     </div>
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">Ideas</div>
+      <div class="panel-header">Current Ideas</div>
       <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><div class="panel-big-label">CURRENT IDEAS PANEL</div><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
+        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header">AI Chat</div>
+      <div class="panel-header">AI Chat <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button></div>
       <div class="chat-initial" id="chat-initial">
-        <div class="panel-big-label">CHAT PANEL</div>
         <div class="empty-state-inner">
-          <h2>Start a new idea</h2>
           <p style="white-space:nowrap">Choose how to create your idea.</p>
           <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
           <button class="btn btn-teal" onclick="startAICreate()">Generate Idea with AI</button>

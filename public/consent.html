@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaGit — Study Consent</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-size:16px;line-height:1.5;color:#111827;background:#f0f4f8}
+  :root{
+    --blue:#2563eb;--blue-dk:#1d4ed8;--blue-lt:#eff6ff;--blue-mid:#bfdbfe;
+    --green:#16a34a;--red:#dc2626;
+    --border:#d1d5db;--text2:#6b7280;--text3:#9ca3af;--surface:#fff;--surface2:#f8fafc;
+    --r:10px;--shadow:0 1px 3px rgba(0,0,0,.08);--shadow2:0 8px 32px rgba(0,0,0,.12);
+  }
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+  .page{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:32px 20px}
+  .consent-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow2);width:min(880px,96vw);overflow:hidden}
+
+  .consent-header{padding:28px 32px 20px;border-bottom:1px solid var(--border)}
+  .consent-header h1{font-size:26px;font-weight:700;letter-spacing:-.3px}
+  .consent-header h1 em{font-style:normal;color:var(--blue)}
+  .consent-header p{color:var(--text2);font-size:14.5px;margin-top:6px}
+
+  .consent-body{padding:28px 32px;display:flex;flex-direction:column;gap:24px}
+
+  .pdf-section{display:flex;flex-direction:column;gap:8px}
+  .pdf-frame-wrap{border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;
+    background:var(--surface2);height:65vh;min-height:420px}
+  .pdf-frame-wrap iframe{width:100%;height:100%;border:none;display:block}
+  .pdf-fallback{font-size:13.5px;color:var(--text2);text-align:center;padding:10px}
+  .pdf-fallback a{color:var(--blue);font-weight:600;text-decoration:none}
+  .pdf-fallback a:hover{text-decoration:underline}
+
+  .signature-section{display:flex;flex-direction:column;gap:12px;padding-top:8px;border-top:1px solid var(--border)}
+  .signature-statement{font-size:14.5px;line-height:1.7;color:#1f2937}
+  .signature-field{display:flex;flex-direction:column;gap:6px}
+  .signature-field label{font-size:13px;font-weight:600;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.04em}
+  .signature-field input{padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r);
+    font-family:inherit;font-size:17px;color:#111827;background:var(--surface);outline:none;
+    transition:border-color .15s}
+  .signature-field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .signature-hint{font-size:12.5px;color:var(--text3)}
+  .signature-hint.error{color:var(--red);font-weight:600}
+
+  .consent-foot{padding:20px 32px;border-top:1px solid var(--border);background:var(--surface2);
+    display:flex;justify-content:flex-end;align-items:center;gap:14px}
+  .status-msg{font-size:13.5px;color:var(--text2);margin-right:auto}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border:none;border-radius:var(--r);
+    font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:not(:disabled):hover{background:var(--blue-dk)}
+
+  .decline-link{font-size:13px;color:var(--text3);text-decoration:underline;cursor:pointer;background:none;border:none;font-family:inherit}
+  .decline-link:hover{color:var(--text2)}
+
+  /* Confirmation screen */
+  #confirm-screen{display:none;min-height:100vh;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;text-align:center;padding:24px}
+  #confirm-screen h2{font-size:24px}
+  #confirm-screen p{color:var(--text2);max-width:440px}
+</style>
+</head>
+<body>
+
+<div class="page" id="consent-page">
+  <div class="consent-card">
+
+    <div class="consent-header">
+      <h1>Idea<em>Git</em> — Study Consent</h1>
+      <p>Please review the consent form below before continuing to the study.</p>
+    </div>
+
+    <div class="consent-body">
+
+      <div class="pdf-section">
+        <div class="pdf-frame-wrap">
+          <iframe src="consent.pdf" title="Consent Form">
+            Your browser can't display the PDF inline.
+          </iframe>
+        </div>
+        <div class="pdf-fallback">
+          Having trouble viewing the form? <a href="consent.pdf" target="_blank" rel="noopener">Open consent.pdf in a new tab</a>.
+        </div>
+      </div>
+
+      <!-- Contact box removed per request -->
+
+      <div class="signature-section">
+        <p class="signature-statement">
+          By typing my full name below, I confirm I have read the information in this
+          consent form and have had the opportunity to ask questions. I voluntarily agree to
+          participate in the study and agree to a video recording of the interview
+          for research purposes.
+        </p>
+        <div class="signature-field">
+          <label for="signature-name">Full Name</label>
+          <input type="text" id="signature-name" placeholder="Type your full name…" autocomplete="off"/>
+          <span class="signature-hint" id="signature-hint">Please enter your first and last name.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="consent-foot">
+      <span class="status-msg" id="status-msg"></span>
+      <button class="decline-link" id="btn-decline" onclick="handleDecline()">
+        I do not wish to participate
+      </button>
+      <button class="btn btn-primary" id="btn-sign" disabled onclick="handleSign()">
+        Sign and Continue to Study →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div id="confirm-screen">
+  <h2 id="confirm-title">Thank you</h2>
+  <p id="confirm-message"></p>
+</div>
+
+<script>
+// ── Where to send participants after they sign ──────────────────────
+const CONTINUE_URL = '/'; // change to your landing page / condition URL
+
+const nameInput   = document.getElementById('signature-name');
+const hint        = document.getElementById('signature-hint');
+const signBtn     = document.getElementById('btn-sign');
+const statusMsg   = document.getElementById('status-msg');
+
+function isValidFullName(v) {
+  const trimmed = v.trim().replace(/\s+/g, ' ');
+  // Require at least two words (a first and last name)
+  return trimmed.split(' ').length >= 2 && trimmed.length >= 4;
+}
+
+nameInput.addEventListener('input', () => {
+  const valid = isValidFullName(nameInput.value);
+  signBtn.disabled = !valid;
+  hint.textContent = valid ? '' : 'Please enter your first and last name.';
+  hint.className = 'signature-hint' + (nameInput.value && !valid ? ' error' : '');
+});
+
+async function handleSign() {
+  const fullName = nameInput.value.trim().replace(/\s+/g, ' ');
+  if (!isValidFullName(fullName)) return;
+
+  signBtn.disabled = true;
+  statusMsg.textContent = 'Recording your consent…';
+
+  const record = {
+    full_name: fullName,
+    consented: true,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const res = await fetch('/api/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+    });
+    if (!res.ok) throw new Error('Server responded ' + res.status);
+    showConfirmation(
+      'Thank you, ' + fullName.split(' ')[0] + '.',
+      'Your consent has been recorded. You will now be redirected to the study.'
+    );
+    setTimeout(() => { window.location.href = CONTINUE_URL; }, 1800);
+  } catch (e) {
+    statusMsg.textContent = 'Could not record consent — please try again. (' + e.message + ')';
+    signBtn.disabled = false;
+  }
+}
+
+function handleDecline() {
+  showConfirmation(
+    'No problem.',
+    'You have chosen not to participate in this study. Please contact your instructor for information about the alternative assignment.'
+  );
+}
+
+function showConfirmation(title, message) {
+  document.getElementById('consent-page').style.display = 'none';
+  document.getElementById('confirm-screen').style.display = 'flex';
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+}
+</script>
+</body>
+</html>

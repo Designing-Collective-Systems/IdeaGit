@@ -52,7 +52,8 @@ const S = {
   currentNodeId: null,
   currentGroupId: null,
   activityLog: [],
-  selfReportData: null, // populated when self-report is submitted; exported only via Export CSV
+  selfReportData: null, // populated when self-report is submitted (also used to prefill if reopened)
+  participantId: '',    // entered on the landing page (app3/app4); identifies this participant in the database
 };
 
 // ── Utilities ─────────────────────────────────────────────────
@@ -88,6 +89,7 @@ function addNode(node){
   S.nodes.push(node);
   S.currentNodeId=node.id;
   S.currentGroupId=node.groupId;
+  queueSync();
   return node;
 }
 function curNode(){ return S.nodes.find(n=>n.id===S.currentNodeId); }
@@ -212,12 +214,13 @@ function computeLayout(gid){
   return pos;
 }
 
-function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick}){
+function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hoverMode}){
   const nodesEl=document.getElementById(nodesId);
   const svg=document.getElementById(svgId);
   const emptyEl=document.getElementById(emptyId);
   if(!nodesEl||!svg) return;
   nodesEl.innerHTML=''; svg.innerHTML='';
+  if(hoverMode) hideTreeTooltip();
   if(!S.currentGroupId){ if(emptyEl) emptyEl.style.display='flex'; return; }
   const gNodes=S.nodes.filter(n=>n.groupId===S.currentGroupId);
   if(!gNodes.length){ if(emptyEl) emptyEl.style.display='flex'; return; }
@@ -250,7 +253,20 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick}){
     const el=document.createElement('div');
     el.className=`tree-node ${tc}${isCur?' current':''}`;
     el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`<div class="tree-node-inner"><div class="tree-node-type" style="color:${typeColor}">${typeLabel}</div><div class="tree-node-title">${esc(node.title||'(untitled)')}</div></div>`;
+    if(hoverMode){
+      // Compact node: only the tag (plus "Finalized" on its own line above it).
+      // The idea's title and description appear in a tooltip on hover.
+      const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                     node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+      el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+        (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
+        `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`;
+      el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
+      el.addEventListener('mousemove',moveTreeTooltip);
+      el.addEventListener('mouseleave',hideTreeTooltip);
+    } else {
+      el.innerHTML=`<div class="tree-node-inner"><div class="tree-node-type" style="color:${typeColor}">${typeLabel}</div><div class="tree-node-title">${esc(node.title||'(untitled)')}</div></div>`;
+    }
     if(onNodeClick) el.addEventListener('click',()=>onNodeClick(node.id));
     nodesEl.appendChild(el);
   });
@@ -317,6 +333,7 @@ function exportCSV(){
 
 // ── Navigation ─────────────────────────────────────────────────
 function goHome(){
+  if(S.participantId) return; // participants stay on their own condition's page
   if(S.nodes.length&&!confirm('Go back? Export first if you want to save.')) return;
   window.location.href='/';
 }
@@ -516,7 +533,7 @@ function srShowPage(n){
 }
 function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPage<total-1) srShowPage(_srPage+1); }
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
-function srSubmit(){
+async function srSubmit(){
   const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
   // Validate all fields are filled before allowing submission
   const hasEmpty=finalized.some((_,i)=>{
@@ -530,11 +547,22 @@ function srSubmit(){
     return ta?ta.value.trim():'';
   });
 
-  // Store self-report data in S — exported later only when "Export CSV" is clicked
-  S.selfReportData = { finalized, aiUses };
+  const btn=document.querySelector('.sr-foot .btn-green');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
 
+  // Attach each answer to its idea, and clear any answer left on an idea that is no longer finalized
+  S.nodes.forEach(n=>{ n.selfReportAiUse=''; });
+  finalized.forEach((n,i)=>{ n.selfReportAiUse=aiUses[i]; });
+  S.selfReportData={ finalized, aiUses }; // kept so the form is prefilled if reopened
+
+  const ok=await syncNow();
+  if(!ok){
+    if(btn){ btn.disabled=false; btn.textContent='Submit Self-Reports'; }
+    toast('Could not save your responses. Check your connection and try again.','var(--red)');
+    return;
+  }
   document.getElementById('self-report-modal').style.display='none';
-  toast('Self-report saved. Click "Export CSV" to download your files.','var(--green)');
+  toast('Your responses have been saved. Thank you!','var(--green)');
 }
 function closeSelfReport(){
   document.getElementById('self-report-modal').style.display='none';
@@ -546,4 +574,103 @@ function markUnfinalized(nodeId){
   node.isFinalized=false;
   node.meta=node.meta||{};
   node.meta._wasFinalized=true;
+  queueSync();
+}
+
+// ── Landing page (app3 / app4): collect the participant ID ─────
+function initLanding(){
+  const input=document.getElementById('participant-id-input');
+  const btn=document.getElementById('btn-begin');
+  if(!input||!btn) return;
+  input.addEventListener('input',()=>{ btn.disabled=!input.value.trim(); });
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter') beginStudy(); });
+  input.focus();
+}
+function beginStudy(){
+  const input=document.getElementById('participant-id-input');
+  const id=(input&&input.value||'').trim();
+  if(!id) return;
+  S.participantId=id;
+  document.getElementById('page-landing').style.display='none';
+  document.getElementById('page-ideation').style.display='flex';
+  if(typeof onStudyBegin==='function') onStudyBegin();
+}
+
+// ── Tree node labels + hover tooltip (used when hoverMode is on) ──
+function nodeTagLabel(node){
+  const t=node.tag;
+  return t==='ai-generated'?'AI Creation':t==='user-created'?'Manual Creation':
+         t==='manual-modification'?'Manual Modification':'AI Modification';
+}
+function _treeTooltipEl(){
+  let t=document.getElementById('tree-tooltip');
+  if(!t){
+    t=document.createElement('div'); t.id='tree-tooltip'; t.className='tree-tooltip';
+    document.body.appendChild(t);
+  }
+  return t;
+}
+function showTreeTooltip(node,e){
+  const t=_treeTooltipEl();
+  t.innerHTML=`<div class="tree-tooltip-title">${esc(node.title||'(untitled)')}</div><div class="tree-tooltip-body">${esc(node.body||'')}</div>`;
+  t.style.display='block';
+  moveTreeTooltip(e);
+}
+function moveTreeTooltip(e){
+  const t=document.getElementById('tree-tooltip'); if(!t||t.style.display==='none') return;
+  const gap=16, w=t.offsetWidth, h=t.offsetHeight;
+  let x=e.clientX+gap, y=e.clientY+gap;
+  if(x+w>window.innerWidth-8)  x=e.clientX-w-gap;   // flip to the left of the cursor
+  if(y+h>window.innerHeight-8) y=e.clientY-h-gap;   // flip above the cursor
+  t.style.left=Math.max(8,x)+'px'; t.style.top=Math.max(8,y)+'px';
+}
+function hideTreeTooltip(){
+  const t=document.getElementById('tree-tooltip'); if(t) t.style.display='none';
+}
+
+// ── Database sync (saved through the server into Postgres) ─────
+// Only runs once a participant ID has been entered, so app1/app2 are unaffected.
+let _syncTimer=null, _retryTimer=null, _saveWarned=false, _syncChain=Promise.resolve(true);
+const _synced={}; // node_id -> JSON of the last version the server confirmed
+
+function nodeToRow(n){
+  return {
+    node_id:n.id, group_id:n.groupId, parent_id:n.parentId||null,
+    type:n.type, tag:n.tag, title:n.title||'', body:n.body||'',
+    is_finalized:!!n.isFinalized, user_prompt:n.userPrompt||'', ai_response:n.aiResponse||'',
+    extras:n.extras||[], self_report_ai_use:n.selfReportAiUse||'', created_at_ms:n.ts,
+  };
+}
+async function _doSync(){
+  if(!S.participantId) return true;
+  const changed=S.nodes.map(nodeToRow).filter(r=>_synced[r.node_id]!==JSON.stringify(r));
+  if(!changed.length) return true;
+  try{
+    const res=await fetch('/api/save-nodes',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({participant_id:S.participantId, condition:S.condition, nodes:changed}),
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    changed.forEach(r=>{ _synced[r.node_id]=JSON.stringify(r); });
+    return true;
+  }catch(e){ console.error('Save failed:',e); return false; }
+}
+// Saves are chained so an older snapshot can never overwrite a newer one.
+function syncNow(){
+  clearTimeout(_syncTimer);
+  _syncChain=_syncChain.then(_doSync,_doSync);
+  return _syncChain;
+}
+function queueSync(){
+  if(!S.participantId) return;
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(retrySync,500);
+}
+function retrySync(){
+  clearTimeout(_retryTimer);
+  syncNow().then(ok=>{
+    if(ok){ _saveWarned=false; return; }
+    if(!_saveWarned){ _saveWarned=true; toast('Having trouble saving. Your work stays on screen and saving will keep retrying.','var(--amber)'); }
+    _retryTimer=setTimeout(retrySync,5000);
+  });
 }

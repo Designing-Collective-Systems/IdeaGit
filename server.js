@@ -6,11 +6,13 @@
 
 const express = require('express');
 const path    = require('path');
+const { initDb, saveNodes, dbConfigured } = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// Idea snapshots include AI responses, so allow larger bodies than Express's 100kb default
+app.use(express.json({ limit: '5mb' }));
 
 // Serve static assets (CSS, JS etc) but suppress automatic index.html
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
@@ -46,6 +48,30 @@ app.post('/api/claude', async (req, res) => {
   }
 });
 
+// ── Save ideas + self-reports to Postgres ─────────────────────
+app.post('/api/save-nodes', async (req, res) => {
+  if (!dbConfigured()) {
+    return res.status(503).json({ error: 'Database is not configured (DATABASE_URL is missing).' });
+  }
+  const { participant_id, condition, nodes } = req.body || {};
+  if (typeof participant_id !== 'string' || !participant_id.trim() || participant_id.length > 100) {
+    return res.status(400).json({ error: 'participant_id is required (max 100 characters).' });
+  }
+  if (!Array.isArray(nodes) || nodes.length === 0 || nodes.length > 500) {
+    return res.status(400).json({ error: 'nodes must be a non-empty array (max 500).' });
+  }
+  if (nodes.some(n => !n || typeof n.node_id !== 'string' || !n.node_id)) {
+    return res.status(400).json({ error: 'Every node needs a node_id.' });
+  }
+  try {
+    await saveNodes(participant_id.trim(), condition, nodes);
+    res.json({ ok: true, saved: nodes.length });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // Landing page at root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
@@ -65,6 +91,8 @@ app.get('*', (req, res) => {
   res.redirect('/');
 });
 
-app.listen(PORT, () => {
-  console.log(`IdeaGit running on port ${PORT}`);
-});
+initDb()
+  .catch(err => console.error('Could not initialise the database:', err.message))
+  .finally(() => {
+    app.listen(PORT, () => console.log(`IdeaGit running on port ${PORT}`));
+  });

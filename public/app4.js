@@ -4,34 +4,16 @@
 S.condition = "AI-Assisted Structured Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <ol style="padding-left:20px;line-height:2">
-    <li><strong>In the chat panel (right):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>Click "Create Idea Manually" or "Generate Idea with AI" to generate a new idea.</li>
-    <li>Chat with the AI to further modify the idea, get feedback, or ask questions.</li>
-    <li>Click "Finalize" when satisfied with an idea.</li>
-    <li>Reply to any chat bubble (&#x21A9;) to branch from that specific version.</li>
-    <li>Click "+ New Idea" to start a fresh idea.</li>
-    </ul>      
-    <li><strong>In the process tree panel (left):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>You can find the evolution of your ideas in the form of a tree structure</li>
-    <li>A new node is created each time an idea is created or modified.</li>
-    <li>Click on a node to modify with that version of the idea.</li>
-    </ul>
-    <li><strong>In the current ideas panel (middle):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>You can find ideas that are finalized or in-progress.</li>
-    <li>Click any idea to switch to it.</li>
-    </ul>     
-    <li><strong>In the navigation panel (top):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>Click on the "Done with Task" button when you are done brainstorming at least three ideas.</li>
-    <li>Click on the "Export CSV" button to export your ideas. Please press this button at the end of the task (after clicking "Done with Task").</li>
-    </ul> 
+  <p>IdeaGit has three components</p>
+  <ol>
+    <li>A chat panel where you can brainstorm with AI</li>
+    <li>An idea tree panel that tracks how your ideas evolve</li>
+    <li>A current ideas panel that tracks different in-progress or finalized ideas</li>
   </ol>`;
 
-document.addEventListener('DOMContentLoaded', ()=>{ startIdeation(); openInstructions(); });
+// The landing page collects the participant ID first; the ideation screen starts once they begin.
+document.addEventListener('DOMContentLoaded', initLanding);
+function onStudyBegin(){ startIdeation(); openInstructions(); }
 
 function startIdeation(){
   S.challenge=FIXED_CHALLENGE;
@@ -46,7 +28,7 @@ let _replyToNodeId=null;
 function renderAll(){
   renderIdeasList('ideas-list','ideas-empty',selectIdea);
   renderTreeInto({svgId:'tree-svg',nodesId:'tree-nodes',emptyId:'tree-empty',
-    labelId:'tree-label',canvasId:'tree-canvas',onNodeClick:selectIdea});
+    canvasId:'tree-canvas',onNodeClick:selectIdea,hoverMode:true});
   updateFinalizedCounter();
 }
 
@@ -124,7 +106,14 @@ function submitManualModify(){
   addNode(node); updateChatHeader(); rebuildChat(node.id); renderAll(); toast('Idea updated');
 }
 
-function finalizeCurrentIdea(){ const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return; node.isFinalized=!node.isFinalized; updateChatHeader(); updateFinalizedCounter(); renderAll(); if(node.isFinalized) checkThreeDone(); toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)'); }
+function finalizeCurrentIdea(){
+  const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
+  if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
+  updateChatHeader(); updateFinalizedCounter(); renderAll();
+  if(node.isFinalized) checkThreeDone();
+  queueSync();
+  toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');
+}
 function startNewIdea(){ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; renderAll(); }
 
 function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChatMessage(); } }
@@ -165,11 +154,13 @@ async function processMessage(msg,type){
         aiText=await callClaude([...history,{role:'user',content:user}],system);
         const idx=parent.extras.length; parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
         appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
+        queueSync();
       } else {
         const sys=PROMPTS.clarificationChat(parent.title,parent.body,S.challenge);
         aiText=await callClaude([...history,{role:'user',content:msg}],sys);
         const idx=parent.extras.length; parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
         appendToChat(makeMsgBubble('assistant',aiText,parent.id,idx));
+        queueSync();
       }
     }
   }catch(e){ appendToChat(makeMsgBubble('assistant','Error: '+e.message)); }

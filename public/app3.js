@@ -4,28 +4,15 @@
 S.condition = "AI-Assisted Ideation";
 
 window.CONDITION_INSTRUCTIONS = `
-  <ol style="padding-left:20px;line-height:2">
-    <li><strong>In the chat panel (right):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>Click "Create Idea Manually" or "Generate Idea with AI" to generate a new idea.</li>
-    <li>Chat with the AI to further modify the idea, get feedback, or ask questions.</li>
-    <li>Click "Finalize" when satisfied with an idea.</li>
-    <li>Reply to any chat bubble (&#x21A9;) to branch from that specific version.</li>
-    <li>Click "+ New Idea" to start a fresh idea.</li>
-    </ul>    
-    <li><strong>In the current ideas panel (left):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>You can find ideas that are finalized or in-progress.</li>
-    <li>Click any idea to switch to it.</li>
-    </ul>     
-    <li><strong>In the navigation panel (top):</strong></li>
-    <ul style="padding-left:20px;line-height:2">
-    <li>Click on the "Done with Task" button when you are done brainstorming at least three ideas.</li>
-    <li>Click on the "Export CSV" button to export your ideas. Please press this button at the end of the task (after clicking "Done with Task").</li>
-    </ul> 
+  <p>IdeaGit has two components</p>
+  <ol>
+    <li>A chat panel where you can brainstorm with AI</li>
+    <li>A current ideas panel that tracks different in-progress or finalized ideas</li>
   </ol>`;
 
-document.addEventListener('DOMContentLoaded', ()=>{ startIdeation(); openInstructions(); });
+// The landing page collects the participant ID first; the ideation screen starts once they begin.
+document.addEventListener('DOMContentLoaded', initLanding);
+function onStudyBegin(){ startIdeation(); openInstructions(); }
 
 function startIdeation(){
   S.challenge = FIXED_CHALLENGE;
@@ -185,6 +172,7 @@ function finalizeCurrentIdea(){
   if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
   updateChatHeader(); updateFinalizedCounter(); renderIdeasPanel();
   if(node.isFinalized) checkThreeDone();
+  queueSync();
   toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');
 }
 function startNewIdea(){ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; renderIdeasPanel(); }
@@ -240,12 +228,14 @@ async function processMessage(msg,type){
         const idx=parent.extras.length;
         parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
         appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
+        queueSync();
       } else {
         const sys=PROMPTS.clarificationChat(parent.title,parent.body,S.challenge);
         aiText=await callClaude([...history,{role:'user',content:msg}],sys);
         const idx=parent.extras.length;
         parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
         appendToChat(makeMsgBubble('assistant',aiText,parent.id,idx));
+        queueSync();
       }
     }
   }catch(e){ appendToChat(makeMsgBubble('assistant','Error: '+e.message)); }
