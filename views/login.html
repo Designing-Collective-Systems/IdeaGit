@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaGit</title>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<div id="page-landing">
+  <div class="landing-card">
+    <h1 class="landing-title">IdeaGit</h1>
+    <p class="landing-tagline">IdeaGit is a tool with which you can brainstorm with AI and track your ideation process</p>
+
+    <div class="auth-tabs" role="tablist" aria-label="Log in or create an account">
+      <button type="button" role="tab" id="tab-login" class="auth-tab is-active" aria-selected="true" aria-controls="form-login">Log in</button>
+      <button type="button" role="tab" id="tab-register" class="auth-tab" aria-selected="false" aria-controls="form-register" tabindex="-1">Create account</button>
+    </div>
+
+    <form id="form-login" class="auth-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+      <div class="field-group">
+        <label class="landing-label" for="login-username">Username</label>
+        <input id="login-username" class="field-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40"/>
+      </div>
+      <div class="field-group">
+        <label class="landing-label" for="login-password">Password</label>
+        <input id="login-password" class="field-input" type="password" autocomplete="current-password" maxlength="200"/>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-login">Log in</button>
+    </form>
+
+    <form id="form-register" class="auth-form" role="tabpanel" aria-labelledby="tab-register" novalidate hidden>
+      <div class="field-group">
+        <label class="landing-label" for="register-username">Choose a username</label>
+        <input id="register-username" class="field-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" aria-describedby="hint-username"/>
+        <span class="field-hint" id="hint-username">3 to 40 characters: letters, numbers, dots, dashes or underscores</span>
+      </div>
+      <div class="field-group">
+        <label class="landing-label" for="register-password">Choose a password</label>
+        <input id="register-password" class="field-input" type="password" autocomplete="new-password" maxlength="200" aria-describedby="hint-password"/>
+        <span class="field-hint" id="hint-password">At least 8 characters</span>
+      </div>
+      <div class="field-group">
+        <label class="landing-label" for="register-password2">Confirm password</label>
+        <input id="register-password2" class="field-input" type="password" autocomplete="new-password" maxlength="200"/>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-register">Create account</button>
+    </form>
+
+    <p id="auth-message" class="auth-message" role="alert" aria-live="polite"></p>
+  </div>
+</div>
+
+<script>
+// The study link a participant used (/app1 or /app2) arrives as ?next=; the server
+// checks it against an allow-list and remembers it as their assigned version.
+const NEXT = new URLSearchParams(location.search).get('next') || '';
+const $ = id => document.getElementById(id);
+const messageEl = $('auth-message');
+
+function showMessage(text, kind) {
+  messageEl.textContent = text || '';
+  messageEl.className = 'auth-message' + (text ? ' is-' + (kind || 'error') : '');
+}
+
+function setTab(which, focusTab) {
+  const login = which === 'login';
+  $('form-login').hidden = !login;
+  $('form-register').hidden = login;
+  $('tab-login').classList.toggle('is-active', login);
+  $('tab-register').classList.toggle('is-active', !login);
+  $('tab-login').setAttribute('aria-selected', String(login));
+  $('tab-register').setAttribute('aria-selected', String(!login));
+  $('tab-login').tabIndex = login ? 0 : -1;
+  $('tab-register').tabIndex = login ? -1 : 0;
+  showMessage('');
+  if (focusTab) $(login ? 'tab-login' : 'tab-register').focus();
+  else $(login ? 'login-username' : 'register-username').focus();
+}
+$('tab-login').addEventListener('click', () => setTab('login'));
+$('tab-register').addEventListener('click', () => setTab('register'));
+document.querySelector('.auth-tabs').addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') setTab(e.target.id === 'tab-login' ? 'register' : 'login', true);
+});
+
+async function submitAuth(url, payload, button, idleLabel) {
+  showMessage('');
+  button.disabled = true;
+  button.textContent = 'Please wait…';
+  let leaving = false;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, next: NEXT }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showMessage(data.error || 'Something went wrong. Please try again.'); return; }
+    if (data.redirect) { leaving = true; window.location.href = data.redirect; return; }
+    showMessage(data.message || 'You are logged in.', 'notice');
+  } catch (e) {
+    showMessage('Could not reach the server. Check your connection and try again.');
+  } finally {
+    if (!leaving) { button.disabled = false; button.textContent = idleLabel; }
+  }
+}
+
+$('form-login').addEventListener('submit', e => {
+  e.preventDefault();
+  const username = $('login-username').value.trim();
+  const password = $('login-password').value;
+  if (!username || !password) { showMessage('Please enter your username and password.'); return; }
+  submitAuth('/api/login', { username, password }, $('btn-login'), 'Log in');
+});
+
+$('form-register').addEventListener('submit', e => {
+  e.preventDefault();
+  const username = $('register-username').value.trim();
+  const password = $('register-password').value;
+  if (!/^[A-Za-z0-9._-]{3,40}$/.test(username)) {
+    showMessage('Choose a username of 3 to 40 characters using letters, numbers, dots, dashes or underscores.'); return;
+  }
+  if (password.length < 8) { showMessage('Your password must be at least 8 characters.'); return; }
+  if (password !== $('register-password2').value) { showMessage('The two passwords do not match.'); return; }
+  submitAuth('/api/register', { username, password }, $('btn-register'), 'Create account');
+});
+
+$('login-username').focus();
+</script>
+</body>
+</html>
