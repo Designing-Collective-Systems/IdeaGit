@@ -453,4 +453,5 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:ig-spin .8s linear infinite}
 @keyframes ig-spin{to{transform:rotate(360deg)}}
 .loading-error{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:420px}
+.nav-account{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .nav-user{font-size:0.85rem;color:var(--text2);padding:0 4px}

@@ -124,7 +124,8 @@
 <div id="confirm-screen">
   <h2 id="confirm-title">Thank you</h2>
   <p id="confirm-message"></p>
-  <button class="btn btn-primary" id="btn-logout" style="display:none" onclick="logoutNow()">Log out</button>
+  <button class="btn btn-primary" id="btn-start" style="display:none" onclick="goToStudy()">Start →</button>
+  <button class="btn btn-outline" id="btn-logout" style="display:none" onclick="logoutNow()">Log out</button>
 </div>
 
 <script>
@@ -167,9 +168,10 @@ async function handleSign() {
     if (!res.ok) throw new Error(data.error || ('Server responded ' + res.status));
     showConfirmation(
       'Thank you, ' + fullName.split(' ')[0] + '.',
-      'Your consent has been recorded. You will now be redirected to the study.'
+      'Your consent has been recorded. Click Start when you are ready to begin.'
     );
-    setTimeout(() => { window.location.href = data.redirect || '/'; }, 1800);
+    _startUrl = data.redirect || '/';
+    document.getElementById('btn-start').style.display = 'inline-flex';
   } catch (e) {
     statusMsg.textContent = 'Could not record consent — please try again. (' + e.message + ')';
     signBtn.disabled = false;
@@ -186,6 +188,11 @@ function handleDecline() {
 
 function logoutNow() {
   fetch('/api/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; });
+}
+
+let _startUrl = null;
+function goToStudy() {
+  if (_startUrl) window.location.href = _startUrl;
 }
 
 function showConfirmation(title, message) {

@@ -115,20 +115,17 @@ const USERNAME_RE = /^[A-Za-z0-9._-]{3,40}$/;
 const nextToApp = next => (next === '/app1' ? 'app1' : next === '/app2' ? 'app2' : null); // allow-list: no open redirects
 const CONDITIONS = new Map([['app1', 'AI_only'], ['app2', 'IdeaGit']]); // app -> value stored in study_condition
 
-// Where a logged-in user goes next: consent first (once), then the app they came for
-// (or, if they arrived without a study link, the app they used last)
+// Where a logged-in user goes next: consent first (once), then the app they asked
+// for. Without a study link, a returning participant goes back to the app they
+// used last; only someone with no app history yet (a brand-new account, or an
+// existing one that has somehow never opened either app) defaults to app2.
+const DEFAULT_APP = 'app2';
 function destinationFor(user, nextApp) {
-  const target = nextApp || user.last_app;
-  if (!target) return null;
+  const target = nextApp || user.last_app || DEFAULT_APP;
   return user.consented ? '/' + target : '/consent?next=' + encodeURIComponent('/' + target);
 }
 function authResponse(user, nextApp) {
-  const redirect = destinationFor(user, nextApp);
-  if (redirect) return { ok: true, redirect };
-  return {
-    ok: true, redirect: null,
-    message: 'You are logged in, but this page does not say which version of the study to open. Please use the link your researcher gave you.',
-  };
+  return { ok: true, redirect: destinationFor(user, nextApp) };
 }
 
 function requireUser(req, res, next) {
