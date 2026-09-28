@@ -23,14 +23,15 @@
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
       <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions for using IdeaGit</button>
+      <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">AI Chat <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button></div>
+      <div class="panel-header">AI Chat</div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
-          <p style="white-space:nowrap">Choose how to create your idea.</p>
+          <p style="white-space:nowrap">Choose how to create your idea</p>
           <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
           <button class="btn btn-teal" onclick="startAICreate()">Generate Idea with AI</button>
         </div>
@@ -70,7 +71,7 @@
     <div class="panel">
       <div class="panel-header">Current Ideas</div>
       <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet.</span></div></div>
+        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet</span></div></div>
       </div>
     </div>
   </div>
@@ -135,15 +136,15 @@
       <p><strong>Instructions for the task</strong></p>
       <ol>
         <li>This task will provide you a design challenge.</li>
-        <li>Your goal is to write at least three ideas within 15 minutes. The research team member will start the timer after you have read the instructions.</li>
+        <li>Your goal is to write at least three ideas within 15 minutes. The timer starts after you read the Design Challenge.</li>
         <li>Your ideas need to meet the requirements of the design challenge.</li>
         <li>Your goal is NOT to complete the task as quickly as possible.</li>
       </ol>
       <p><strong>Design challenge:</strong></p>
-      <p><strong>Prompt:</strong> You are a designer tasked with designing a smartphone feature to reduce how much time users spend “doom-scrolling”. Doom-scrolling refers to compulsive, endless scrolling, often performed on social media.</p>
-      <p>If you don't know what doomscolling is, please let the researcher know</p>
-      <p><strong>Constraints:</strong> Any feature you propose should not turn off the phone, delete apps, or block the user from using an app.</p>
-      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement your ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
+      <p><strong>Setup:</strong> You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. A feature is a specific function built into a product that it performs or lets the user perform, such as spell check underlining misspelled words in a word processor or a microwave's popcorn button setting the right cooking time automatically. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p>If you don't know what compulsive-scrolling is, please let the researcher know.</p>
+      <p><strong>Constraints:</strong> Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
+      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>
   </div>

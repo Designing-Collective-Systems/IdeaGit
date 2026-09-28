@@ -411,9 +411,6 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .landing-card .btn{align-self:flex-start;padding:11px 28px;font-size:1rem}
 .landing-card .btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
-/* ── Button inside a panel header (Details about the design challenge) ── */
-.panel-header .btn{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
-
 /* ── Idea Tree: compact nodes (tag only) + hover tooltip ────── */
 .tree-node-inner.tree-node-compact{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:4px 4px}
 .tree-node-inner.tree-node-compact .tree-node-type{margin-bottom:0;text-transform:none;letter-spacing:0;font-size:0.8rem;font-weight:700;white-space:nowrap}
@@ -427,3 +424,11 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 /* ── Instructions popup (app3/app4): wide enough that every instruction stays on one line ── */
 .modal.instructions-wide{width:fit-content;min-width:min(520px,92vw);max-width:96vw}
 .instructions-wide .instructions-body li{white-space:nowrap}
+
+/* ── Idea Tree (app4): a selected node is highlighted in its own colour ─────
+   Before, every selected node got a blue background whatever its type.
+   Blue = AI nodes, yellow = manual creation, amber = manual modification, green = finalized. */
+.tree-node.current .tree-node-compact{background:var(--blue-lt);border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.tree-node.current.t-creation .tree-node-compact{background:var(--yellow-lt);border-color:var(--yellow);box-shadow:0 0 0 3px rgba(202,138,4,.22)}
+.tree-node.current.t-manual .tree-node-compact{background:var(--amber-lt);border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,119,6,.22)}
+.tree-node.current.t-finalized .tree-node-compact{background:var(--green-lt);border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.20)}
