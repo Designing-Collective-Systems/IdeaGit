@@ -166,6 +166,8 @@ function renderIdeasList(containerId,emptyId,onSelect){
     if(emptyEl) emptyEl.style.display='flex'; return;
   }
   if(emptyEl) emptyEl.style.display='none';
+  const instr=document.createElement('p'); instr.className='panel-instruction-inline'; instr.textContent='Click on any idea to work on it';
+  area.appendChild(instr);
   if(finalized.length){
     const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='Finalized';
     area.appendChild(l); finalized.forEach(n=>area.appendChild(makeIdeaCard(n,'finalized',onSelect)));
@@ -228,6 +230,8 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   const svg=document.getElementById(svgId);
   const emptyEl=document.getElementById(emptyId);
   if(!nodesEl||!svg) return;
+  const instrEl=document.getElementById('tree-instruction');
+  if(instrEl) instrEl.style.display=S.nodes.length?'block':'none';
   nodesEl.innerHTML=''; svg.innerHTML='';
   if(hoverMode) hideTreeTooltip();
   if(!S.currentGroupId){ if(emptyEl) emptyEl.style.display='flex'; return; }

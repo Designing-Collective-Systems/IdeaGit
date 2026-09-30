@@ -96,7 +96,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 /* Process tree */
 .tree-area{flex:1;position:relative;overflow:hidden;cursor:grab;background:var(--bg);min-height:0}
 .tree-area.dragging{cursor:grabbing}
-.tree-canvas{position:absolute;top:0;left:0;transform-origin:0 0}
+.tree-canvas{position:absolute;top:44px;left:0;transform-origin:0 0}
 .tree-canvas svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
 .tree-canvas>div{position:relative}
 .tree-node{position:absolute;width:165px;transform:translate(-50%,0);cursor:pointer;user-select:none}
@@ -456,3 +456,9 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .generate-prompt-title{display:block;text-align:left;font-size:0.8182rem;font-weight:600;color:var(--text2)}
 .generate-prompt-textarea{width:100%;flex:1;min-height:220px;box-sizing:border-box}
 #btn-generate-confirm{margin-top:auto;align-self:center}
+
+/* ── Small instruction line above the ideas list / process tree ──── */
+.panel-instruction-inline{flex-shrink:0;margin:10px 14px 6px;font-size:0.75rem;color:var(--text3);font-style:italic}
+/* Inside the Idea Tree panel the canvas is absolutely positioned, so this needs
+   its own stacking to sit above it rather than being pushed down in normal flow. */
+#tree-instruction{position:absolute;top:8px;left:0;right:0;z-index:5;margin:0;padding:6px 14px;background:var(--bg)}
