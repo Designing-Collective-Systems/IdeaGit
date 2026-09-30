@@ -435,3 +435,16 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-node.current.t-creation .tree-node-compact{background:var(--yellow-lt);border-color:var(--yellow);box-shadow:0 0 0 3px rgba(202,138,4,.22)}
 .tree-node.current.t-manual .tree-node-compact{background:var(--amber-lt);border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,119,6,.22)}
 .tree-node.current.t-finalized .tree-node-compact{background:var(--green-lt);border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.20)}
+
+/* ── Instructions modal: grid mirrors the actual panel layout ────── */
+.instructions-heading{text-align:center;font-weight:700;font-size:1.05em;margin-bottom:14px}
+.instructions-grid{display:grid;gap:14px}
+.instructions-grid-2{grid-template-columns:1fr 1fr}
+.instructions-grid-3{grid-template-columns:1fr 1fr 1fr}
+.instructions-col{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;line-height:1.55;text-align:center}
+@media(max-width:640px){.instructions-grid-2,.instructions-grid-3{grid-template-columns:1fr}}
+
+/* ── Design challenge summary box (Current Ideas panel) ──────────── */
+.challenge-summary-box{flex-shrink:0;margin:12px 14px 0;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)}
+.challenge-summary-box p{font-size:0.8636rem;line-height:1.55;color:var(--text2);margin:0 0 6px}
+.challenge-summary-box p:last-child{margin-bottom:0}

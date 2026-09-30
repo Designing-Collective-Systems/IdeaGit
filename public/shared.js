@@ -349,7 +349,7 @@ function goHome(){
 
 // ── Instructions ───────────────────────────────────────────────
 function openInstructions(){
-  document.getElementById('instructions-head').textContent='Instructions for using IdeaGit';
+  document.getElementById('instructions-head').textContent='Summary of IdeaGit';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
@@ -741,8 +741,17 @@ function selectIdea(nodeId){
 }
 
 // ── Chat display ──────────────────────────────────────────────
-function showChatInitial(){ document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none'; setNewIdeaButtonsVisible(false); }
-function showChatActive(){ document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex'; setNewIdeaButtonsVisible(true); }
+function showChatInitial(){
+  document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none';
+  setNewIdeaButtonsVisible(false);
+  document.querySelectorAll('.btn-create-manual').forEach(b=>{ b.style.display=''; });
+  startAICreate(); // the AI-generate prompt is offered automatically; Cancel falls back to manual creation
+}
+function showChatActive(){
+  document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex';
+  setNewIdeaButtonsVisible(true);
+  document.querySelectorAll('.btn-create-manual').forEach(b=>{ b.style.display='none'; });
+}
 // "+ New Idea" only makes sense once an idea is loaded; hidden at the very
 // start and again after clicking it, until another idea is created/selected.
 function setNewIdeaButtonsVisible(show){

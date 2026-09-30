@@ -22,18 +22,16 @@
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Instructions for using IdeaGit</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaGit</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-create-manual" onclick="startManualCreate()">Create Idea Manually</button><button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
-          <p style="white-space:nowrap">Choose how to create your idea</p>
-          <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
-          <button class="btn btn-blue2" onclick="startAICreate()">Generate Idea with AI</button>
+          <p>Create and idea using AI or manually</p>
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
@@ -50,14 +48,19 @@
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
         </div>
         <div class="chat-input-row">
-          <textarea id="chat-input" placeholder="Type a message…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+          <textarea id="chat-input" placeholder="Ask the AI to modify the current idea, provide feedback, or clarify any questions about the design challenge" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
           <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
         </div>
       </div>
     </div>
     <div class="panel">
       <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
-      <div class="ideas-area" id="ideas-list">
+      <div class="challenge-summary-box">
+          <p>1. You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”.</p>
+          <p>2. Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
+          <p>3. Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</p>
+        </div>
+        <div class="ideas-area" id="ideas-list">
         <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet</span></div></div>
       </div>
     </div>
@@ -106,7 +109,6 @@
     <div class="modal-head">Please confirm the prompt used to generate the idea</div>
     <div class="modal-body">
       <div class="field-group">
-        <label class="field-label">Prompt (you can edit this)</label>
         <textarea id="generate-prompt-text" class="field-textarea" rows="7"></textarea>
         <p class="field-error" id="generate-prompt-error" style="display:none"></p>
       </div>
