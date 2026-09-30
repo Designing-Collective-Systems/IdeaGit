@@ -451,6 +451,8 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .challenge-summary-box p:last-child{margin-bottom:0}
 
 /* ── Generate-with-AI, embedded inline in the AI Chat panel ───────── */
-.generate-inline{padding:20px;width:100%;box-sizing:border-box}
-.generate-inline-field{width:100%}
-.generate-prompt-textarea{width:100%;min-height:220px;box-sizing:border-box}
+.generate-inline{padding:20px;width:100%;box-sizing:border-box;height:100%;justify-content:flex-start;align-items:stretch}
+.generate-inline-field{width:100%;flex:1;display:flex;flex-direction:column;min-height:0}
+.generate-prompt-title{display:block;text-align:left;font-size:0.8182rem;font-weight:600;color:var(--text2)}
+.generate-prompt-textarea{width:100%;flex:1;min-height:220px;box-sizing:border-box}
+#btn-generate-confirm{margin-top:auto;align-self:center}

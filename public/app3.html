@@ -33,10 +33,11 @@
         <div class="empty-state-inner generate-inline">
           <p>Create an idea manually or using AI</p>
           <div class="field-group generate-inline-field">
+            <label class="generate-prompt-title">Please confirm the prompt used to generate the idea</label>
             <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
             <p class="field-error" id="generate-prompt-error" style="display:none"></p>
           </div>
-          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
+          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate with AI</button>
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
