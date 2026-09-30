@@ -30,8 +30,13 @@
     <div class="panel">
       <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-create-manual" onclick="startManualCreate()">Create Idea Manually</button><button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="chat-initial" id="chat-initial">
-        <div class="empty-state-inner">
-          <p>Create and idea using AI or manually</p>
+        <div class="empty-state-inner generate-inline">
+          <p>Create an idea manually or using AI</p>
+          <div class="field-group generate-inline-field">
+            <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
+            <p class="field-error" id="generate-prompt-error" style="display:none"></p>
+          </div>
+          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
@@ -48,7 +53,7 @@
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
         </div>
         <div class="chat-input-row">
-          <textarea id="chat-input" placeholder="Ask the AI to modify the current idea, provide feedback, or clarify any questions about the design challenge" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+          <textarea id="chat-input" placeholder="Ask the AI to modify the current idea, provide feedback, or clarify any questions about the design challenge…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
           <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
         </div>
       </div>
@@ -56,6 +61,7 @@
     <div class="panel">
       <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="challenge-summary-box">
+          <div class="challenge-summary-title">Summary of Design Challenge</div>
           <p>1. You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”.</p>
           <p>2. Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
           <p>3. Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</p>
@@ -102,18 +108,6 @@
       <div class="field-group"><label class="field-label">Description *</label><textarea id="modify-body" class="field-textarea" rows="6"></textarea></div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModifyModal()">Cancel</button><button class="btn btn-amber" onclick="submitManualModify()">Save Changes</button></div>
-  </div>
-</div>
-<div class="modal-overlay" id="modal-generate-confirm" style="display:none" onclick="if(event.target===this)cancelGenerateConfirm()">
-  <div class="modal modal-generate">
-    <div class="modal-head">Please confirm the prompt used to generate the idea</div>
-    <div class="modal-body">
-      <div class="field-group">
-        <textarea id="generate-prompt-text" class="field-textarea" rows="7"></textarea>
-        <p class="field-error" id="generate-prompt-error" style="display:none"></p>
-      </div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-outline" onclick="cancelGenerateConfirm()">Cancel</button><button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="self-report-modal" style="display:none">

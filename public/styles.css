@@ -221,7 +221,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .classify-option input[type="radio"]{margin-top:2px;accent-color:var(--blue);width:16px;height:16px}
 
 .chat-input-row{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
-.chat-input-row textarea{flex:1;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:0.9091rem;resize:none;min-height:72px;max-height:180px;outline:none;transition:border-color .15s;line-height:1.5}
+.chat-input-row textarea{flex:1;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:clamp(0.6rem,1.15vw + 0.35rem,0.9091rem);resize:none;min-height:72px;max-height:180px;outline:none;transition:border-color .15s;line-height:1.5}
 .chat-input-row textarea:focus{border-color:var(--blue)}
 
 /* Modals */
@@ -441,10 +441,16 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .instructions-grid{display:grid;gap:14px}
 .instructions-grid-2{grid-template-columns:1fr 1fr}
 .instructions-grid-3{grid-template-columns:1fr 1fr 1fr}
-.instructions-col{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;line-height:1.55;text-align:center}
+.instructions-col{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;line-height:1.55;text-align:center;white-space:nowrap;font-size:clamp(0.6rem,1.6vw,0.8636rem)}
 @media(max-width:640px){.instructions-grid-2,.instructions-grid-3{grid-template-columns:1fr}}
 
 /* ── Design challenge summary box (Current Ideas panel) ──────────── */
 .challenge-summary-box{flex-shrink:0;margin:12px 14px 0;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)}
+.challenge-summary-title{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:8px}
 .challenge-summary-box p{font-size:0.8636rem;line-height:1.55;color:var(--text2);margin:0 0 6px}
 .challenge-summary-box p:last-child{margin-bottom:0}
+
+/* ── Generate-with-AI, embedded inline in the AI Chat panel ───────── */
+.generate-inline{padding:20px;width:100%;box-sizing:border-box}
+.generate-inline-field{width:100%}
+.generate-prompt-textarea{width:100%;min-height:220px;box-sizing:border-box}

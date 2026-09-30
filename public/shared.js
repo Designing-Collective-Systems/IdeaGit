@@ -839,21 +839,20 @@ function submitManualCreate(){
   showChatActive(); updateChatHeader(); rebuildChat(node.id); refreshUI();
 }
 
-// ── Generate with AI: confirm/edit the prompt before sending ───
-// The prompt is validated against the challenge first (on-topic, single idea)
-// before anything is generated; the format instructions sent to the AI are
-// never shown to the participant, only the plain request they can edit.
+// ── Generate with AI: the prompt is embedded directly in the AI Chat panel
+// (shown whenever there's no current idea - at the start, and again after
+// "+ New Idea") rather than in a popup. It's validated against the challenge
+// first (on-topic, single idea) before anything is generated; the format
+// instructions sent to the AI are never shown to the participant.
 let _pendingGenerate=null;
 function startAICreate(){
   const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
   _pendingGenerate={system,hiddenSuffix};
-  document.getElementById('generate-prompt-text').value=editable;
+  const ta=document.getElementById('generate-prompt-text'); if(ta) ta.value=editable;
   setGeneratePromptError('');
   const btn=document.getElementById('btn-generate-confirm');
   if(btn){ btn.disabled=false; btn.textContent='Generate'; }
-  document.getElementById('modal-generate-confirm').style.display='flex';
 }
-function cancelGenerateConfirm(){ document.getElementById('modal-generate-confirm').style.display='none'; _pendingGenerate=null; }
 function setGeneratePromptError(msg){
   const el=document.getElementById('generate-prompt-error'); if(!el) return;
   el.textContent=msg; el.style.display=msg?'block':'none';
@@ -882,7 +881,6 @@ async function confirmGenerateConfirm(){
   }
 
   _pendingGenerate=null;
-  document.getElementById('modal-generate-confirm').style.display='none';
   showChatActive();
   const wrap=document.getElementById('chat-messages'); wrap.innerHTML='';
   appendToChat(makeMsgBubble('system-note','Generating idea…'));
