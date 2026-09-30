@@ -7,9 +7,9 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
 const FIXED_CHALLENGE = [
-  "Task: You are a designer tasked with designing a smartphone feature to reduce the duration and frequency of \u201cdoom-scrolling\u201d. Doom-scrolling refers to compulsive, endless scrolling, often on social media.",
-  "Constraints: The feature should not turn off the phone, delete apps, or block the user from using an app.",
-  "Scenario: Imagine you're pitching these ideas to a team that will implement your ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
+  "Setup: You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive-scrolling\u201d. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
+  "Constraints: Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.",
+  "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
 ].join("\n\n");
 
 const TASK_PREAMBLE_TEXT = 'For the following design challenge, please brainstorm and write down at least three ideas within 15 minutes (after you read the instructions). The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly. Please let the research team member know once you are done brainstorming ideas.';
@@ -60,6 +60,16 @@ const S = {
 // ── Utilities ─────────────────────────────────────────────────
 function uid(){ return 'n'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Defense-in-depth: the AI is told not to use markdown, but strip common
+// tokens anyway so a stray "**bold**" never shows up literally in the UI.
+function stripMarkdown(s){
+  return String(s||'')
+    .replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1')
+    .replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g,'$1')
+    .replace(/(?<!_)_(?!_)([^_\n]+?)_(?!_)/g,'$1')
+    .replace(/`([^`]+?)`/g,'$1')
+    .replace(/^#{1,6}\s+/gm,'').replace(/^[-*]\s+/gm,'');
+}
 function toast(msg,bg=''){
   const el=document.createElement('div'); el.className='toast';
   if(bg) el.style.background=bg; el.textContent=msg;
@@ -114,7 +124,7 @@ function existingSummary(){
   const roots=S.nodes.filter(n=>!n.parentId&&n.body);
   if(!roots.length) return '';
   return '\n\nExisting ideas (do NOT repeat):\n'+
-    roots.map((n,i)=>`${i+1}. "${n.title}" — ${n.body.slice(0,100)}`).join('\n');
+    roots.map((n,i)=>`${i+1}. ${n.body.slice(0,100)}`).join('\n');
 }
 
 // ── Ideas list ────────────────────────────────────────────────
@@ -410,7 +420,7 @@ function openSelfReport(){
       page.className='sr-page'; page.id=`sr-page-${i}`;
       page.style.display=i===0?'flex':'none';
       page.innerHTML=`
-        <h2 class="sr-page-title">Idea ${i+1}: <span class="sr-idea-title-inline">${esc(node.title)}</span></h2>
+        <h2 class="sr-page-title">Idea ${i+1}</h2>
         <div class="sr-question">
           <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
           <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
@@ -452,64 +462,66 @@ function srRenderContent(node){
   if(!node) return;
   const disp=document.getElementById('sr-idea-display'); if(!disp) return;
   if(_srSubTab==='chat'){
-    const path=getPath(node.id); let html='<div class="sr-chat-history">';
-    path.forEach(n=>{
-      if(n.type==='creation') html+=`<div class="sr-idea-bubble">${esc(n.body)}</div>`;
-      else if(n.type==='modification'){
-        if(n.userPrompt) html+=`<div class="sr-msg-user">${esc(n.userPrompt)}</div>`;
-        html+=`<div class="sr-idea-bubble"><em>${n.tag==='manual-modification'?'Manual edit':'AI modified'}</em><br>${esc(n.body)}</div>`;
-      }
-      n.extras.forEach(ex=>{
-        if(ex.userPrompt) html+=`<div class="sr-msg-user">${esc(ex.userPrompt)}</div>`;
-        if(ex.aiResponse) html+=`<div class="sr-msg-ai">${esc(ex.aiResponse)}</div>`;
-      });
-    });
-    disp.innerHTML=html+'</div>';
+    disp.innerHTML='';
+    const wrap=document.createElement('div'); wrap.className='sr-chat-history';
+    buildChatInto(wrap,node.id);
+    disp.appendChild(wrap);
   } else {
     disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
     renderSrTree(node.groupId, node.id);
   }
 }
+// Mirrors the main Idea Tree's compact node style exactly (same tags, same
+// font size, same hover tooltip with diff highlighting) so the two never
+// show conflicting information for the same idea.
 function renderSrTree(gid, currentNodeId){
   const nodesEl=document.getElementById('sr-tree-nodes');
   const svg=document.getElementById('sr-tree-svg');
   if(!nodesEl||!svg) return;
-  nodesEl.innerHTML=''; svg.innerHTML='';
+  nodesEl.innerHTML=''; svg.innerHTML=''; hideTreeTooltip();
   const gNodes=S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification');
   if(!gNodes.length) return;
-  const savedGid=S.currentGroupId, savedNid=S.currentNodeId;
+  const savedGid=S.currentGroupId;
   S.currentGroupId=gid;
   const pos=computeLayout(gid);
   S.currentGroupId=savedGid;
   const vals=Object.values(pos); if(!vals.length) return;
-  const maxX=Math.max(...vals.map(p=>p.x))+100, maxY=Math.max(...vals.map(p=>p.y))+70;
+  const W=165,H=62;
+  const maxX=Math.max(...vals.map(p=>p.x))+110, maxY=Math.max(...vals.map(p=>p.y))+90;
   const inner=document.getElementById('sr-tree-inner');
   if(inner){ inner.style.width=maxX+'px'; inner.style.height=maxY+'px'; }
   svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
   svg.innerHTML=`<defs><marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
-  const W=145,H=56;
   gNodes.forEach(node=>{
     if(!node.parentId) return;
     const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
     const p=document.createElementNS('http://www.w3.org/2000/svg','path');
-    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+24} ${tp.x},${tp.y-24} ${tp.x},${tp.y}`);
+    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
     p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
   });
   gNodes.forEach(node=>{
     const p=pos[node.id]; if(!p) return;
     const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
-    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
-                    tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
+    const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                   node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+    const isCurrent=node.id===currentNodeId;
     const el=document.createElement('div');
-    const isCurrent = node.id === currentNodeId;
     el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}<div class="tree-node-inner" style="padding:7px 9px">${isCurrent?'<div class="sr-current-ring"></div>':''}<div class="tree-node-type" style="color:${typeColor};font-size:0.45rem">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:0.55rem">${esc(node.title||'(untitled)')}</div></div>`;
+    el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
+      `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+      (isCurrent?'<div class="sr-current-ring"></div>':'')+
+      (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
+      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`;
+    el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
+    el.addEventListener('mousemove',moveTreeTooltip);
+    el.addEventListener('mouseleave',hideTreeTooltip);
     nodesEl.appendChild(el);
   });
 }
 function srSubTab(tab){
   _srSubTab=tab;
+  hideTreeTooltip();
   document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',tab==='chat');
   document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',tab==='tree');
   const finalized=S.nodes.filter(n=>n.isFinalized);
@@ -565,6 +577,7 @@ async function srSubmit(){
 }
 function closeSelfReport(){
   document.getElementById('self-report-modal').style.display='none';
+  hideTreeTooltip();
 }
 
 // Called when a node is unfinalized — marks it so it stays visible in the list
@@ -728,20 +741,23 @@ function selectIdea(nodeId){
 }
 
 // ── Chat display ──────────────────────────────────────────────
-function showChatInitial(){ document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none'; }
-function showChatActive(){ document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex'; }
+function showChatInitial(){ document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none'; setNewIdeaButtonsVisible(false); }
+function showChatActive(){ document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex'; setNewIdeaButtonsVisible(true); }
+// "+ New Idea" only makes sense once an idea is loaded; hidden at the very
+// start and again after clicking it, until another idea is created/selected.
+function setNewIdeaButtonsVisible(show){
+  document.querySelectorAll('.btn-new-idea').forEach(b=>{ b.style.display=show?'':'none'; });
+}
 function setChatThinking(on){ document.getElementById('chat-thinking').style.display=on?'flex':'none'; const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on; }
 function updateChatHeader(){
   const node=S.nodes.find(n=>n.id===S.currentNodeId);
-  document.getElementById('current-idea-title').textContent=node?nodeLabel(node):'—';
   const btn=document.getElementById('btn-finalize');
   if(btn){ btn.textContent=node&&node.isFinalized?'Unfinalize':'Finalize'; btn.disabled=false; btn.className=node&&node.isFinalized?'btn btn-outline btn-sm':'btn btn-green btn-sm'; }
 }
 // Rebuilds the full chat for nodeId, then scrolls to where that idea's own
 // body appears (its creation/modification point) rather than the bottom of
 // any trailing feedback/clarification messages.
-function rebuildChat(nodeId){
-  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
+function buildChatInto(wrap,nodeId){
   getPath(nodeId).forEach(node=>{
     if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,node.tag==='ai-generated'?'AI-Generated Idea':'Your Idea',node.tag==='ai-generated'?'ai-created':'manual-created'));
     else if(node.type==='modification'){
@@ -754,6 +770,10 @@ function rebuildChat(nodeId){
       else if(ex.aiResponse) wrap.appendChild(makeMsgBubble('assistant',ex.aiResponse,node.id,idx));
     });
   });
+}
+function rebuildChat(nodeId){
+  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
+  buildChatInto(wrap,nodeId);
   const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
   if(target) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
 }
@@ -769,18 +789,20 @@ function makeIdeaBubble(node,label,cls){
 }
 function makeMsgBubble(role,content,nodeId,extraIdx=null){
   const el=document.createElement('div'); el.className='chat-msg '+role; el.dataset.nodeId=nodeId||'';
-  const preview=esc(content.slice(0,40)+(content.length>40?'…':''));
+  const clean=role==='assistant'?stripMarkdown(content):content;
+  const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
   const eidx=extraIdx!==null?`,'${extraIdx}'`:'null';
   if(role==='user'||role==='assistant'){
-    el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}',${eidx},'${preview}')">↩</div><span class="bubble-content">${esc(content)}</span>`;
-  } else { el.textContent=content; }
+    el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}',${eidx},'${preview}')">↩</div><span class="bubble-content">${esc(clean)}</span>`;
+  } else { el.textContent=clean; }
   return el;
 }
 function makeFeedbackBubble(content,nodeId,extraIdx){
   const el=document.createElement('div'); el.className='feedback-bubble'; el.dataset.nodeId=nodeId||'';
-  const preview=esc(content.slice(0,40)+(content.length>40?'…':''));
+  const clean=stripMarkdown(content);
+  const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
   el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}','${extraIdx}','${preview}')">↩</div>
-    <div class="feedback-bubble-label">AI Feedback</div>${esc(content)}`;
+    <div class="feedback-bubble-label">AI Feedback</div><span class="bubble-content">${esc(clean)}</span>`;
   return el;
 }
 function appendToChat(el){ const w=document.getElementById('chat-messages'); if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; } }
@@ -809,18 +831,48 @@ function submitManualCreate(){
 }
 
 // ── Generate with AI: confirm/edit the prompt before sending ───
+// The prompt is validated against the challenge first (on-topic, single idea)
+// before anything is generated; the format instructions sent to the AI are
+// never shown to the participant, only the plain request they can edit.
 let _pendingGenerate=null;
 function startAICreate(){
   const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
   _pendingGenerate={system,hiddenSuffix};
   document.getElementById('generate-prompt-text').value=editable;
+  setGeneratePromptError('');
+  const btn=document.getElementById('btn-generate-confirm');
+  if(btn){ btn.disabled=false; btn.textContent='Generate'; }
   document.getElementById('modal-generate-confirm').style.display='flex';
 }
 function cancelGenerateConfirm(){ document.getElementById('modal-generate-confirm').style.display='none'; _pendingGenerate=null; }
+function setGeneratePromptError(msg){
+  const el=document.getElementById('generate-prompt-error'); if(!el) return;
+  el.textContent=msg; el.style.display=msg?'block':'none';
+}
 async function confirmGenerateConfirm(){
   const edited=document.getElementById('generate-prompt-text').value.trim();
-  if(!edited){ toast('Please enter a prompt.'); return; }
-  const {system,hiddenSuffix}=_pendingGenerate||{}; _pendingGenerate=null;
+  if(!edited){ setGeneratePromptError('Please enter a prompt.'); return; }
+  const {system,hiddenSuffix}=_pendingGenerate||{};
+  const btn=document.getElementById('btn-generate-confirm');
+  setGeneratePromptError('');
+  if(btn){ btn.disabled=true; btn.textContent='Checking prompt…'; }
+
+  try{
+    const {system:vSys,user:vUser}=PROMPTS.validateIdeaPrompt(S.challenge,edited);
+    const verdict=(await callClaude([{role:'user',content:vUser}],vSys)).trim();
+    if(!/^VALID/i.test(verdict)){
+      const reason=verdict.replace(/^INVALID:?\s*/i,'').trim();
+      setGeneratePromptError(reason?`Please enter a valid prompt: ${reason}`:'Please enter a valid prompt for this design challenge.');
+      if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+      return;
+    }
+  }catch(e){
+    setGeneratePromptError('Could not check your prompt. Please try again.');
+    if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+    return;
+  }
+
+  _pendingGenerate=null;
   document.getElementById('modal-generate-confirm').style.display='none';
   showChatActive();
   const wrap=document.getElementById('chat-messages'); wrap.innerHTML='';
@@ -830,10 +882,13 @@ async function confirmGenerateConfirm(){
     const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
     const json=JSON.parse(text.replace(/```json|```/g,'').trim());
     wrap.innerHTML='';
-    const node=mkNode({type:'creation',tag:'ai-generated',title:json.title,body:json.body}); addNode(node);
+    const node=mkNode({type:'creation',tag:'ai-generated',body:json.body,userPrompt:edited}); addNode(node);
     updateChatHeader(); rebuildChat(node.id); refreshUI();
   }catch(e){ wrap.innerHTML=''; appendToChat(makeMsgBubble('assistant','Error: '+e.message)); showChatInitial(); }
-  finally{ setChatThinking(false); }
+  finally{
+    setChatThinking(false);
+    if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+  }
 }
 
 // ── Modify manually (description only — no title) ───────────────
@@ -893,7 +948,7 @@ async function processMessageAIClassify(msg){
   setChatThinking(true);
   let type='clarification';
   try{
-    const sys=PROMPTS.classifyIntent(parent.title,parent.body,S.challenge,msg);
+    const sys=PROMPTS.classifyIntent(parent.body,S.challenge,msg);
     const text=await callClaude([{role:'user',content:msg}],sys);
     const t=text.trim().toLowerCase();
     type = t.includes('modification')?'modification' : t.includes('feedback')?'feedback' : 'clarification';
@@ -921,25 +976,25 @@ async function processMessage(msg,type){
   try{
     if(type==='modification'){
       const recentContext=buildRecentContext(parent);
-      const {system,user}=PROMPTS.modifyIdeaChat(parent.title,parent.body,S.challenge,msg,recentContext);
+      const {system,user}=PROMPTS.modifyIdeaChat(parent.body,S.challenge,msg,recentContext);
       const text=await callClaude([{role:'user',content:user}],system);
       const json=JSON.parse(text.replace(/```json|```/g,'').trim());
       const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
-        title:json.title,body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
+        body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
       addNode(node); appendToChat(makeIdeaBubble(node,'AI-Modified Idea','modified'));
       updateChatHeader(); refreshUI();
     } else {
       const history=buildAPIHistory(parent.id);
       let aiText='';
       if(type==='feedback'){
-        const {system,user}=PROMPTS.feedbackChat(parent.title,parent.body,S.challenge,msg);
+        const {system,user}=PROMPTS.feedbackChat(parent.body,S.challenge,msg);
         aiText=await callClaude([...history,{role:'user',content:user}],system);
         const idx=parent.extras.length;
         parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
         appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
         queueSync();
       } else {
-        const sys=PROMPTS.clarificationChat(parent.title,parent.body,S.challenge);
+        const sys=PROMPTS.clarificationChat(parent.body,S.challenge);
         aiText=await callClaude([...history,{role:'user',content:msg}],sys);
         const idx=parent.extras.length;
         parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()});

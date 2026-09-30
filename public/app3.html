@@ -28,7 +28,7 @@
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
           <p style="white-space:nowrap">Choose how to create your idea</p>
@@ -38,8 +38,6 @@
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
         <div class="chat-idea-header">
-          <span class="current-idea-label">Current idea</span>
-          <span class="current-idea-title" id="current-idea-title">—</span>
           <div class="chat-idea-actions">
             <button class="btn btn-green btn-sm" id="btn-finalize" onclick="finalizeCurrentIdea()">Finalize</button>
             <button class="btn btn-amber btn-sm" onclick="openManualModify()">Modify Manually</button>
@@ -58,7 +56,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="ideas-area" id="ideas-list">
         <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet</span></div></div>
       </div>
@@ -104,11 +102,16 @@
   </div>
 </div>
 <div class="modal-overlay" id="modal-generate-confirm" style="display:none" onclick="if(event.target===this)cancelGenerateConfirm()">
-  <div class="modal"><div class="modal-head">Confirm AI Prompt</div>
+  <div class="modal modal-generate">
+    <div class="modal-head">Please confirm the prompt used to generate the idea</div>
     <div class="modal-body">
-      <div class="field-group"><label class="field-label">Prompt to send to the AI (you can edit this)</label><textarea id="generate-prompt-text" class="field-textarea" rows="7"></textarea></div>
+      <div class="field-group">
+        <label class="field-label">Prompt (you can edit this)</label>
+        <textarea id="generate-prompt-text" class="field-textarea" rows="7"></textarea>
+        <p class="field-error" id="generate-prompt-error" style="display:none"></p>
+      </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-outline" onclick="cancelGenerateConfirm()">Cancel</button><button class="btn btn-blue2" onclick="confirmGenerateConfirm()">Generate</button></div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="cancelGenerateConfirm()">Cancel</button><button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="self-report-modal" style="display:none">
@@ -117,7 +120,7 @@
       <div class="sr-idea-tabs" id="sr-idea-tabs"></div>
       <div class="sr-sub-tabs" id="sr-sub-tabs" style="display:none">
         <button class="sr-sub-tab sr-sub-active" id="sr-tab-chat" onclick="srSubTab('chat')">Chat History</button>
-        <button class="sr-sub-tab" id="sr-tab-tree" onclick="srSubTab('tree')">Process Tree</button>
+        <button class="sr-sub-tab" id="sr-tab-tree" onclick="srSubTab('tree')">Idea Tree</button>
       </div>
       <div class="sr-content" id="sr-idea-display"></div>
     </div>
@@ -132,11 +135,11 @@
       <ol>
         <li>This task will provide you a design challenge.</li>
         <li>Your goal is to write at least three ideas within 15 minutes. The timer starts after you read the Design Challenge.</li>
-        <li>Your ideas need to meet the requirements of the design challenge.</li>
+        <li>Your ideas need to meet the constraints of the design challenge.</li>
         <li>Your goal is NOT to complete the task as quickly as possible.</li>
       </ol>
       <p><strong>Design challenge:</strong></p>
-      <p><strong>Setup:</strong> You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. A feature is a specific function built into a product that it performs or lets the user perform, such as spell check underlining misspelled words in a word processor or a microwave's popcorn button setting the right cooking time automatically. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p><strong>Setup:</strong> You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
       <p>If you don't know what compulsive-scrolling is, please let the researcher know.</p>
       <p><strong>Constraints:</strong> Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
       <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>

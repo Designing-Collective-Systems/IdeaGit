@@ -60,6 +60,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .field-input,.field-textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:1rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s}
 .field-input:focus,.field-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .field-textarea{resize:vertical;min-height:80px;line-height:1.6}
+.field-error{font-size:0.8636rem;color:var(--red);margin-top:6px;line-height:1.5}
 
 /* Setup */
 #page-setup{height:100vh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:28px}
@@ -193,7 +194,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .idea-bubble-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;color:var(--text2)}
 .idea-bubble-title{font-size:1rem;font-weight:700;margin-bottom:5px}
 .idea-bubble-body{font-size:0.8636rem;line-height:1.65;color:var(--text2)}
-.feedback-bubble{align-self:flex-start;max-width:96%;background:var(--green-lt);border:1.5px solid var(--green-mid);border-radius:var(--r);padding:12px 14px;position:relative}
+.feedback-bubble{align-self:flex-start;max-width:96%;background:var(--green-lt);border:1.5px solid var(--green-mid);border-radius:var(--r);padding:12px 14px;position:relative;font-size:0.9091rem;line-height:1.6}
 .feedback-bubble-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;color:var(--green)}
 
 /* Reply button on bubbles */
@@ -225,7 +226,8 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 /* Modals */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center}
-.modal{background:var(--surface);border-radius:var(--r2);box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(520px,92vw);overflow:hidden}
+.modal{background:var(--surface);border-radius:var(--r2);box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(640px,94vw);overflow:hidden}
+.modal.modal-generate{width:min(820px,96vw)}
 .modal-head{padding:18px 20px;border-bottom:1px solid var(--border);font-size:1.0909rem;font-weight:700;display:flex;align-items:center}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:16px}
 .modal-foot{padding:14px 20px;border-top:1px solid var(--border);background:var(--surface2);display:flex;justify-content:flex-end;gap:10px}
@@ -246,17 +248,15 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .sr-other-textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:0.9091rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;resize:vertical;min-height:80px;line-height:1.6;margin-top:8px}
 .sr-other-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .sr-page-title{font-size:1.2273rem;font-weight:700;flex-shrink:0}
-.sr-idea-title-inline{font-weight:400;font-size:1rem}
 .sr-question{display:flex;flex-direction:column;gap:10px}
 .sr-q-label{font-size:0.9091rem;font-weight:600;color:var(--text);line-height:1.5}
 .sr-options{display:flex;flex-direction:column;gap:8px}
 .sr-option{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.9091rem;line-height:1.5}
 .sr-option input{margin-top:3px;accent-color:var(--blue);flex-shrink:0;width:16px;height:16px}
 .sr-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:8px;flex-shrink:0}
-.sr-chat-history{display:flex;flex-direction:column;gap:10px;font-size:0.8182rem}
-.sr-idea-bubble{background:var(--blue-lt);border:1.5px solid var(--blue-mid);border-radius:var(--r);padding:10px 12px;line-height:1.6}
-.sr-msg-user{align-self:flex-end;background:var(--blue);color:#fff;border-radius:var(--r);padding:8px 12px;max-width:85%}
-.sr-msg-ai{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;max-width:90%;line-height:1.6}
+.sr-chat-history{display:flex;flex-direction:column;gap:10px}
+/* read-only report view - no reply affordance needed on reused chat bubbles */
+#sr-idea-display .bubble-reply-btn{display:none}
 
 /* Toasts */
 .toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px}
