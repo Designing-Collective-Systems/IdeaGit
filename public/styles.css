@@ -30,6 +30,7 @@
   --border:#d1d5db;--border2:#9ca3af;
   --text:#111827;--text2:#6b7280;--text3:#9ca3af;
   --blue:#2563eb;--blue-dk:#1d4ed8;--blue-lt:#eff6ff;--blue-mid:#bfdbfe;
+  --blue2:#0369a1;--blue2-dk:#075985;
   --green:#16a34a;--green-dk:#15803d;--green-lt:#f0fdf4;--green-mid:#bbf7d0;
   --amber:#d97706;--amber-dk:#b45309;--amber-lt:#fffbeb;--amber-mid:#fde68a;
   --yellow:#ca8a04;--yellow-dk:#a16207;--yellow-lt:#fefce8;--yellow-mid:#fde047;
@@ -50,6 +51,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .btn-green{background:var(--green);color:#fff}.btn-green:not(:disabled):hover{background:var(--green-dk)}
 .btn-amber{background:var(--amber);color:#fff}.btn-amber:not(:disabled):hover{background:var(--amber-dk)}
 .btn-teal{background:var(--teal);color:#fff}.btn-teal:not(:disabled):hover{background:#0f766e}
+.btn-blue2{background:var(--blue2);color:#fff}.btn-blue2:not(:disabled):hover{background:var(--blue2-dk)}
 .btn-purple-solid{background:var(--purple);color:#fff}.btn-purple-solid:not(:disabled):hover{background:#6d28d9}
 
 /* Forms */
@@ -87,6 +89,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;background:var(--surface);min-height:0}
 .panel:last-child{border-right:none}
 .panel-header{min-height:56px;padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:0.8182rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--surface2);flex-shrink:0}
+.panel-header .btn{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
 .panel-header-sub{margin-left:auto;font-size:0.7273rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:140px}
 
 /* Process tree */
@@ -134,7 +137,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 /* Ideas list */
 .ideas-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--bg);min-height:0}
-.ideas-section-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding:6px 4px 2px}
+.ideas-section-label{font-size:0.6818rem;font-weight:700;letter-spacing:.03em;color:var(--text3);padding:6px 4px 2px}
 .ideas-empty{position:relative;display:flex;flex-direction:column;height:100%;color:var(--text3);font-size:0.8636rem;text-align:center;box-sizing:border-box;padding:16px}
 .idea-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .idea-card:hover{box-shadow:var(--shadow2)}

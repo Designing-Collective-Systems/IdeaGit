@@ -111,7 +111,7 @@ function buildAPIHistory(nodeId){
   return h;
 }
 function existingSummary(){
-  const roots=S.nodes.filter(n=>!n.parentId&&n.title);
+  const roots=S.nodes.filter(n=>!n.parentId&&n.body);
   if(!roots.length) return '';
   return '\n\nExisting ideas (do NOT repeat):\n'+
     roots.map((n,i)=>`${i+1}. "${n.title}" — ${n.body.slice(0,100)}`).join('\n');
@@ -122,13 +122,13 @@ function getDisplayIdeas(){
   const finalized=S.nodes.filter(n=>n.isFinalized);
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
   // In-progress: leaf nodes that are not finalized
-  const ongoing=S.nodes.filter(n=>!parentIds.has(n.id)&&!n.isFinalized&&n.title);
+  const ongoing=S.nodes.filter(n=>!parentIds.has(n.id)&&!n.isFinalized&&n.body);
   // Unfinalized: nodes that WERE finalized (isFinalized=false) but have children,
   // so they're not leaves — they'd otherwise be invisible
   const ongoingIds=new Set(ongoing.map(n=>n.id));
   const finalizedIds=new Set(finalized.map(n=>n.id));
   const unfinalized=S.nodes.filter(n=>
-    !n.isFinalized && n.title &&
+    !n.isFinalized && n.body &&
     parentIds.has(n.id) &&          // has children (not a leaf)
     !finalizedIds.has(n.id) &&
     !ongoingIds.has(n.id) &&
@@ -139,12 +139,10 @@ function getDisplayIdeas(){
 function makeIdeaCard(node,status,onSelect){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
-  card.innerHTML=`
-    <div class="idea-card-badge ${status==='finalized'?'badge-finalized':'badge-ongoing'}">
-      ${status==='finalized'?'Finalized':'In Progress'}
-    </div>
-    <div class="idea-card-title">${esc(node.title)}</div>
-    <div class="idea-card-body">${esc(node.body)}</div>`;
+  // Only the Finalized badge is shown on the card itself; "In Progress" is
+  // conveyed once, by the section label above the group of cards.
+  const badge=status==='finalized'?'<div class="idea-card-badge badge-finalized">Finalized</div>':'';
+  card.innerHTML=`${badge}<div class="idea-card-body">${esc(node.body)}</div>`;
   if(onSelect) card.addEventListener('click',()=>onSelect(node.id));
   return card;
 }
@@ -456,10 +454,10 @@ function srRenderContent(node){
   if(_srSubTab==='chat'){
     const path=getPath(node.id); let html='<div class="sr-chat-history">';
     path.forEach(n=>{
-      if(n.type==='creation') html+=`<div class="sr-idea-bubble"><strong>${esc(n.title)}</strong><br>${esc(n.body)}</div>`;
+      if(n.type==='creation') html+=`<div class="sr-idea-bubble">${esc(n.body)}</div>`;
       else if(n.type==='modification'){
         if(n.userPrompt) html+=`<div class="sr-msg-user">${esc(n.userPrompt)}</div>`;
-        html+=`<div class="sr-idea-bubble"><em>${n.tag==='manual-modification'?'Manual edit':'AI modified'}</em><br><strong>${esc(n.title)}</strong><br>${esc(n.body)}</div>`;
+        html+=`<div class="sr-idea-bubble"><em>${n.tag==='manual-modification'?'Manual edit':'AI modified'}</em><br>${esc(n.body)}</div>`;
       }
       n.extras.forEach(ex=>{
         if(ex.userPrompt) html+=`<div class="sr-msg-user">${esc(ex.userPrompt)}</div>`;
@@ -600,8 +598,8 @@ function beginStudy(){
 // ── Tree node labels + hover tooltip (used when hoverMode is on) ──
 function nodeTagLabel(node){
   const t=node.tag;
-  return t==='ai-generated'?'AI Creation':t==='user-created'?'Manual Creation':
-         t==='manual-modification'?'Manual Modification':'AI Modification';
+  return t==='ai-generated'?'Created with AI':t==='user-created'?'Created Manually':
+         t==='manual-modification'?'Modified Manually':'Modified with AI';
 }
 function _treeTooltipEl(){
   let t=document.getElementById('tree-tooltip');
@@ -613,7 +611,9 @@ function _treeTooltipEl(){
 }
 function showTreeTooltip(node,e){
   const t=_treeTooltipEl();
-  t.innerHTML=`<div class="tree-tooltip-title">${esc(node.title||'(untitled)')}</div><div class="tree-tooltip-body">${esc(node.body||'')}</div>`;
+  const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+  const bodyHtml=parent?diffHighlightBody(parent.body,node.body):esc(node.body||'');
+  t.innerHTML=`<div class="tree-tooltip-body">${bodyHtml}</div>`;
   t.style.display='block';
   moveTreeTooltip(e);
 }
@@ -674,4 +674,279 @@ function retrySync(){
     if(!_saveWarned){ _saveWarned=true; toast('Having trouble saving. Your work stays on screen and saving will keep retrying.','var(--amber)'); }
     _retryTimer=setTimeout(retrySync,5000);
   });
+}
+
+// ============================================================
+//  Shared AI-chat / idea logic (conditions 3 & 4 — app3.js/app4.js
+//  only set S.condition, instructions text, and the startup hook).
+//  app4 has a tree panel and app3 doesn't; hasTree() detects which.
+// ============================================================
+function hasTree(){ return !!document.getElementById('tree-nodes'); }
+function nodeLabel(node){
+  if(node.title) return node.title;
+  const b=node.body||''; return b.length>48 ? b.slice(0,48)+'…' : b;
+}
+
+// Word-level diff: renders newBody as-is, wrapping words that are new
+// (not present in the same relative position in oldBody) in <strong>.
+// Removed words are simply not shown — newBody is what's displayed either way.
+function diffHighlightBody(oldBody,newBody){
+  const oldT=(oldBody||'').split(/(\s+)/), newT=(newBody||'').split(/(\s+)/);
+  const n=oldT.length, m=newT.length;
+  const dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--)
+    dp[i][j]=oldT[i]===newT[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0,out='';
+  while(j<m){
+    if(i<n && oldT[i]===newT[j] && dp[i][j]===dp[i+1][j+1]+1){ out+=esc(newT[j]); i++; j++; }
+    else if(i<n && dp[i+1][j]>=dp[i][j+1]){ i++; }
+    else { out+=(/^\s+$/.test(newT[j])?newT[j]:'<strong>'+esc(newT[j])+'</strong>'); j++; }
+  }
+  return out;
+}
+
+function refreshUI(){
+  renderIdeasList('ideas-list','ideas-empty',selectIdea);
+  if(hasTree()) renderTreeInto({svgId:'tree-svg',nodesId:'tree-nodes',emptyId:'tree-empty',canvasId:'tree-canvas',onNodeClick:selectIdea,hoverMode:true});
+  updateFinalizedCounter();
+}
+
+function startIdeation(){
+  S.challenge=FIXED_CHALLENGE;
+  S.nodes=[]; S.currentNodeId=null; S.currentGroupId=null;
+  initChallengeBanner();
+  if(hasTree()) initTreePanOn('tree-area','tree-canvas');
+  showChatInitial(); updateFinalizedCounter(); refreshUI();
+}
+
+let _replyToNodeId=null;
+
+function selectIdea(nodeId){
+  const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;
+  S.currentNodeId=nodeId; S.currentGroupId=node.groupId;
+  showChatActive(); updateChatHeader(); rebuildChat(nodeId); refreshUI();
+}
+
+// ── Chat display ──────────────────────────────────────────────
+function showChatInitial(){ document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none'; }
+function showChatActive(){ document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex'; }
+function setChatThinking(on){ document.getElementById('chat-thinking').style.display=on?'flex':'none'; const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on; }
+function updateChatHeader(){
+  const node=S.nodes.find(n=>n.id===S.currentNodeId);
+  document.getElementById('current-idea-title').textContent=node?nodeLabel(node):'—';
+  const btn=document.getElementById('btn-finalize');
+  if(btn){ btn.textContent=node&&node.isFinalized?'Unfinalize':'Finalize'; btn.disabled=false; btn.className=node&&node.isFinalized?'btn btn-outline btn-sm':'btn btn-green btn-sm'; }
+}
+// Rebuilds the full chat for nodeId, then scrolls to where that idea's own
+// body appears (its creation/modification point) rather than the bottom of
+// any trailing feedback/clarification messages.
+function rebuildChat(nodeId){
+  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
+  getPath(nodeId).forEach(node=>{
+    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,node.tag==='ai-generated'?'AI-Generated Idea':'Your Idea',node.tag==='ai-generated'?'ai-created':'manual-created'));
+    else if(node.type==='modification'){
+      if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt,node.id));
+      wrap.appendChild(makeIdeaBubble(node,node.tag==='manual-modification'?'Manually Modified':'AI-Modified',node.tag==='manual-modification'?'manual':'modified'));
+    }
+    node.extras.forEach((ex,idx)=>{
+      if(ex.userPrompt) wrap.appendChild(makeMsgBubble('user',ex.userPrompt,node.id,idx));
+      if(ex.type==='feedback') wrap.appendChild(makeFeedbackBubble(ex.aiResponse,node.id,idx));
+      else if(ex.aiResponse) wrap.appendChild(makeMsgBubble('assistant',ex.aiResponse,node.id,idx));
+    });
+  });
+  const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
+  if(target) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
+}
+
+function makeIdeaBubble(node,label,cls){
+  const el=document.createElement('div'); el.className='idea-bubble'+(cls?' '+cls:''); el.dataset.nodeId=node.id;
+  const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+  const bodyHtml=(node.type==='modification'&&parent)?diffHighlightBody(parent.body,node.body):esc(node.body);
+  el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${node.id}',null,'${esc(nodeLabel(node))}')">↩</div>
+    <div class="idea-bubble-label">${esc(label)}</div>
+    <div class="idea-bubble-body">${bodyHtml}</div>`;
+  return el;
+}
+function makeMsgBubble(role,content,nodeId,extraIdx=null){
+  const el=document.createElement('div'); el.className='chat-msg '+role; el.dataset.nodeId=nodeId||'';
+  const preview=esc(content.slice(0,40)+(content.length>40?'…':''));
+  const eidx=extraIdx!==null?`,'${extraIdx}'`:'null';
+  if(role==='user'||role==='assistant'){
+    el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}',${eidx},'${preview}')">↩</div><span class="bubble-content">${esc(content)}</span>`;
+  } else { el.textContent=content; }
+  return el;
+}
+function makeFeedbackBubble(content,nodeId,extraIdx){
+  const el=document.createElement('div'); el.className='feedback-bubble'; el.dataset.nodeId=nodeId||'';
+  const preview=esc(content.slice(0,40)+(content.length>40?'…':''));
+  el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}','${extraIdx}','${preview}')">↩</div>
+    <div class="feedback-bubble-label">AI Feedback</div>${esc(content)}`;
+  return el;
+}
+function appendToChat(el){ const w=document.getElementById('chat-messages'); if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; } }
+
+function setReplyTo(nodeId,extraIdx,preview){
+  _replyToNodeId=nodeId;
+  const ind=document.getElementById('reply-indicator'), txt=document.getElementById('reply-text');
+  if(ind&&txt){ ind.style.display='flex'; txt.textContent=preview||'message'; }
+  document.getElementById('chat-input')?.focus();
+}
+function clearReply(){ _replyToNodeId=null; const ind=document.getElementById('reply-indicator'); if(ind) ind.style.display='none'; }
+
+// ── Create idea manually (description only — no title) ─────────
+function startManualCreate(){
+  document.getElementById('create-body').value='';
+  document.getElementById('modal-create').style.display='flex';
+  setTimeout(()=>document.getElementById('create-body').focus(),60);
+}
+function closeCreateModal(){ document.getElementById('modal-create').style.display='none'; }
+function submitManualCreate(){
+  const body=document.getElementById('create-body').value.trim();
+  if(!body){ toast('Please describe your idea.'); return; }
+  closeCreateModal();
+  const node=mkNode({type:'creation',tag:'user-created',title:'',body}); addNode(node);
+  showChatActive(); updateChatHeader(); rebuildChat(node.id); refreshUI();
+}
+
+// ── Generate with AI: confirm/edit the prompt before sending ───
+let _pendingGenerate=null;
+function startAICreate(){
+  const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
+  _pendingGenerate={system,hiddenSuffix};
+  document.getElementById('generate-prompt-text').value=editable;
+  document.getElementById('modal-generate-confirm').style.display='flex';
+}
+function cancelGenerateConfirm(){ document.getElementById('modal-generate-confirm').style.display='none'; _pendingGenerate=null; }
+async function confirmGenerateConfirm(){
+  const edited=document.getElementById('generate-prompt-text').value.trim();
+  if(!edited){ toast('Please enter a prompt.'); return; }
+  const {system,hiddenSuffix}=_pendingGenerate||{}; _pendingGenerate=null;
+  document.getElementById('modal-generate-confirm').style.display='none';
+  showChatActive();
+  const wrap=document.getElementById('chat-messages'); wrap.innerHTML='';
+  appendToChat(makeMsgBubble('system-note','Generating idea…'));
+  setChatThinking(true);
+  try{
+    const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
+    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    wrap.innerHTML='';
+    const node=mkNode({type:'creation',tag:'ai-generated',title:json.title,body:json.body}); addNode(node);
+    updateChatHeader(); rebuildChat(node.id); refreshUI();
+  }catch(e){ wrap.innerHTML=''; appendToChat(makeMsgBubble('assistant','Error: '+e.message)); showChatInitial(); }
+  finally{ setChatThinking(false); }
+}
+
+// ── Modify manually (description only — no title) ───────────────
+function openManualModify(){
+  const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
+  document.getElementById('modify-body').value=node.body;
+  document.getElementById('modal-modify').style.display='flex';
+  setTimeout(()=>document.getElementById('modify-body').focus(),60);
+}
+function closeModifyModal(){ document.getElementById('modal-modify').style.display='none'; }
+function submitManualModify(){
+  const body=document.getElementById('modify-body').value.trim();
+  if(!body){ toast('Please describe your idea.'); return; }
+  const parent=S.nodes.find(n=>n.id===S.currentNodeId); if(!parent) return;
+  if(body===parent.body){ toast('No changes detected. Please modify the idea before saving.'); return; }
+  closeModifyModal();
+  const node=mkNode({type:'modification',tag:'manual-modification',title:'',body,parentId:parent.id,userPrompt:'[Manual modification]'});
+  addNode(node); updateChatHeader(); rebuildChat(node.id); refreshUI();
+  toast('Idea updated');
+}
+
+// ── Finalize ──────────────────────────────────────────────────
+function finalizeCurrentIdea(){
+  const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
+  if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
+  updateChatHeader(); updateFinalizedCounter(); refreshUI();
+  if(node.isFinalized) checkThreeDone();
+  queueSync();
+  toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');
+}
+function startNewIdea(){ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; refreshUI(); }
+
+// ── Chat send ─────────────────────────────────────────────────
+function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChatMessage(); } }
+function sendChatMessage(){
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim(); if(!msg) return;
+  if(!S.currentNodeId){ toast('Create an idea first.'); return; }
+  if(msg.toLowerCase()==='finalize'){ inp.value=''; inp.style.height=''; finalizeCurrentIdea(); return; }
+  // Intercept requests to generate a new idea — direct to the button
+  if(isNewIdeaRequest(msg)){
+    inp.value=''; inp.style.height='';
+    appendToChat(makeMsgBubble('user',msg,''));
+    appendToChat(makeMsgBubble('assistant','To start a new idea, please use the “+ New Idea” button at the top of the chat panel. This keeps each idea tracked separately in the system.',''));
+    return;
+  }
+  inp.value=''; inp.style.height='';
+  const type=classifyMsg(msg);
+  if(type) processMessage(msg,type);
+  else processMessageAIClassify(msg); // keyword match was ambiguous — ask the AI to decide
+}
+
+// ── AI-decided classification (used only when keywords can't tell) ──
+async function processMessageAIClassify(msg){
+  const parentId=_replyToNodeId||S.currentNodeId;
+  const parent=S.nodes.find(n=>n.id===parentId)||S.nodes.find(n=>n.id===S.currentNodeId);
+  setChatThinking(true);
+  let type='clarification';
+  try{
+    const sys=PROMPTS.classifyIntent(parent.title,parent.body,S.challenge,msg);
+    const text=await callClaude([{role:'user',content:msg}],sys);
+    const t=text.trim().toLowerCase();
+    type = t.includes('modification')?'modification' : t.includes('feedback')?'feedback' : 'clarification';
+  }catch(e){ /* default to clarification on error */ }
+  processMessage(msg,type);
+}
+
+// Everything exchanged about the current node since it was created (feedback +
+// clarification answers), so a later "do this for me" reply has the context.
+function buildRecentContext(parent){
+  if(!parent||!parent.extras.length) return '';
+  const lines=parent.extras.map(ex=>{
+    const label=ex.type==='feedback'?'Feedback given':'Answered';
+    return (ex.userPrompt?`User asked: "${ex.userPrompt}"\n`:'')+`${label}: "${ex.aiResponse}"`;
+  });
+  return '\n\nRecent conversation about this idea (for context):\n'+lines.join('\n\n');
+}
+
+async function processMessage(msg,type){
+  const parentId=_replyToNodeId||S.currentNodeId;
+  const parent=S.nodes.find(n=>n.id===parentId)||S.nodes.find(n=>n.id===S.currentNodeId);
+  clearReply();
+  appendToChat(makeMsgBubble('user',msg,parentId));
+  setChatThinking(true);
+  try{
+    if(type==='modification'){
+      const recentContext=buildRecentContext(parent);
+      const {system,user}=PROMPTS.modifyIdeaChat(parent.title,parent.body,S.challenge,msg,recentContext);
+      const text=await callClaude([{role:'user',content:user}],system);
+      const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+      const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
+        title:json.title,body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
+      addNode(node); appendToChat(makeIdeaBubble(node,'AI-Modified Idea','modified'));
+      updateChatHeader(); refreshUI();
+    } else {
+      const history=buildAPIHistory(parent.id);
+      let aiText='';
+      if(type==='feedback'){
+        const {system,user}=PROMPTS.feedbackChat(parent.title,parent.body,S.challenge,msg);
+        aiText=await callClaude([...history,{role:'user',content:user}],system);
+        const idx=parent.extras.length;
+        parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
+        appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
+        queueSync();
+      } else {
+        const sys=PROMPTS.clarificationChat(parent.title,parent.body,S.challenge);
+        aiText=await callClaude([...history,{role:'user',content:msg}],sys);
+        const idx=parent.extras.length;
+        parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
+        appendToChat(makeMsgBubble('assistant',aiText,parent.id,idx));
+        queueSync();
+      }
+    }
+  }catch(e){ appendToChat(makeMsgBubble('assistant','Error: '+e.message)); }
+  finally{ setChatThinking(false); }
 }

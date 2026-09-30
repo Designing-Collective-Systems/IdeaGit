@@ -28,12 +28,12 @@
   </nav>
   <div class="two-col ideation-grid">
     <div class="panel">
-      <div class="panel-header">AI Chat</div>
+      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner">
           <p style="white-space:nowrap">Choose how to create your idea</p>
           <button class="btn btn-primary" onclick="startManualCreate()">Create Idea Manually</button>
-          <button class="btn btn-teal" onclick="startAICreate()">Generate Idea with AI</button>
+          <button class="btn btn-blue2" onclick="startAICreate()">Generate Idea with AI</button>
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
@@ -43,21 +43,10 @@
           <div class="chat-idea-actions">
             <button class="btn btn-green btn-sm" id="btn-finalize" onclick="finalizeCurrentIdea()">Finalize</button>
             <button class="btn btn-amber btn-sm" onclick="openManualModify()">Modify Manually</button>
-            <button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button>
           </div>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
-        <div class="classify-area" id="classify-area" style="display:none">
-          <p>How should I handle this?</p>
-          <div class="classify-options">
-            <label class="classify-option"><input type="radio" name="classify" value="modification"> Modification — update the idea</label>
-            <label class="classify-option"><input type="radio" name="classify" value="feedback"> Feedback — evaluate without changing</label>
-            <label class="classify-option"><input type="radio" name="classify" value="clarification"> Clarification — general question</label>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="confirmClassification()">Confirm and Send</button>
-          <button class="btn btn-outline btn-sm" onclick="cancelClassification()" style="margin-left:8px">Cancel</button>
-        </div>
         <div class="reply-indicator" id="reply-indicator" style="display:none">
           <span>↩ Replying to: <em id="reply-text"></em></span>
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
@@ -69,7 +58,7 @@
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header">Current Ideas</div>
+      <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="ideas-area" id="ideas-list">
         <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet</span></div></div>
       </div>
@@ -101,7 +90,6 @@
 <div class="modal-overlay" id="modal-create" style="display:none" onclick="if(event.target===this)closeCreateModal()">
   <div class="modal"><div class="modal-head">Create Idea Manually</div>
     <div class="modal-body">
-      <div class="field-group"><label class="field-label">Title *</label><input type="text" id="create-title" class="field-input" autocomplete="off"/></div>
       <div class="field-group"><label class="field-label">Description *</label><textarea id="create-body" class="field-textarea" rows="6"></textarea></div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeCreateModal()">Cancel</button><button class="btn btn-primary" onclick="submitManualCreate()">Create Idea</button></div>
@@ -110,10 +98,17 @@
 <div class="modal-overlay" id="modal-modify" style="display:none" onclick="if(event.target===this)closeModifyModal()">
   <div class="modal"><div class="modal-head">Modify Idea Manually</div>
     <div class="modal-body">
-      <div class="field-group"><label class="field-label">Title *</label><input type="text" id="modify-title" class="field-input" autocomplete="off"/></div>
       <div class="field-group"><label class="field-label">Description *</label><textarea id="modify-body" class="field-textarea" rows="6"></textarea></div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModifyModal()">Cancel</button><button class="btn btn-amber" onclick="submitManualModify()">Save Changes</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-generate-confirm" style="display:none" onclick="if(event.target===this)cancelGenerateConfirm()">
+  <div class="modal"><div class="modal-head">Confirm AI Prompt</div>
+    <div class="modal-body">
+      <div class="field-group"><label class="field-label">Prompt to send to the AI (you can edit this)</label><textarea id="generate-prompt-text" class="field-textarea" rows="7"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="cancelGenerateConfirm()">Cancel</button><button class="btn btn-blue2" onclick="confirmGenerateConfirm()">Generate</button></div>
   </div>
 </div>
 <div class="modal-overlay" id="self-report-modal" style="display:none">
