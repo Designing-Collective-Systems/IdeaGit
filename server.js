@@ -72,9 +72,9 @@ app.post('/api/save-nodes', async (req, res) => {
   }
 });
 
-// Landing page at root
+// Root redirects straight to app4
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+  res.redirect('/app4');
 });
 
 // IdeaGit conditions
