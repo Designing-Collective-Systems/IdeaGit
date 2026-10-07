@@ -489,7 +489,7 @@ function askConfirm({title,message,buttons}){
 // Hard cap: ideas stay at 70 words unless the user explicitly asked for a longer one.
 async function enforceWords(body,userMsg){
   const wc=t=>(t||'').trim().split(/\s+/).length;
-  if(wc(body)<=70||/longer|more detail|detailed|elaborate|expand|in depth|in-depth|\d+\s*words|paragraph|lengthy|comprehensive/i.test(userMsg||'')) return body;
+  if(wc(body)<=70||/longer|lengthy|\d+\s*words|paragraph|more words|in depth|in-depth|elaborate at length/i.test(userMsg||'')) return body;
   try{
     const t=await callClaude([{role:'user',content:'Shorten this design idea to 60 words or fewer, keeping every key feature. Return only the text, no quotes.\n\n'+body}],'You tighten text without changing its meaning.');
     const out=t.trim(); return wc(out)<wc(body)?out:body;

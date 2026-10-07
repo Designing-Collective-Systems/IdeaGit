@@ -15,7 +15,7 @@ Challenge: "${challenge}"`;
 Return ONLY valid JSON, no markdown:
 {"body":"a clear description of what the idea is, how it works, and why it addresses the challenge. Keep it to at most 70 words, unless the request above specifically asks for a longer idea."}`;
     return {
-      system: 'You are a creative design thinking assistant. Generate original, specific, feasible design ideas. Every idea must be meaningfully different from any listed. Keep each idea to at most 70 words, unless the user specifically asks for a longer one.',
+      system: 'You are a creative design thinking assistant. Generate original, specific, feasible design ideas. Every idea must be meaningfully different from any listed. Keep each idea to at most 70 words, unless the user specifically asks for a longer one. Asking for the idea to be more specific, detailed, or clearer is NOT a request for a longer idea: stay within 70 words by being precise and concise. Only exceed 70 words if the user explicitly asks for a longer idea or a higher word count.',
       editable, hiddenSuffix, user: editable + hiddenSuffix,
     };
   },
@@ -40,7 +40,7 @@ Reply with exactly one line, starting with VALID or INVALID.`
   }),
 
   modifyIdeaChat: (currentBody, challenge, request, recentContext='') => ({
-    system: 'You are a design thinking assistant. Modify the given idea based on the user request. Preserve the core concept unless the user asks for a completely different direction. Use the recent conversation, if given, to understand what the user is referring to. Keep the revised idea to at most 70 words, unless the user specifically asks for a longer one. Return ONLY valid JSON, no markdown.',
+    system: 'You are a design thinking assistant. Modify the given idea based on the user request. Preserve the core concept unless the user asks for a completely different direction. Use the recent conversation, if given, to understand what the user is referring to. Keep the revised idea to at most 70 words, unless the user specifically asks for a longer one. Asking for the idea to be more specific, detailed, or clearer is NOT a request for a longer idea: stay within 70 words by being precise and concise. Only exceed 70 words if the user explicitly asks for a longer idea or a higher word count. Return ONLY valid JSON, no markdown.',
     user: `Current idea: "${currentBody}"
 
 Challenge: "${challenge}"${recentContext}
