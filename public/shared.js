@@ -112,7 +112,10 @@ async function summarizeChange(node){
     const t=await callClaude([{role:'user',content:'Old version:\n'+p.body+'\n\nNew version:\n'+node.body+
       '\n\nIn fewer than 10 words, state what changed. Plain text, no punctuation at the end.'}],
       'You summarize edits to a design idea in fewer than 10 words.');
-    node.meta=node.meta||{}; node.meta.changeSummary=t.trim().split(/\s+/).slice(0,9).join(' ');
+    const sm=t.trim().split(/\s+/).slice(0,9).join(' ');
+    node.meta=node.meta||{}; node.meta.changeSummary=sm;
+    // Saved in the node's existing `extras` JSON column (no new column needed)
+    node.extras=node.extras.filter(x=>x.type!=='change_summary'); node.extras.push({type:'change_summary',summary:sm,ts:Date.now()});
     renderAllTrees(); queueSync();
   }catch(e){}
 }
@@ -771,6 +774,9 @@ function srShowPage(n,stage){
   document.getElementById(`sr-q2-${n}`).style.display=_srStage===2?'':'none';
   // Left side: chat history first; then the process tree (app4) or the same chat history (app3)
   _srSubTab=(_srStage===2&&isCondition4())?'tree':'chat';
+  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=(_srStage===2&&isCondition4())?'flex':'none';
+  document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',_srSubTab==='chat');
+  document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',_srSubTab==='tree');
   srSelectIdea(n,S.nodes.filter(nd=>nd.isFinalized));
   srUpdateStep(); srRefreshLocks();
 }
@@ -1296,7 +1302,7 @@ async function processMessageAIClassify(msg){
 // clarification answers), so a later "do this for me" reply has the context.
 function buildRecentContext(parent){
   if(!parent||!parent.extras.length) return '';
-  const lines=parent.extras.map(ex=>{
+  const lines=parent.extras.filter(ex=>ex.aiResponse).map(ex=>{
     const label=ex.type==='feedback'?'Feedback given':'Answered';
     return (ex.userPrompt?`User asked: "${ex.userPrompt}"\n`:'')+`${label}: "${ex.aiResponse}"`;
   });
