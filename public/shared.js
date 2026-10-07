@@ -621,11 +621,11 @@ function openSelfReport(){
     const btn=document.createElement('button');
     btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
     btn.textContent=`Idea ${i+1}`;
-    btn.onclick=()=>{ if(!srCanGoTo(i)){ toast(`Please fill in the self-report for Idea ${srFirstEmpty()+1} first.`); return; } srSelectIdea(i,finalized); srShowPage(i); };
+    btn.onclick=()=>{ if(!srCanGoTo(i)){ toast(`Please fill in the self-report for Idea ${srFirstEmpty()+1} first.`); return; } srSelectIdea(i,finalized); srShowPage(i,1); };
     tabs.appendChild(btn);
   });
   const subTabs=document.getElementById('sr-sub-tabs');
-  if(subTabs) subTabs.style.display=isAICondition()?'flex':'none';
+  if(subTabs) subTabs.style.display='none';
   const treeTab=document.getElementById('sr-tab-tree');
   if(treeTab) treeTab.style.display=isCondition4()?'':'none';
   const srLeft=document.getElementById('sr-left');
@@ -640,36 +640,35 @@ function openSelfReport(){
       const page=document.createElement('div');
       page.className='sr-page'; page.id=`sr-page-${i}`;
       page.style.display=i===0?'flex':'none';
+      const opts=['No AI was used','AI created the idea','AI made minor modifications','AI made major modifications','AI provided feedback','AI clarified questions'];
       page.innerHTML=`
-        <div class="sr-question">
+        <div class="sr-question" id="sr-q1-${i}">
+          <p class="sr-q-label">Please select how AI was used for the generation of this idea (you can select more than one).</p>
+          ${opts.map(o=>`<label class="sr-opt"><input type="checkbox" class="sr-pick-${i}" value="${o}" onchange="srRefreshLocks()"> ${o}</label>`).join('')}
+        </div>
+        <div class="sr-question" id="sr-q2-${i}" style="display:none">
           <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
           <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}" oninput="srRefreshLocks()"
             placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
             rows="6"></textarea>
         </div>
         <div class="sr-foot">
-          ${i>0?'<button class="btn btn-outline" onclick="srPrev()">← Back</button>':''}
-          ${isLast
-            ?'<button class="btn btn-green" onclick="srSubmit()">Submit Self-Reports</button>'
-            :`<button class="btn btn-primary" id="sr-next-${i}" onclick="srNext()">Next →</button>`}
+          <button class="btn btn-outline" id="sr-back-${i}" onclick="srPrev()">← Back</button>
+          <button class="btn btn-primary" id="sr-next-${i}" onclick="srNext()">Next →</button>
+          <button class="btn btn-green" id="sr-sub-${i}" onclick="srSubmit()" style="display:none">Submit Self-Reports</button>
         </div>`;
       srRight.appendChild(page);
     });
 
-    // Prefill previously saved answers (matched by node id) if reopening after a prior submit
-    if(S.selfReportData){
-      const savedMap = new Map();
-      S.selfReportData.finalized.forEach((n,i)=>{ savedMap.set(n.id, S.selfReportData.aiUses[i]); });
-      finalized.forEach((node,i)=>{
-        if(savedMap.has(node.id)){
-          const ta=document.getElementById(`sr-ai-use-${i}`);
-          if(ta) ta.value = savedMap.get(node.id);
-        }
-      });
+    if(S.selfReportData&&S.selfReportData.picks){
+      const D=S.selfReportData;
+      finalized.forEach((node,i)=>{ const k=D.finalized.findIndex(n=>n.id===node.id); if(k<0) return;
+        document.querySelectorAll(`.sr-pick-${i}`).forEach(c=>{ c.checked=(D.picks[k]||[]).includes(c.value); });
+        const ta=document.getElementById(`sr-ai-use-${i}`); if(ta) ta.value=D.descs[k]||''; });
     }
   }
 
-  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab); srRefreshLocks();
+  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0,1); srRefreshLocks();
   document.getElementById('self-report-modal').style.display='flex';
 }
 function srSelectIdea(idx,finalizedArg){
@@ -761,50 +760,59 @@ function srUpdateStep(){
   const tot=S.nodes.filter(n=>n.isFinalized).length;
   const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Idea ${_srPage+1} of ${tot}`;
 }
-function srShowPage(n){
-  _srPage=n;
-  const _tot=S.nodes.filter(nd=>nd.isFinalized).length;
-  for(let i=0;i<_tot;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
-  const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='flex';
-  const f=S.nodes.filter(nd=>nd.isFinalized);
-  srSelectIdea(n,f);
-  srUpdateStep();
+let _srStage=1;
+const srTot=()=>S.nodes.filter(n=>n.isFinalized).length;
+function srPicked(i){ return [...document.querySelectorAll(`.sr-pick-${i}:checked`)].map(c=>c.value); }
+function srShowPage(n,stage){
+  _srPage=n; _srStage=stage||1;
+  const tot=srTot();
+  for(let i=0;i<tot;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display=i===n?'flex':'none'; }
+  document.getElementById(`sr-q1-${n}`).style.display=_srStage===1?'':'none';
+  document.getElementById(`sr-q2-${n}`).style.display=_srStage===2?'':'none';
+  // Left side: chat history first; then the process tree (app4) or the same chat history (app3)
+  _srSubTab=(_srStage===2&&isCondition4())?'tree':'chat';
+  srSelectIdea(n,S.nodes.filter(nd=>nd.isFinalized));
+  srUpdateStep(); srRefreshLocks();
 }
-function srFilled(i){ const ta=document.getElementById(`sr-ai-use-${i}`); return !!(ta&&ta.value.trim()); }
-function srFirstEmpty(){ const tot=S.nodes.filter(n=>n.isFinalized).length; for(let i=0;i<tot;i++) if(!srFilled(i)) return i; return tot; }
+function srFilled(i){ const ta=document.getElementById(`sr-ai-use-${i}`); return srPicked(i).length>0&&!!(ta&&ta.value.trim()); }
+function srFirstEmpty(){ const tot=srTot(); for(let i=0;i<tot;i++) if(!srFilled(i)) return i; return tot; }
 function srCanGoTo(i){ return i<=srFirstEmpty(); }
 function srRefreshLocks(){
   document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-locked',!srCanGoTo(i)));
-  const tot=S.nodes.filter(n=>n.isFinalized).length;
-  for(let i=0;i<tot;i++){ const nb=document.getElementById(`sr-next-${i}`); if(nb) nb.disabled=!srFilled(i); }
+  const tot=srTot(), i=_srPage, ta=document.getElementById(`sr-ai-use-${i}`);
+  const ok=_srStage===1?srPicked(i).length>0:!!(ta&&ta.value.trim());
+  const last=i===tot-1;
+  const set=(id,show,dis)=>{ const e=document.getElementById(id+i); if(e){ e.style.display=show?'':'none'; if(dis!==undefined) e.disabled=dis; } };
+  set('sr-back-',i>0||_srStage===2);
+  set('sr-next-',_srStage===1||!last,!ok);
+  set('sr-sub-',_srStage===2&&last,!ok);
 }
 function srNext(){
-  const total=S.nodes.filter(n=>n.isFinalized).length;
-  if(!srFilled(_srPage)){ toast('Please fill in this self-report before continuing.'); return; }
-  if(_srPage<total-1) srShowPage(_srPage+1);
+  if(_srStage===1){ if(!srPicked(_srPage).length){ toast('Please select at least one option.'); return; } srShowPage(_srPage,2); return; }
+  const ta=document.getElementById(`sr-ai-use-${_srPage}`);
+  if(!ta||!ta.value.trim()){ toast('Please answer before continuing.'); return; }
+  if(_srPage<srTot()-1) srShowPage(_srPage+1,1);
 }
-function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
+function srPrev(){
+  if(_srStage===2) srShowPage(_srPage,1);
+  else if(_srPage>0) srShowPage(_srPage-1,2);
+}
 async function srSubmit(){
   const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
   // Validate all fields are filled before allowing submission
-  const hasEmpty=finalized.some((_,i)=>{
-    const ta=document.getElementById(`sr-ai-use-${i}`);
-    return !ta||!ta.value.trim();
-  });
-  if(hasEmpty){ toast('Please fill in all fields before submitting.'); return; }
+  if(finalized.some((_,i)=>!srFilled(i))){ toast('Please fill in all fields before submitting.'); return; }
+  const picks=finalized.map((_,i)=>srPicked(i));
+  const descs=finalized.map((_,i)=>document.getElementById(`sr-ai-use-${i}`).value.trim());
+  // Both answers are stored together in the existing self_report_ai_use column
+  const aiUses=finalized.map((_,i)=>`AI use: ${picks[i].join('; ')}\nDescription: ${descs[i]}`);
 
-  const aiUses=finalized.map((_,i)=>{
-    const ta=document.getElementById(`sr-ai-use-${i}`);
-    return ta?ta.value.trim():'';
-  });
-
-  const btn=document.querySelector('.sr-foot .btn-green');
+  const btn=document.getElementById(`sr-sub-${finalized.length-1}`);
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
 
   // Attach each answer to its idea, and clear any answer left on an idea that is no longer finalized
   S.nodes.forEach(n=>{ n.selfReportAiUse=''; });
   finalized.forEach((n,i)=>{ n.selfReportAiUse=aiUses[i]; });
-  S.selfReportData={ finalized, aiUses }; // kept so the form is prefilled if reopened
+  S.selfReportData={ finalized, aiUses, picks, descs }; // kept so the form is prefilled if reopened
 
   const ok=await syncNow();
   if(!ok){
@@ -1032,8 +1040,8 @@ function renderChatActions(){
 // One line per button: shrink the shared font size until every label fits.
 function fitActionButtons(){
   const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
-  let fs=13; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
-  while(fs>8&&bs.some(b=>b.scrollWidth>b.clientWidth)){ fs-=0.5; set(); }
+  let fs=14; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
+  while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
 }
 window.addEventListener('resize',()=>{ try{fitActionButtons();}catch(e){} });
 function buildChatComposer(mode,node){

@@ -561,3 +561,8 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 .tree-nudge{left:auto;font-size:14px;font-weight:600;line-height:1.35;color:var(--blue);background:#eff6ff;border:2px solid var(--blue);border-radius:8px;padding:8px 10px;margin-left:10px;height:62px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .chat-action-btn{white-space:nowrap;overflow:hidden;padding:4px 6px}
+
+.tree-nudge{color:#c2410c;background:#fff7ed;border-color:#f97316}
+#tree-area,.tree-node,.edge-label,.tree-nudge,#sr-tree-inner{user-select:none;-webkit-user-select:none}
+.sr-opt{display:flex;align-items:center;gap:8px;font-size:0.95rem;cursor:pointer}
+.chat-action-btn{font-size:14px}
