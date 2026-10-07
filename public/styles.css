@@ -572,3 +572,5 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .brand-icon{height:1.5em;width:auto;aspect-ratio:auto;object-fit:contain;flex-shrink:0;display:block}
 .brand-icon-lg{height:1.35em}
 .chat-action-btn{transition:none !important}
+.chat-actions-bar{gap:6px;padding:10px 10px}
+.chat-action-btn{padding:2px 3px}

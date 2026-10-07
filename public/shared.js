@@ -1046,7 +1046,7 @@ function renderChatActions(){
 // One line per button: shrink the shared font size until every label fits.
 function fitActionButtons(){
   const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
-  let fs=14; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
+  let fs=15; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
   while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
 }
 window.addEventListener('resize',()=>{ try{fitActionButtons();}catch(e){} });
