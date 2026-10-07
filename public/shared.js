@@ -344,7 +344,7 @@ function renderAllTrees(){
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML='';
-  const sub=document.getElementById('tree-subheader'); if(sub) sub.style.visibility=S.nodes.length?'visible':'hidden';
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?'Click on any node to work on it':'Create an idea to create an idea tree'; }
   const W=165,H=62,HG=20,VG=70,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
