@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>IdeaGit</title>
+  <title>IdeaForest</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 <div id="page-landing">
   <div class="landing-card">
-    <h1 class="landing-title">IdeaGit</h1>
-    <p class="landing-tagline">IdeaGit is a tool with which you can brainstorm with AI and track your ideation process</p>
+    <h1 class="landing-title">IdeaForest</h1>
+    <p class="landing-tagline">IdeaForest is a tool with which you can brainstorm with AI and track your ideation process</p>
     <label class="landing-label" for="participant-id-input">Please enter your participant ID to begin</label>
     <input type="text" id="participant-id-input" class="field-input" maxlength="100" autocomplete="off" spellcheck="false"/>
     <button class="btn btn-primary" id="btn-begin" disabled onclick="beginStudy()">Begin</button>
@@ -18,35 +18,38 @@
 </div>
 <div id="page-ideation" style="display:none">
   <nav class="top-nav">
-    <div class="nav-logo" style="cursor:default">IdeaGit</div>
+    <div class="nav-logo" style="cursor:default">IdeaForest</div>
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaGit</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">IdeaForest has two panels</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
-  <div class="two-col ideation-grid">
+  <div class="two-col ideation-grid ai-two-col">
     <div class="panel">
-      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-create-manual" onclick="startManualCreate()">Create Idea Manually</button><button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner generate-inline">
-          <p>Create an idea manually or using AI</p>
-          <div class="field-group generate-inline-field">
-            <label class="generate-prompt-title">Please confirm the prompt used to generate the idea</label>
+          <p class="create-heading">Create an idea with or without AI</p>
+          <div class="create-choice">
+            <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
+            <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea without AI</button>
+          </div>
+          <div class="create-composer" id="create-ai-box" style="display:none">
+            <label class="generate-prompt-title">This is the default prompt to generate an idea using AI. You can edit it.</label>
             <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
             <p class="field-error" id="generate-prompt-error" style="display:none"></p>
+            <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate one idea using AI</button>
           </div>
-          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate with AI</button>
+          <div class="create-composer" id="create-self-box" style="display:none">
+            <label class="generate-prompt-title">Write your idea below.</label>
+            <textarea id="create-body" class="field-textarea generate-prompt-textarea" rows="10" placeholder="Describe your idea…"></textarea>
+            <button class="btn btn-primary" onclick="submitManualCreate()">Save idea</button>
+          </div>
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
-        <div class="chat-idea-header">
-          <div class="chat-idea-actions">
-            <button class="btn btn-green btn-sm" id="btn-finalize" onclick="finalizeCurrentIdea()">Finalize</button>
-            <button class="btn btn-amber btn-sm" onclick="openManualModify()">Modify Manually</button>
-          </div>
-        </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
         <div class="reply-indicator" id="reply-indicator" style="display:none">
@@ -54,22 +57,20 @@
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
         </div>
         <div class="chat-input-row">
-          <textarea id="chat-input" placeholder="Ask the AI to modify the current idea, provide feedback, or clarify any questions about the design challenge…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+          <textarea id="chat-input" placeholder="Type your message to the AI…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
           <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
         </div>
       </div>
     </div>
     <div class="panel">
       <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
-      <div class="challenge-summary-box">
-          <div class="challenge-summary-title">Summary of Design Challenge</div>
-          <p>1. You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”.</p>
-          <p>2. Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
-          <p>3. Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</p>
-        </div>
-        <div class="ideas-area" id="ideas-list">
-        <div class="ideas-empty" id="ideas-empty"><div class="empty-state-inner"><span>No ideas yet</span></div></div>
+      <div class="panel-subheader">Summary of Design Challenge</div>
+      <div class="challenge-bubble">
+        <p>1. You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”.</p>
+        <p>2. Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.</p>
+        <p>3. Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</p>
       </div>
+      <div class="ideas-area ai-ideas" id="ideas-list"></div>
     </div>
   </div>
 </div>
@@ -88,27 +89,18 @@
 </div>
 <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
   <div class="modal instructions-wide">
-    <div class="modal-head" id="instructions-head">Instructions for using IdeaGit</div>
-    <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+    <div class="modal-head" id="instructions-head">IdeaForest</div>
+    <div class="modal-body">
       <div id="instructions-content" class="instructions-body"></div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeInstructions()">Close</button></div>
   </div>
 </div>
-<div class="modal-overlay" id="modal-create" style="display:none" onclick="if(event.target===this)closeCreateModal()">
-  <div class="modal"><div class="modal-head">Create Idea Manually</div>
-    <div class="modal-body">
-      <div class="field-group"><label class="field-label">Description *</label><textarea id="create-body" class="field-textarea" rows="6"></textarea></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-outline" onclick="closeCreateModal()">Cancel</button><button class="btn btn-primary" onclick="submitManualCreate()">Create Idea</button></div>
-  </div>
-</div>
-<div class="modal-overlay" id="modal-modify" style="display:none" onclick="if(event.target===this)closeModifyModal()">
-  <div class="modal"><div class="modal-head">Modify Idea Manually</div>
-    <div class="modal-body">
-      <div class="field-group"><label class="field-label">Description *</label><textarea id="modify-body" class="field-textarea" rows="6"></textarea></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModifyModal()">Cancel</button><button class="btn btn-amber" onclick="submitManualModify()">Save Changes</button></div>
+<div class="modal-overlay" id="modal-confirm" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head" id="confirm-title"></div>
+    <div class="modal-body"><p id="confirm-message"></p></div>
+    <div class="modal-foot" id="confirm-buttons"></div>
   </div>
 </div>
 <div class="modal-overlay" id="self-report-modal" style="display:none">
@@ -125,20 +117,18 @@
   </div>
 </div>
 <div class="modal-overlay" id="details-modal" style="display:none" onclick="if(event.target===this)closeDetailsModal()">
-  <div class="modal">
+  <div class="modal modal-details">
     <div class="modal-head">Details about the design challenge</div>
-    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
-      <p><strong>Instructions for the task</strong></p>
+    <div class="modal-body details-body">
       <ol>
-        <li>This task will provide you a design challenge.</li>
-        <li>Your goal is to write at least three ideas within 15 minutes. The timer starts after you read the Design Challenge.</li>
-        <li>Your ideas need to meet the constraints of the design challenge.</li>
+        <li>Your goal is to write <strong>at least</strong> three ideas.</li>
+        <li>The ideas need to satisfy the constraints of the design challenge.</li>
         <li>Your goal is NOT to complete the task as quickly as possible.</li>
       </ol>
       <p><strong>Design challenge:</strong></p>
-      <p><strong>Setup:</strong> You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
       <p>If you don't know what compulsive-scrolling is, please let the researcher know.</p>
-      <p><strong>Constraints:</strong> Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.</p>
+      <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.</p>
       <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>

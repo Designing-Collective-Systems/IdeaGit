@@ -13,9 +13,9 @@ Challenge: "${challenge}"`;
     const hiddenSuffix = `${existingIdeas}
 
 Return ONLY valid JSON, no markdown:
-{"body":"clear 2–4 sentence description of what the idea is, how it works, and why it addresses the challenge."}`;
+{"body":"a clear description of what the idea is, how it works, and why it addresses the challenge. Keep it under 100 words."}`;
     return {
-      system: 'You are a creative design thinking assistant. Generate original, specific, feasible design ideas. Every idea must be meaningfully different from any listed.',
+      system: 'You are a creative design thinking assistant. Generate original, specific, feasible design ideas. Every idea must be meaningfully different from any listed. Keep each idea under 100 words.',
       editable, hiddenSuffix, user: editable + hiddenSuffix,
     };
   },
@@ -40,7 +40,7 @@ Reply with exactly one line, starting with VALID or INVALID.`
   }),
 
   modifyIdeaChat: (currentBody, challenge, request, recentContext='') => ({
-    system: 'You are a design thinking assistant. Modify the given idea based on the user request. Preserve the core concept unless the user asks for a completely different direction. Use the recent conversation, if given, to understand what the user is referring to. Return ONLY valid JSON, no markdown.',
+    system: 'You are a design thinking assistant. Modify the given idea based on the user request. Preserve the core concept unless the user asks for a completely different direction. Use the recent conversation, if given, to understand what the user is referring to. Keep the revised idea under 100 words. Return ONLY valid JSON, no markdown.',
     user: `Current idea: "${currentBody}"
 
 Challenge: "${challenge}"${recentContext}
@@ -48,20 +48,20 @@ Challenge: "${challenge}"${recentContext}
 Modification request: "${request}"
 
 Return ONLY valid JSON:
-{"body":"revised description (2–4 sentences)"}`
+{"body":"revised description, under 100 words"}`
   }),
 
   feedbackChat: (body, challenge, question) => ({
-    system: `You are a design thinking expert. Give concise, constructive, specific feedback in 3–5 sentences. Be direct and actionable. ${PLAIN_TEXT_RULE}`,
+    system: `You are a design thinking expert. Give concise, constructive, specific feedback in under 100 words. Be direct and actionable. ${PLAIN_TEXT_RULE}`,
     user: `Idea: "${body}"
 Challenge: "${challenge}"
 User asks: "${question}"
 
-Give direct, specific feedback in 3–5 sentences.`
+Give direct, specific feedback in under 100 words.`
   }),
 
   clarificationChat: (body, challenge) =>
-    `You are a design thinking assistant helping develop the idea: "${body}". The design challenge is: "${challenge}". Be helpful, concise, and direct. Answer the user's question without modifying the idea unless explicitly asked. ${PLAIN_TEXT_RULE}`,
+    `You are a design thinking assistant helping develop the idea: "${body}". The design challenge is: "${challenge}". Be helpful, concise, and direct. Answer the user's question without modifying the idea unless explicitly asked. Keep your answer under 100 words. ${PLAIN_TEXT_RULE}`,
 
   // Used only when keyword matching can't tell modification/feedback/clarification apart.
   classifyIntent: (body, challenge, msg) =>

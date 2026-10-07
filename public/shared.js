@@ -7,8 +7,8 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
 const FIXED_CHALLENGE = [
-  "Setup: You are a designer. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive-scrolling\u201d. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
-  "Constraints: Any feature proposed by you should not turn off the phone, delete apps, or block the user from using an app.",
+  "Setup: You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive-scrolling\u201d. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
+  "Constraints: Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.",
   "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
 ].join("\n\n");
 
@@ -146,12 +146,12 @@ function getDisplayIdeas(){
   );
   return {finalized,ongoing,unfinalized};
 }
-function makeIdeaCard(node,status,onSelect){
+function makeIdeaCard(node,status,onSelect,label){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
   // Only the Finalized badge is shown on the card itself; "In Progress" is
   // conveyed once, by the section label above the group of cards.
-  const badge=status==='finalized'?'<div class="idea-card-badge badge-finalized">Finalized</div>':'';
+  const badge=status==='finalized'?`<div class="idea-card-badge badge-finalized">${esc(label||'Finalized')}</div>`:'';
   card.innerHTML=`${badge}<div class="idea-card-body">${esc(node.body)}</div>`;
   if(onSelect) card.addEventListener('click',()=>onSelect(node.id));
   return card;
@@ -180,6 +180,25 @@ function renderIdeasList(containerId,emptyId,onSelect){
     const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='Unfinalized';
     area.appendChild(l); unfinalized.forEach(n=>area.appendChild(makeIdeaCard(n,'ongoing',onSelect)));
   }
+}
+
+// Ideas panel for the AI conditions: both categories are always shown (with a
+// short note when one is empty), and finalized ideas are numbered in order.
+function renderIdeasPanel(containerId,onSelect){
+  const area=document.getElementById(containerId); if(!area) return;
+  const {finalized,ongoing,unfinalized}=getDisplayIdeas();
+  const inProgress=ongoing.concat(unfinalized).sort((a,b)=>a.ts-b.ts);
+  area.innerHTML='';
+  if(finalized.length||inProgress.length){
+    const instr=document.createElement('p'); instr.className='panel-instruction-inline'; instr.textContent='Click on any idea to work on it'; area.appendChild(instr);
+  }
+  const section=(label,list,status,emptyText,labelFn)=>{
+    const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent=label; area.appendChild(l);
+    if(!list.length){ const p=document.createElement('p'); p.className='ideas-section-empty'; p.textContent=emptyText; area.appendChild(p); return; }
+    list.forEach((n,i)=>area.appendChild(makeIdeaCard(n,status,onSelect,labelFn?labelFn(i):undefined)));
+  };
+  section('In Progress',inProgress,'ongoing','No ideas are in progress');
+  section('Finalized',finalized,'finalized','No ideas have been finalized',i=>`Finalized idea ${i+1}`);
 }
 
 // ── Process tree ──────────────────────────────────────────────
@@ -260,7 +279,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
     const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
     const typeLabel=node.isFinalized?'Finalized':node.type==='creation'?(node.tag==='ai-generated'?'AI Creation':'Creation'):
-                    node.tag==='manual-modification'?'Manual Edit':'AI Modification';
+                    node.tag==='manual-modification'?'Edited without AI':'Edited with AI';
     const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
                     tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
     const el=document.createElement('div');
@@ -287,6 +306,118 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   const root=gNodes.find(n=>!n.parentId||!gNodes.find(p=>p.id===n.parentId));
   const labelEl=document.getElementById(labelId);
   if(labelEl) labelEl.textContent=root?root.title:'';
+}
+
+// ── Idea Tree panel (app4): every idea's tree, side by side ────
+// New ideas get a new tree to the right; selecting an idea focuses its tree.
+function renderAllTrees(){
+  const nodesEl=document.getElementById('tree-nodes'), svg=document.getElementById('tree-svg');
+  const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
+  if(!nodesEl||!svg||!canvas) return;
+  hideTreeTooltip();
+  nodesEl.innerHTML=''; svg.innerHTML='';
+  const skel=document.getElementById('tree-skeleton'), sub=document.getElementById('tree-subheader');
+  if(sub) sub.style.visibility=S.nodes.length?'visible':'hidden';
+  if(!S.nodes.length){
+    if(skel) skel.style.display='block';
+    canvas.style.width='0px'; canvas.style.height='0px'; resetPan(); return;
+  }
+  if(skel) skel.style.display='none';
+  const W=165,H=62,GAP=60;
+  const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
+  const pos={}, span={}; let cursor=16, maxY=0;
+  gids.forEach(gid=>{
+    const p=computeLayout(gid); const ids=Object.keys(p); if(!ids.length) return;
+    const minX=Math.min(...ids.map(id=>p[id].x))-W/2, maxX=Math.max(...ids.map(id=>p[id].x))+W/2;
+    const width=maxX-minX, left=cursor;
+    ids.forEach(id=>{ pos[id]={x:p[id].x-minX+left,y:p[id].y}; maxY=Math.max(maxY,p[id].y+H); });
+    span[gid]={left,right:left+width};
+    cursor=left+width+GAP;
+  });
+  const totalW=cursor-GAP+16, totalH=maxY+40;
+  canvas.style.width=totalW+'px'; canvas.style.height=totalH+'px';
+  svg.style.width=totalW+'px'; svg.style.height=totalH+'px';
+  svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
+  S.nodes.forEach(node=>{
+    if(!node.parentId) return;
+    const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
+    path.setAttribute('class','edge'); path.setAttribute('marker-end','url(#arr)');
+    svg.appendChild(path);
+  });
+  S.nodes.forEach(node=>{
+    const p=pos[node.id]; if(!p) return;
+    const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
+              node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
+    const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                   node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+    const el=document.createElement('div');
+    el.className=`tree-node ${tc}${node.id===S.currentNodeId?' current':''}`;
+    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
+    el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+      (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
+      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
+      `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`;
+    el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
+    el.addEventListener('mousemove',moveTreeTooltip);
+    el.addEventListener('mouseleave',hideTreeTooltip);
+    el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
+    el.addEventListener('click',()=>selectIdea(node.id));
+    nodesEl.appendChild(el);
+  });
+  // Focus the tree of the current idea when all trees don't fit side by side
+  const cur=curNode(); let px=0;
+  if(cur&&span[cur.groupId]&&area&&area.clientWidth&&totalW>area.clientWidth){
+    const center=(span[cur.groupId].left+span[cur.groupId].right)/2;
+    px=Math.max(area.clientWidth-totalW,Math.min(0,area.clientWidth/2-center));
+  }
+  _pan.x=px; _pan.y=0; applyPan();
+}
+
+// Discarding removes the node and every later version branching from it.
+function branchIds(rootId){
+  const ids=[rootId];
+  for(let i=0;i<ids.length;i++) S.nodes.forEach(n=>{ if(n.parentId===ids[i]) ids.push(n.id); });
+  return ids;
+}
+function discardNode(nodeId){
+  const ids=branchIds(nodeId);
+  const nodes=ids.map(id=>S.nodes.find(n=>n.id===id)).filter(Boolean);
+  if(nodes.some(n=>n.isFinalized)){
+    askConfirm({title:'Unfinalize first',message:'A finalized idea is part of this branch. Please unfinalize it before discarding.',
+      buttons:[{label:'OK',cls:'btn-primary'}]});
+    return;
+  }
+  askConfirm({title:'Discard this idea?',
+    message:nodes.length>1?`This will permanently remove this idea and the ${nodes.length-1} later version${nodes.length>2?'s':''} connected to it.`:'This will permanently remove this idea.',
+    buttons:[{label:'Cancel',cls:'btn-outline'},{label:'Discard',cls:'btn-red',onClick:()=>doDiscard(ids)}]});
+}
+async function doDiscard(ids){
+  const set=new Set(ids);
+  const removed=S.nodes.filter(n=>set.has(n.id));
+  removed.forEach(n=>n.extras.push({type:'discarded',ts:Date.now()})); // recorded in the database before removal
+  await syncNow();
+  S.nodes=S.nodes.filter(n=>!set.has(n.id));
+  if(set.has(S.currentNodeId)){
+    const first=removed[0], parent=first&&first.parentId?S.nodes.find(n=>n.id===first.parentId):null;
+    if(parent) selectIdea(parent.id);
+    else{ S.currentNodeId=null; S.currentGroupId=null; const m=document.getElementById('chat-messages'); if(m) m.innerHTML=''; showChatInitial(); refreshUI(); }
+  } else refreshUI();
+  toast('Idea discarded');
+}
+
+// Small reusable confirmation popup: buttons = [{label,cls,onClick}]
+function askConfirm({title,message,buttons}){
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-message').textContent=message;
+  const foot=document.getElementById('confirm-buttons'); foot.innerHTML='';
+  buttons.forEach(b=>{
+    const el=document.createElement('button'); el.className='btn '+(b.cls||'btn-outline'); el.textContent=b.label;
+    el.addEventListener('click',()=>{ document.getElementById('modal-confirm').style.display='none'; if(b.onClick) b.onClick(); });
+    foot.appendChild(el);
+  });
+  document.getElementById('modal-confirm').style.display='flex';
 }
 
 // ── Claude API ─────────────────────────────────────────────────
@@ -352,12 +483,16 @@ function goHome(){
 }
 
 // ── Instructions ───────────────────────────────────────────────
+let _detailsAfterSummary=false; // true only at session start: Summary closes -> Details opens
 function openInstructions(){
-  document.getElementById('instructions-head').textContent='Summary of IdeaGit';
+  document.getElementById('instructions-head').textContent=window.CONDITION_INSTRUCTIONS_TITLE||'IdeaForest';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
 }
-function closeInstructions(){ document.getElementById('instructions-modal').style.display='none'; }
+function closeInstructions(){
+  document.getElementById('instructions-modal').style.display='none';
+  if(_detailsAfterSummary){ _detailsAfterSummary=false; openDetailsModal(); }
+}
 
 function openDetailsModal(){ document.getElementById('details-modal').style.display='flex'; }
 function closeDetailsModal(){ document.getElementById('details-modal').style.display='none'; }
@@ -378,9 +513,18 @@ function updateFinalizedCounter(){
 function checkThreeDone(){
   // No-op: idea count target removed. Participants finish via the "Done with Task" button only.
 }
+function offerFinalizeThen(next){
+  const node=curNode();
+  if(!isAICondition()||!node||node.isFinalized){ next(); return; }
+  askConfirm({title:'Finalize this idea?',message:'Do you want to finalize the current idea before you continue?',
+    buttons:[{label:'No, continue',cls:'btn-outline',onClick:next},
+             {label:'Yes, finalize it',cls:'btn-green',onClick:()=>{ finalizeCurrentIdea(); next(); }}]});
+}
 function handleDone(){
-  document.getElementById('done-count').textContent=finalizedCount();
-  document.getElementById('done-popup').style.display='flex';
+  offerFinalizeThen(()=>{
+    document.getElementById('done-count').textContent=finalizedCount();
+    document.getElementById('done-popup').style.display='flex';
+  });
 }
 function closeDonePopup(){ document.getElementById('done-popup').style.display='none'; }
 function confirmDone(){
@@ -404,7 +548,7 @@ function openSelfReport(){
     const btn=document.createElement('button');
     btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
     btn.textContent=`Idea ${i+1}`;
-    btn.onclick=()=>{ srSelectIdea(i,finalized); srShowPage(i); };
+    btn.onclick=()=>{ if(!srCanGoTo(i)){ toast(`Please fill in the self-report for Idea ${srFirstEmpty()+1} first.`); return; } srSelectIdea(i,finalized); srShowPage(i); };
     tabs.appendChild(btn);
   });
   const subTabs=document.getElementById('sr-sub-tabs');
@@ -424,10 +568,9 @@ function openSelfReport(){
       page.className='sr-page'; page.id=`sr-page-${i}`;
       page.style.display=i===0?'flex':'none';
       page.innerHTML=`
-        <h2 class="sr-page-title">Idea ${i+1}</h2>
         <div class="sr-question">
           <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
-          <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
+          <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}" oninput="srRefreshLocks()"
             placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
             rows="6"></textarea>
         </div>
@@ -435,7 +578,7 @@ function openSelfReport(){
           ${i>0?'<button class="btn btn-outline" onclick="srPrev()">← Back</button>':''}
           ${isLast
             ?'<button class="btn btn-green" onclick="srSubmit()">Submit Self-Reports</button>'
-            :'<button class="btn btn-primary" onclick="srNext()">Next →</button>'}
+            :`<button class="btn btn-primary" id="sr-next-${i}" onclick="srNext()">Next →</button>`}
         </div>`;
       srRight.appendChild(page);
     });
@@ -453,7 +596,7 @@ function openSelfReport(){
     }
   }
 
-  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
+  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab); srRefreshLocks();
   document.getElementById('self-report-modal').style.display='flex';
 }
 function srSelectIdea(idx,finalizedArg){
@@ -546,7 +689,19 @@ function srShowPage(n){
   srSelectIdea(n,f);
   srUpdateStep();
 }
-function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPage<total-1) srShowPage(_srPage+1); }
+function srFilled(i){ const ta=document.getElementById(`sr-ai-use-${i}`); return !!(ta&&ta.value.trim()); }
+function srFirstEmpty(){ const tot=S.nodes.filter(n=>n.isFinalized).length; for(let i=0;i<tot;i++) if(!srFilled(i)) return i; return tot; }
+function srCanGoTo(i){ return i<=srFirstEmpty(); }
+function srRefreshLocks(){
+  document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-locked',!srCanGoTo(i)));
+  const tot=S.nodes.filter(n=>n.isFinalized).length;
+  for(let i=0;i<tot;i++){ const nb=document.getElementById(`sr-next-${i}`); if(nb) nb.disabled=!srFilled(i); }
+}
+function srNext(){
+  const total=S.nodes.filter(n=>n.isFinalized).length;
+  if(!srFilled(_srPage)){ toast('Please fill in this self-report before continuing.'); return; }
+  if(_srPage<total-1) srShowPage(_srPage+1);
+}
 function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
 async function srSubmit(){
   const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
@@ -615,8 +770,8 @@ function beginStudy(){
 // ── Tree node labels + hover tooltip (used when hoverMode is on) ──
 function nodeTagLabel(node){
   const t=node.tag;
-  return t==='ai-generated'?'Created with AI':t==='user-created'?'Created Manually':
-         t==='manual-modification'?'Modified Manually':'Modified with AI';
+  return t==='ai-generated'?'Created with AI':t==='user-created'?'Created without AI':
+         t==='manual-modification'?'Edited without AI':'Edited with AI';
 }
 function _treeTooltipEl(){
   let t=document.getElementById('tree-tooltip');
@@ -723,8 +878,8 @@ function diffHighlightBody(oldBody,newBody){
 }
 
 function refreshUI(){
-  renderIdeasList('ideas-list','ideas-empty',selectIdea);
-  if(hasTree()) renderTreeInto({svgId:'tree-svg',nodesId:'tree-nodes',emptyId:'tree-empty',canvasId:'tree-canvas',onNodeClick:selectIdea,hoverMode:true});
+  renderIdeasPanel('ideas-list',selectIdea);
+  if(hasTree()) renderAllTrees();
   updateFinalizedCounter();
 }
 
@@ -745,37 +900,112 @@ function selectIdea(nodeId){
 }
 
 // ── Chat display ──────────────────────────────────────────────
+let _chatMode=null;   // inline composer open under the idea: 'edit-self' | 'edit-ai' | 'clarify'
+const DEFAULT_EDIT_PROMPT='Edit the current idea to make it more specific and detailed.';
+
 function showChatInitial(){
   document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none';
   setNewIdeaButtonsVisible(false);
-  document.querySelectorAll('.btn-create-manual').forEach(b=>{ b.style.display=''; });
-  startAICreate(); // the AI-generate prompt is offered automatically; Cancel falls back to manual creation
+  _chatMode=null; chooseCreate(null);
 }
 function showChatActive(){
   document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex';
   setNewIdeaButtonsVisible(true);
-  document.querySelectorAll('.btn-create-manual').forEach(b=>{ b.style.display='none'; });
 }
-// "+ New Idea" only makes sense once an idea is loaded; hidden at the very
-// start and again after clicking it, until another idea is created/selected.
+// "+ New Idea" only makes sense once an idea is loaded
 function setNewIdeaButtonsVisible(show){
   document.querySelectorAll('.btn-new-idea').forEach(b=>{ b.style.display=show?'':'none'; });
 }
-function setChatThinking(on){ document.getElementById('chat-thinking').style.display=on?'flex':'none'; const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on; }
-function updateChatHeader(){
-  const node=S.nodes.find(n=>n.id===S.currentNodeId);
-  const btn=document.getElementById('btn-finalize');
-  if(btn){ btn.textContent=node&&node.isFinalized?'Unfinalize':'Finalize'; btn.disabled=false; btn.className=node&&node.isFinalized?'btn btn-outline btn-sm':'btn btn-green btn-sm'; }
+function setChatThinking(on){
+  document.getElementById('chat-thinking').style.display=on?'flex':'none';
+  const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on;
+  const act=document.getElementById('chat-actions'); if(act) act.classList.toggle('busy',on);
 }
+function updateChatHeader(){ renderChatActions(); }
+
+// The action buttons live inside the chat, right under the newest bubble.
+function renderChatActions(){
+  const wrap=document.getElementById('chat-messages'); if(!wrap) return;
+  const old=wrap.querySelector('#chat-actions'); if(old) old.remove();
+  const node=curNode(); if(!node) return;
+  const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
+  const hint=document.createElement('p'); hint.className='chat-actions-hint';
+  hint.textContent='Ask the AI to edit the current idea, provide feedback, or clarify any questions about the design challenge';
+  box.appendChild(hint);
+  const row=document.createElement('div'); row.className='chat-actions-row';
+  [['edit-self','Edit the idea yourself','btn-amber'],['edit-ai','Edit the idea using AI','btn-blue2'],['clarify','Ask AI to clarify the idea','btn-outline']]
+    .forEach(([mode,label,cls])=>{
+      const b=document.createElement('button'); b.className='btn btn-sm '+cls+(_chatMode===mode?' active':''); b.textContent=label;
+      b.onclick=()=>openChatComposer(mode); row.appendChild(b);
+    });
+  const f=document.createElement('button');
+  f.className='btn btn-sm '+(node.isFinalized?'btn-outline':'btn-green');
+  f.textContent=node.isFinalized?'Unfinalize the idea':'Finalize the idea';
+  f.onclick=finalizeCurrentIdea; row.appendChild(f);
+  box.appendChild(row);
+  if(_chatMode) box.appendChild(buildChatComposer(_chatMode,node));
+  wrap.appendChild(box);
+}
+function buildChatComposer(mode,node){
+  const c=document.createElement('div'); c.className='chat-composer';
+  const label=document.createElement('label'); label.className='generate-prompt-title';
+  const ta=document.createElement('textarea'); ta.className='field-textarea'; ta.id='chat-composer-text'; ta.rows=5;
+  const err=document.createElement('p'); err.className='field-error'; err.id='chat-composer-error'; err.style.display='none';
+  const row=document.createElement('div'); row.className='chat-composer-row';
+  const go=document.createElement('button');
+  const cancel=document.createElement('button'); cancel.className='btn btn-outline btn-sm'; cancel.textContent='Cancel';
+  cancel.onclick=()=>{ _chatMode=null; renderChatActions(); };
+  if(mode==='edit-self'){
+    label.textContent='Edit the idea below, then save your edit.'; ta.value=node.body;
+    go.className='btn btn-amber btn-sm'; go.textContent='Save edit'; go.onclick=submitSelfEdit;
+  } else if(mode==='edit-ai'){
+    label.textContent='This is the default prompt to edit the idea using AI. You can edit it.'; ta.value=DEFAULT_EDIT_PROMPT;
+    go.className='btn btn-blue2 btn-sm'; go.textContent='Edit the idea using AI'; go.onclick=submitAIEdit;
+  } else {
+    label.textContent='Ask the AI to clarify the idea, or any question about the design challenge.'; ta.placeholder='Type your question…';
+    go.className='btn btn-blue2 btn-sm'; go.textContent='Ask AI'; go.onclick=submitClarify;
+  }
+  row.appendChild(go); row.appendChild(cancel);
+  c.appendChild(label); c.appendChild(ta); c.appendChild(err); c.appendChild(row);
+  return c;
+}
+function openChatComposer(mode){
+  _chatMode=(_chatMode===mode)?null:mode;
+  renderChatActions();
+  const box=document.getElementById('chat-actions'); if(box&&box.scrollIntoView) box.scrollIntoView({block:'nearest'});
+  const ta=document.getElementById('chat-composer-text'); if(ta) ta.focus();
+}
+function setComposerError(msg){ const el=document.getElementById('chat-composer-error'); if(el){ el.textContent=msg; el.style.display=msg?'block':'none'; } }
+function submitSelfEdit(){
+  const body=document.getElementById('chat-composer-text').value.trim();
+  const parent=curNode(); if(!parent) return;
+  if(!body){ setComposerError('Please describe your idea.'); return; }
+  if(body===parent.body){ setComposerError('No changes detected. Please edit the idea before saving.'); return; }
+  _chatMode=null;
+  const node=mkNode({type:'modification',tag:'manual-modification',title:'',body,parentId:parent.id,userPrompt:'[Manual modification]'});
+  addNode(node); updateChatHeader(); rebuildChat(node.id); refreshUI();
+  toast('Idea updated');
+}
+function submitAIEdit(){
+  const msg=document.getElementById('chat-composer-text').value.trim();
+  if(!msg){ setComposerError('Please enter a prompt.'); return; }
+  _chatMode=null; renderChatActions(); processMessage(msg,'modification');
+}
+function submitClarify(){
+  const msg=document.getElementById('chat-composer-text').value.trim();
+  if(!msg){ setComposerError('Please type your question.'); return; }
+  _chatMode=null; renderChatActions(); processMessage(msg,'clarification');
+}
+
 // Rebuilds the full chat for nodeId, then scrolls to where that idea's own
-// body appears (its creation/modification point) rather than the bottom of
-// any trailing feedback/clarification messages.
+// body appears (its creation/edit point) rather than the bottom of any
+// trailing feedback/clarification messages.
 function buildChatInto(wrap,nodeId){
   getPath(nodeId).forEach(node=>{
-    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,node.tag==='ai-generated'?'AI-Generated Idea':'Your Idea',node.tag==='ai-generated'?'ai-created':'manual-created'));
+    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='ai-generated'?'ai-created':'manual-created'));
     else if(node.type==='modification'){
-      if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt,node.id));
-      wrap.appendChild(makeIdeaBubble(node,node.tag==='manual-modification'?'Manually Modified':'AI-Modified',node.tag==='manual-modification'?'manual':'modified'));
+      if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt==='[Manual modification]'?'[Edited without AI]':node.userPrompt,node.id));
+      wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='manual-modification'?'manual':'modified'));
     }
     node.extras.forEach((ex,idx)=>{
       if(ex.userPrompt) wrap.appendChild(makeMsgBubble('user',ex.userPrompt,node.id,idx));
@@ -787,6 +1017,7 @@ function buildChatInto(wrap,nodeId){
 function rebuildChat(nodeId){
   const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
   buildChatInto(wrap,nodeId);
+  renderChatActions();
   const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
   if(target) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
 }
@@ -818,7 +1049,12 @@ function makeFeedbackBubble(content,nodeId,extraIdx){
     <div class="feedback-bubble-label">AI Feedback</div><span class="bubble-content">${esc(clean)}</span>`;
   return el;
 }
-function appendToChat(el){ const w=document.getElementById('chat-messages'); if(w){ w.appendChild(el); w.scrollTop=w.scrollHeight; } }
+function appendToChat(el){
+  const w=document.getElementById('chat-messages'); if(!w) return;
+  const act=w.querySelector('#chat-actions');
+  if(act) w.insertBefore(el,act); else w.appendChild(el);
+  w.scrollTop=w.scrollHeight;
+}
 
 function setReplyTo(nodeId,extraIdx,preview){
   _replyToNodeId=nodeId;
@@ -828,34 +1064,37 @@ function setReplyTo(nodeId,extraIdx,preview){
 }
 function clearReply(){ _replyToNodeId=null; const ind=document.getElementById('reply-indicator'); if(ind) ind.style.display='none'; }
 
-// ── Create idea manually (description only — no title) ─────────
-function startManualCreate(){
-  document.getElementById('create-body').value='';
-  document.getElementById('modal-create').style.display='flex';
-  setTimeout(()=>document.getElementById('create-body').focus(),60);
+// ── Create an idea (inline in the AI Chat panel, no popups) ────
+// Shows the "with AI" prompt box or the "without AI" writing box on demand.
+function chooseCreate(mode){
+  const ai=document.getElementById('create-ai-box'), self=document.getElementById('create-self-box');
+  if(ai) ai.style.display=mode==='ai'?'flex':'none';
+  if(self) self.style.display=mode==='self'?'flex':'none';
+  const bAI=document.getElementById('btn-create-ai'), bSelf=document.getElementById('btn-create-self');
+  if(bAI) bAI.classList.toggle('active',mode==='ai');
+  if(bSelf) bSelf.classList.toggle('active',mode==='self');
+  if(mode==='ai') startAICreate();   // fills in the default prompt
+  if(mode==='self'){ const ta=document.getElementById('create-body'); if(ta){ ta.value=''; ta.focus(); } }
 }
-function closeCreateModal(){ document.getElementById('modal-create').style.display='none'; }
 function submitManualCreate(){
-  const body=document.getElementById('create-body').value.trim();
+  const ta=document.getElementById('create-body'); const body=ta?ta.value.trim():'';
   if(!body){ toast('Please describe your idea.'); return; }
-  closeCreateModal();
   const node=mkNode({type:'creation',tag:'user-created',title:'',body}); addNode(node);
   showChatActive(); updateChatHeader(); rebuildChat(node.id); refreshUI();
 }
 
-// ── Generate with AI: the prompt is embedded directly in the AI Chat panel
-// (shown whenever there's no current idea - at the start, and again after
-// "+ New Idea") rather than in a popup. It's validated against the challenge
-// first (on-topic, single idea) before anything is generated; the format
-// instructions sent to the AI are never shown to the participant.
+// Generate with AI: the default prompt can be edited, and is checked against the
+// challenge first (on-topic, single idea). The format instructions sent to the AI
+// are never shown to the participant.
 let _pendingGenerate=null;
+const GENERATE_LABEL='Generate one idea using AI';
 function startAICreate(){
   const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
   _pendingGenerate={system,hiddenSuffix};
   const ta=document.getElementById('generate-prompt-text'); if(ta) ta.value=editable;
   setGeneratePromptError('');
   const btn=document.getElementById('btn-generate-confirm');
-  if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+  if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
 }
 function setGeneratePromptError(msg){
   const el=document.getElementById('generate-prompt-error'); if(!el) return;
@@ -875,12 +1114,12 @@ async function confirmGenerateConfirm(){
     if(!/^VALID/i.test(verdict)){
       const reason=verdict.replace(/^INVALID:?\s*/i,'').trim();
       setGeneratePromptError(reason?`Please enter a valid prompt: ${reason}`:'Please enter a valid prompt for this design challenge.');
-      if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+      if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
       return;
     }
   }catch(e){
     setGeneratePromptError('Could not check your prompt. Please try again.');
-    if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+    if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
     return;
   }
 
@@ -895,42 +1134,30 @@ async function confirmGenerateConfirm(){
     wrap.innerHTML='';
     const node=mkNode({type:'creation',tag:'ai-generated',body:json.body,userPrompt:edited}); addNode(node);
     updateChatHeader(); rebuildChat(node.id); refreshUI();
-  }catch(e){ wrap.innerHTML=''; appendToChat(makeMsgBubble('assistant','Error: '+e.message)); showChatInitial(); }
+  }catch(e){
+    wrap.innerHTML=''; showChatInitial(); chooseCreate('ai');
+    const ta=document.getElementById('generate-prompt-text'); if(ta) ta.value=edited;
+    setGeneratePromptError('Could not generate an idea: '+e.message);
+  }
   finally{
     setChatThinking(false);
-    if(btn){ btn.disabled=false; btn.textContent='Generate'; }
+    if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
   }
 }
 
-// ── Modify manually (description only — no title) ───────────────
-function openManualModify(){
-  const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
-  document.getElementById('modify-body').value=node.body;
-  document.getElementById('modal-modify').style.display='flex';
-  setTimeout(()=>document.getElementById('modify-body').focus(),60);
-}
-function closeModifyModal(){ document.getElementById('modal-modify').style.display='none'; }
-function submitManualModify(){
-  const body=document.getElementById('modify-body').value.trim();
-  if(!body){ toast('Please describe your idea.'); return; }
-  const parent=S.nodes.find(n=>n.id===S.currentNodeId); if(!parent) return;
-  if(body===parent.body){ toast('No changes detected. Please modify the idea before saving.'); return; }
-  closeModifyModal();
-  const node=mkNode({type:'modification',tag:'manual-modification',title:'',body,parentId:parent.id,userPrompt:'[Manual modification]'});
-  addNode(node); updateChatHeader(); rebuildChat(node.id); refreshUI();
-  toast('Idea updated');
-}
-
-// ── Finalize ──────────────────────────────────────────────────
+// ── Finalize / new idea ───────────────────────────────────────
 function finalizeCurrentIdea(){
-  const node=S.nodes.find(n=>n.id===S.currentNodeId); if(!node) return;
+  const node=curNode(); if(!node) return;
+  _chatMode=null;
   if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
   updateChatHeader(); updateFinalizedCounter(); refreshUI();
   if(node.isFinalized) checkThreeDone();
   queueSync();
   toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');
 }
-function startNewIdea(){ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; refreshUI(); }
+function startNewIdea(){
+  offerFinalizeThen(()=>{ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; refreshUI(); });
+}
 
 // ── Chat send ─────────────────────────────────────────────────
 function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChatMessage(); } }
@@ -992,7 +1219,7 @@ async function processMessage(msg,type){
       const json=JSON.parse(text.replace(/```json|```/g,'').trim());
       const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
         body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
-      addNode(node); appendToChat(makeIdeaBubble(node,'AI-Modified Idea','modified'));
+      addNode(node); appendToChat(makeIdeaBubble(node,nodeTagLabel(node),'modified'));
       updateChatHeader(); refreshUI();
     } else {
       const history=buildAPIHistory(parent.id);
