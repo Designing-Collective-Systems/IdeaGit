@@ -364,12 +364,13 @@ function renderAllTrees(){
     place(t,getW(t)/2,0);
     const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
     const minX=Math.min(...list.map(x=>x.x))-W/2, maxX=Math.max(...list.map(x=>x.x))+W/2;
-    const width=maxX-minX, height=Math.max(...list.map(x=>x.y))+H, shiftX=cursor+PAD-minX;
-    list.forEach(x=>{ x.x+=shiftX; x.y+=PAD; });
+    const raw=maxX-minX, width=Math.max(raw,240), TOP=gid?78:0;
+    const height=Math.max(...list.map(x=>x.y))+H+TOP, shiftX=cursor+PAD+(width-raw)/2-minX;
+    list.forEach(x=>{ x.x+=shiftX; x.y+=PAD+TOP; });
     flat.push(...list);
     const nudge=gid?treeNudge(real):'';
-    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD+(nudge?40:0),nudge,treeH:height+2*PAD});
-    maxH=Math.max(maxH,height+2*PAD+(nudge?40:0));
+    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD,nudge});
+    maxH=Math.max(maxH,height+2*PAD);
     cursor+=width+2*PAD+GAP;
   });
   const totalW=cursor-GAP+4, totalH=maxH+8;
@@ -378,7 +379,7 @@ function renderAllTrees(){
   svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
   frames.forEach(f=>{
     if(f.nudge){ const nd=document.createElement('div'); nd.className='tree-nudge';
-      nd.style.cssText=`left:${f.left}px;top:${f.treeH}px;width:${f.width}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
+      nd.style.cssText=`left:${f.left}px;top:${PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
     if(!(cur&&f.gid===cur.groupId)) return;   // outline around the idea tree being worked on
     const fr=document.createElement('div'); fr.className='tree-group-frame';
     fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr);
@@ -415,9 +416,6 @@ function renderAllTrees(){
       (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
       `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`;
-    el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
-    el.addEventListener('mousemove',moveTreeTooltip);
-    el.addEventListener('mouseleave',hideTreeTooltip);
     el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
     el.addEventListener('click',()=>selectIdea(node.id));
     nodesEl.appendChild(el);
@@ -438,6 +436,13 @@ function branchIds(rootId){
   return ids;
 }
 function discardNode(nodeId){
+  if(S.condition==='AI-Assisted Ideation'){   // app3: discard only this idea; later versions stay
+    const n=S.nodes.find(k=>k.id===nodeId); if(!n) return;
+    if(n.isFinalized){ askConfirm({title:'Unfinalize first',message:'This idea is finalized. Please unfinalize it before discarding.',buttons:[{label:'OK',cls:'btn-primary'}]}); return; }
+    askConfirm({title:'Discard this idea?',message:'This will permanently remove this idea.',
+      buttons:[{label:'Cancel',cls:'btn-outline'},{label:'Discard',cls:'btn-red',onClick:()=>doDiscard([nodeId],true)}]});
+    return;
+  }
   const ids=branchIds(nodeId);
   const nodes=ids.map(id=>S.nodes.find(n=>n.id===id)).filter(Boolean);
   if(nodes.some(n=>n.isFinalized)){
@@ -449,7 +454,7 @@ function discardNode(nodeId){
     message:nodes.length>1?`This will permanently remove this idea and the ${nodes.length-1} later version${nodes.length>2?'s':''} connected to it.`:'This will permanently remove this idea.',
     buttons:[{label:'Cancel',cls:'btn-outline'},{label:'Discard',cls:'btn-red',onClick:()=>doDiscard(ids)}]});
 }
-async function doDiscard(ids){
+async function doDiscard(ids,keepChildren){
   const set=new Set(ids);
   const removed=S.nodes.filter(n=>set.has(n.id));
   removed.forEach(n=>n.extras.push({type:'discarded',ts:Date.now()})); // recorded in the database before removal
@@ -457,7 +462,9 @@ async function doDiscard(ids){
   S.nodes=S.nodes.filter(n=>!set.has(n.id));
   if(set.has(S.currentNodeId)){
     const first=removed[0], parent=first&&first.parentId?S.nodes.find(n=>n.id===first.parentId):null;
+    const kid=keepChildren&&S.nodes.find(k=>k.groupId===first.groupId);
     if(parent) selectIdea(parent.id);
+    else if(kid) selectIdea(kid.id);
     else{ S.currentNodeId=null; S.currentGroupId=null; const m=document.getElementById('chat-messages'); if(m) m.innerHTML=''; showChatInitial(); refreshUI(); }
   } else refreshUI();
   toast('Idea discarded');
@@ -474,6 +481,16 @@ function askConfirm({title,message,buttons}){
     foot.appendChild(el);
   });
   document.getElementById('modal-confirm').style.display='flex';
+}
+
+// Hard cap: ideas stay at 70 words unless the user explicitly asked for a longer one.
+async function enforceWords(body,userMsg){
+  const wc=t=>(t||'').trim().split(/\s+/).length;
+  if(wc(body)<=70||/longer|more detail|detailed|elaborate|expand|in depth|in-depth|\d+\s*words|paragraph|lengthy|comprehensive/i.test(userMsg||'')) return body;
+  try{
+    const t=await callClaude([{role:'user',content:'Shorten this design idea to 60 words or fewer, keeping every key feature. Return only the text, no quotes.\n\n'+body}],'You tighten text without changing its meaning.');
+    const out=t.trim(); return wc(out)<wc(body)?out:body;
+  }catch(e){ return body; }
 }
 
 // ── Claude API ─────────────────────────────────────────────────
@@ -672,6 +689,11 @@ function srRenderContent(node){
   } else {
     disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
     renderSrTree(node.groupId, node.id);
+    const sc=disp.firstElementChild; let d=null;
+    sc.style.cursor='grab';
+    sc.addEventListener('mousedown',e=>{ d={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop}; sc.style.cursor='grabbing'; e.preventDefault(); });
+    window.addEventListener('mousemove',e=>{ if(d){ sc.scrollLeft=d.l-(e.clientX-d.x); sc.scrollTop=d.t-(e.clientY-d.y); } });
+    window.addEventListener('mouseup',()=>{ d=null; sc.style.cursor='grab'; });
   }
 }
 // Mirrors the main Idea Tree's compact node style exactly (same tags, same
@@ -701,6 +723,9 @@ function renderSrTree(gid, currentNodeId){
     const p=document.createElementNS('http://www.w3.org/2000/svg','path');
     p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
     p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
+    const cs=node.meta&&node.meta.changeSummary;
+    if(cs){ const lb=document.createElement('div'); lb.className='edge-label';
+      lb.style.left=(fp.x+(tp.x-fp.x)*0.7)+'px'; lb.style.top=(fp.y+H+(tp.y-fp.y-H)/2)+'px'; lb.textContent=cs; nodesEl.appendChild(lb); }
   });
   gNodes.forEach(node=>{
     const p=pos[node.id]; if(!p) return;
@@ -999,10 +1024,18 @@ function renderChatActions(){
       mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
     }
   }
+  fitActionButtons(); requestAnimationFrame(fitActionButtons);
   if(!node||!_chatMode||!wrap) return;
   const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
   box.appendChild(buildChatComposer(_chatMode,node)); wrap.appendChild(box);
 }
+// One line per button: shrink the shared font size until every label fits.
+function fitActionButtons(){
+  const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
+  let fs=13; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
+  while(fs>8&&bs.some(b=>b.scrollWidth>b.clientWidth)){ fs-=0.5; set(); }
+}
+window.addEventListener('resize',()=>{ try{fitActionButtons();}catch(e){} });
 function buildChatComposer(mode,node){
   const c=document.createElement('div'); c.className='chat-composer';
   const label=document.createElement('label'); label.className='generate-prompt-title';
@@ -1189,7 +1222,7 @@ async function confirmGenerateConfirm(){
     const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
     const json=JSON.parse(text.replace(/```json|```/g,'').trim());
     wrap.innerHTML='';
-    const node=mkNode({type:'creation',tag:'ai-generated',body:json.body,userPrompt:edited}); addNode(node);
+    const node=mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited}); addNode(node);
     updateChatHeader(); rebuildChat(node.id); refreshUI();
   }catch(e){
     wrap.innerHTML=''; showChatInitial(); chooseCreate('ai');
@@ -1274,6 +1307,7 @@ async function processMessage(msg,type){
       const {system,user}=PROMPTS.modifyIdeaChat(parent.body,S.challenge,msg,recentContext);
       const text=await callClaude([{role:'user',content:user}],system);
       const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+      json.body=await enforceWords(json.body,msg);
       const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
         body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
       addNode(node); appendToChat(makeIdeaBubble(node,nodeTagLabel(node),'modified'));

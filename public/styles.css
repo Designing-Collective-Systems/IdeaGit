@@ -558,3 +558,6 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 .edge-label{position:absolute;transform:translate(-50%,-50%);max-width:118px;font-size:10px;line-height:1.2;text-align:center;color:var(--text2);background:var(--surface,#fff);padding:1px 4px;border-radius:4px;pointer-events:none}
 .tree-nudge{position:absolute;font-size:11.5px;line-height:1.3;text-align:center;color:var(--text2);padding:0 8px;box-sizing:border-box;pointer-events:none}
+
+.tree-nudge{left:auto;font-size:14px;font-weight:600;line-height:1.35;color:var(--blue);background:#eff6ff;border:2px solid var(--blue);border-radius:8px;padding:8px 10px;margin-left:10px;height:62px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.chat-action-btn{white-space:nowrap;overflow:hidden;padding:4px 6px}
