@@ -101,7 +101,20 @@ function addNode(node){
   S.currentNodeId=node.id;
   S.currentGroupId=node.groupId;
   queueSync();
+  summarizeChange(node);
   return node;
+}
+// Short (<10 words) summary of what changed vs. the parent version; shown on the tree edge.
+async function summarizeChange(node){
+  const p=node.parentId&&S.nodes.find(n=>n.id===node.parentId);
+  if(!p||!p.body||!node.body) return;
+  try{
+    const t=await callClaude([{role:'user',content:'Old version:\n'+p.body+'\n\nNew version:\n'+node.body+
+      '\n\nIn fewer than 10 words, state what changed. Plain text, no punctuation at the end.'}],
+      'You summarize edits to a design idea in fewer than 10 words.');
+    node.meta=node.meta||{}; node.meta.changeSummary=t.trim().split(/\s+/).slice(0,9).join(' ');
+    renderAllTrees(); queueSync();
+  }catch(e){}
 }
 function curNode(){ return S.nodes.find(n=>n.id===S.currentNodeId); }
 function getPath(nodeId){
@@ -310,6 +323,18 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
 
 // ── Idea Tree panel (app4): every idea's tree, side by side ────
 // New ideas get a new tree to the right; selecting an idea focuses its tree.
+// Refined = continuing a version; explored = branching into a different direction.
+function treeNudge(real){
+  let refined=0,dirs=0;
+  real.forEach(n=>{ if(!n.parentId) return;
+    const first=real.filter(k=>k.parentId===n.parentId).sort((a,b)=>a.ts-b.ts)[0];
+    if(first&&first.id===n.id) refined++; else dirs++; });
+  const pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  if(!refined&&!dirs) return '';
+  if(dirs===0) return refined>=2?`You've refined this idea ${pl(refined,'time')}. Want to try a different direction?`:`You've refined this idea once. Keep refining, or try a different direction?`;
+  if(refined<dirs) return `You've explored ${pl(dirs,'new direction')}. Want to refine one further?`;
+  return `${pl(refined,'refinement')} and ${pl(dirs,'new direction')} so far. Keep exploring or refining!`;
+}
 function renderAllTrees(){
   const nodesEl=document.getElementById('tree-nodes'), svg=document.getElementById('tree-svg');
   const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
@@ -342,8 +367,9 @@ function renderAllTrees(){
     const width=maxX-minX, height=Math.max(...list.map(x=>x.y))+H, shiftX=cursor+PAD-minX;
     list.forEach(x=>{ x.x+=shiftX; x.y+=PAD; });
     flat.push(...list);
-    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD});
-    maxH=Math.max(maxH,height+2*PAD);
+    const nudge=gid?treeNudge(real):'';
+    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD+(nudge?40:0),nudge,treeH:height+2*PAD});
+    maxH=Math.max(maxH,height+2*PAD+(nudge?40:0));
     cursor+=width+2*PAD+GAP;
   });
   const totalW=cursor-GAP+4, totalH=maxH+8;
@@ -351,6 +377,8 @@ function renderAllTrees(){
   svg.style.width=totalW+'px'; svg.style.height=totalH+'px';
   svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
   frames.forEach(f=>{
+    if(f.nudge){ const nd=document.createElement('div'); nd.className='tree-nudge';
+      nd.style.cssText=`left:${f.left}px;top:${f.treeH}px;width:${f.width}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
     if(!(cur&&f.gid===cur.groupId)) return;   // outline around the idea tree being worked on
     const fr=document.createElement('div'); fr.className='tree-group-frame';
     fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr);
@@ -362,6 +390,12 @@ function renderAllTrees(){
     path.setAttribute('class','edge'+(x.real?'':' edge-ghost'));
     if(x.real) path.setAttribute('marker-end','url(#arr)');
     svg.appendChild(path);
+    const cs=x.real&&x.real.meta&&x.real.meta.changeSummary;
+    if(cs){
+      const lb=document.createElement('div'); lb.className='edge-label'; lb.textContent=cs;
+      lb.style.left=(x.parent.x+(x.x-x.parent.x)*0.7)+'px'; lb.style.top=(x.parent.y+H+(x.y-x.parent.y-H)/2)+'px';
+      nodesEl.appendChild(lb);
+    }
   });
   flat.forEach(x=>{
     const el=document.createElement('div');

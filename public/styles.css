@@ -555,3 +555,6 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .instructions-col{font-size:0.84rem}
 .chat-action-btn.btn-red{background:#f3d9d9;color:#8f3b3b;border:1px solid #e4b9b9}
 .chat-action-btn.btn-red:not(:disabled):hover{background:#ecc8c8}
+
+.edge-label{position:absolute;transform:translate(-50%,-50%);max-width:118px;font-size:10px;line-height:1.2;text-align:center;color:var(--text2);background:var(--surface,#fff);padding:1px 4px;border-radius:4px;pointer-events:none}
+.tree-nudge{position:absolute;font-size:11.5px;line-height:1.3;text-align:center;color:var(--text2);padding:0 8px;box-sizing:border-box;pointer-events:none}
