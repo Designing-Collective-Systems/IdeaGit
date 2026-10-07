@@ -958,8 +958,8 @@ function renderChatActions(){
         const b=document.createElement('button');
         b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; bar.appendChild(b);
       };
-      mk('Edit the idea yourself','btn-amber',()=>openChatComposer('edit-self'),'edit-self');
-      mk('Edit the idea using AI','btn-blue2',()=>openChatComposer('edit-ai'),'edit-ai');
+      mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self');
+      mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai');
       mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify');
       mk('Discard the current idea','btn-red',()=>discardNode(node.id));
       mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
@@ -1110,7 +1110,7 @@ function submitManualCreate(){
 // challenge first (on-topic, single idea). The format instructions sent to the AI
 // are never shown to the participant.
 let _pendingGenerate=null;
-const GENERATE_LABEL='Generate one idea using AI';
+const GENERATE_LABEL='Generate';
 function startAICreate(){
   const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
   _pendingGenerate={system,hiddenSuffix};
