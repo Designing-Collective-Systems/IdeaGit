@@ -566,3 +566,8 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 #tree-area,.tree-node,.edge-label,.tree-nudge,#sr-tree-inner{user-select:none;-webkit-user-select:none}
 .sr-opt{display:flex;align-items:center;gap:8px;font-size:0.95rem;cursor:pointer}
 .chat-action-btn{font-size:14px}
+
+.nav-logo,.landing-title{display:flex;align-items:center;gap:8px}
+.landing-title{justify-content:flex-start;gap:12px}
+.brand-icon{height:1.5em;width:auto;aspect-ratio:auto;object-fit:contain;flex-shrink:0;display:block}
+.brand-icon-lg{height:1.35em}
