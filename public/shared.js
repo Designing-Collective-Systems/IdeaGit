@@ -1049,7 +1049,7 @@ function makeIdeaBubble(node,label,cls){
   const el=document.createElement('div'); el.className='idea-bubble'+(cls?' '+cls:''); el.dataset.nodeId=node.id;
   const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
   const bodyHtml=(node.type==='modification'&&parent)?diffHighlightBody(parent.body,node.body):esc(node.body);
-  el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${node.id}',null,'${esc(nodeLabel(node))}')">↩</div>
+  el.innerHTML=`
     <div class="idea-bubble-label">${esc(label)}</div>
     <div class="idea-bubble-body">${bodyHtml}</div>`;
   return el;
@@ -1060,7 +1060,7 @@ function makeMsgBubble(role,content,nodeId,extraIdx=null){
   const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
   const eidx=extraIdx!==null?`,'${extraIdx}'`:'null';
   if(role==='user'||role==='assistant'){
-    el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}',${eidx},'${preview}')">↩</div><span class="bubble-content">${esc(clean)}</span>`;
+    el.innerHTML=`<span class="bubble-content">${esc(clean)}</span>`;
   } else { el.textContent=clean; }
   return el;
 }
@@ -1068,7 +1068,7 @@ function makeFeedbackBubble(content,nodeId,extraIdx){
   const el=document.createElement('div'); el.className='feedback-bubble'; el.dataset.nodeId=nodeId||'';
   const clean=stripMarkdown(content);
   const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
-  el.innerHTML=`<div class="bubble-reply-btn" onclick="setReplyTo('${nodeId}','${extraIdx}','${preview}')">↩</div>
+  el.innerHTML=`
     <div class="feedback-bubble-label">AI Feedback</div><span class="bubble-content">${esc(clean)}</span>`;
   return el;
 }
