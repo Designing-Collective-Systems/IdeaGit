@@ -316,45 +316,67 @@ function renderAllTrees(){
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML='';
-  const skel=document.getElementById('tree-skeleton'), sub=document.getElementById('tree-subheader');
-  if(sub) sub.style.visibility=S.nodes.length?'visible':'hidden';
-  if(!S.nodes.length){
-    if(skel) skel.style.display='block';
-    canvas.style.width='0px'; canvas.style.height='0px'; resetPan(); return;
-  }
-  if(skel) skel.style.display='none';
-  const W=165,H=62,GAP=60;
+  const sub=document.getElementById('tree-subheader'); if(sub) sub.style.visibility=S.nodes.length?'visible':'hidden';
+  const W=165,H=62,HG=20,VG=70,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
-  const pos={}, span={}; let cursor=16, maxY=0;
-  gids.forEach(gid=>{
-    const p=computeLayout(gid); const ids=Object.keys(p); if(!ids.length) return;
-    const minX=Math.min(...ids.map(id=>p[id].x))-W/2, maxX=Math.max(...ids.map(id=>p[id].x))+W/2;
-    const width=maxX-minX, left=cursor;
-    ids.forEach(id=>{ pos[id]={x:p[id].x-minX+left,y:p[id].y}; maxY=Math.max(maxY,p[id].y+H); });
-    span[gid]={left,right:left+width};
-    cursor=left+width+GAP;
+  gids.reverse(); // newest idea's tree on the left, older ones move right
+  const cur=curNode();
+  const getW=t=>!t.children.length?W:Math.max(W,t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1));
+  const place=(t,cx,y)=>{ t.x=cx; t.y=y; if(!t.children.length) return;
+    const tw=t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1); let x=cx-tw/2;
+    t.children.forEach(c=>{ const cw=getW(c); place(c,x+cw/2,y+H+VG); x+=cw+HG; }); };
+  // Real nodes fill the skeleton slots in order; an action with no free slot gets a new node.
+  // Unused skeleton nodes stay as empty (dashed) nodes.
+  const merge=(real,t,all)=>{ t.real=real;
+    all.filter(n=>n.parentId===real.id).sort((a,b)=>a.ts-b.ts).forEach((k,i)=>{
+      let c=t.children[i]; if(!c){ c={children:[]}; t.children.push(c); } merge(k,c,all); }); };
+  const flat=[], frames=[]; let cursor=4, maxH=0;
+  (gids.length?gids:[null]).forEach(gid=>{
+    const real=gid?S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification'):[];
+    const t={children:[{children:[]},{children:[{children:[]}]}]}; // the skeleton
+    const root=real.find(n=>!n.parentId||!real.find(p=>p.id===n.parentId));
+    if(root) merge(root,t,real);
+    place(t,getW(t)/2,0);
+    const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
+    const minX=Math.min(...list.map(x=>x.x))-W/2, maxX=Math.max(...list.map(x=>x.x))+W/2;
+    const width=maxX-minX, height=Math.max(...list.map(x=>x.y))+H, shiftX=cursor+PAD-minX;
+    list.forEach(x=>{ x.x+=shiftX; x.y+=PAD; });
+    flat.push(...list);
+    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD});
+    maxH=Math.max(maxH,height+2*PAD);
+    cursor+=width+2*PAD+GAP;
   });
-  const totalW=cursor-GAP+16, totalH=maxY+40;
+  const totalW=cursor-GAP+4, totalH=maxH+8;
   canvas.style.width=totalW+'px'; canvas.style.height=totalH+'px';
   svg.style.width=totalW+'px'; svg.style.height=totalH+'px';
   svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
-  S.nodes.forEach(node=>{
-    if(!node.parentId) return;
-    const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
+  frames.forEach(f=>{
+    if(!(cur&&f.gid===cur.groupId)) return;   // outline around the idea tree being worked on
+    const fr=document.createElement('div'); fr.className='tree-group-frame';
+    fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr);
+  });
+  flat.forEach(x=>{
+    if(!x.parent) return;
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
-    path.setAttribute('class','edge'); path.setAttribute('marker-end','url(#arr)');
+    path.setAttribute('d',`M${x.parent.x},${x.parent.y+H} C${x.parent.x},${x.parent.y+H+28} ${x.x},${x.y-28} ${x.x},${x.y}`);
+    path.setAttribute('class','edge'+(x.real?'':' edge-ghost'));
+    if(x.real) path.setAttribute('marker-end','url(#arr)');
     svg.appendChild(path);
   });
-  S.nodes.forEach(node=>{
-    const p=pos[node.id]; if(!p) return;
+  flat.forEach(x=>{
+    const el=document.createElement('div');
+    el.style.left=x.x+'px'; el.style.top=x.y+'px'; el.style.width=W+'px';
+    if(!x.real){
+      el.className='tree-node tree-ghost';
+      el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px"></div>`;
+      nodesEl.appendChild(el); return;
+    }
+    const node=x.real;
     const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
     const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
                    node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
-    const el=document.createElement('div');
     el.className=`tree-node ${tc}${node.id===S.currentNodeId?' current':''}`;
-    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
     el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
       (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
@@ -366,11 +388,11 @@ function renderAllTrees(){
     el.addEventListener('click',()=>selectIdea(node.id));
     nodesEl.appendChild(el);
   });
-  // Focus the tree of the current idea when all trees don't fit side by side
-  const cur=curNode(); let px=0;
-  if(cur&&span[cur.groupId]&&area&&area.clientWidth&&totalW>area.clientWidth){
-    const center=(span[cur.groupId].left+span[cur.groupId].right)/2;
-    px=Math.max(area.clientWidth-totalW,Math.min(0,area.clientWidth/2-center));
+  // Focus the current idea's tree when all trees don't fit side by side
+  let px=0;
+  const f=cur&&frames.find(f=>f.gid===cur.groupId);
+  if(f&&area&&area.clientWidth&&totalW>area.clientWidth){
+    px=Math.max(area.clientWidth-totalW,Math.min(0,area.clientWidth/2-(f.left+f.width/2)));
   }
   _pan.x=px; _pan.y=0; applyPan();
 }
@@ -919,32 +941,33 @@ function setNewIdeaButtonsVisible(show){
 function setChatThinking(on){
   document.getElementById('chat-thinking').style.display=on?'flex':'none';
   const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on;
-  const act=document.getElementById('chat-actions'); if(act) act.classList.toggle('busy',on);
+  const act=document.getElementById('chat-actions-bar'); if(act) act.classList.toggle('busy',on);
 }
 function updateChatHeader(){ renderChatActions(); }
 
-// The action buttons live inside the chat, right under the newest bubble.
+// The five action buttons sit in a bar at the top of the chat panel (two rows);
+// the inline composer for the chosen action opens under the newest bubble.
 function renderChatActions(){
-  const wrap=document.getElementById('chat-messages'); if(!wrap) return;
-  const old=wrap.querySelector('#chat-actions'); if(old) old.remove();
-  const node=curNode(); if(!node) return;
+  const bar=document.getElementById('chat-actions-bar'), wrap=document.getElementById('chat-messages');
+  if(wrap){ const old=wrap.querySelector('#chat-actions'); if(old) old.remove(); }
+  const node=curNode();
+  if(bar){
+    bar.innerHTML='';
+    if(node){
+      const mk=(label,cls,fn,mode)=>{
+        const b=document.createElement('button');
+        b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; bar.appendChild(b);
+      };
+      mk('Edit the idea yourself','btn-amber',()=>openChatComposer('edit-self'),'edit-self');
+      mk('Edit the idea using AI','btn-blue2',()=>openChatComposer('edit-ai'),'edit-ai');
+      mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify');
+      mk('Discard the current idea','btn-red',()=>discardNode(node.id));
+      mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
+    }
+  }
+  if(!node||!_chatMode||!wrap) return;
   const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
-  const hint=document.createElement('p'); hint.className='chat-actions-hint';
-  hint.textContent='Ask the AI to edit the current idea, provide feedback, or clarify any questions about the design challenge';
-  box.appendChild(hint);
-  const row=document.createElement('div'); row.className='chat-actions-row';
-  [['edit-self','Edit the idea yourself','btn-amber'],['edit-ai','Edit the idea using AI','btn-blue2'],['clarify','Ask AI to clarify the idea','btn-outline']]
-    .forEach(([mode,label,cls])=>{
-      const b=document.createElement('button'); b.className='btn btn-sm '+cls+(_chatMode===mode?' active':''); b.textContent=label;
-      b.onclick=()=>openChatComposer(mode); row.appendChild(b);
-    });
-  const f=document.createElement('button');
-  f.className='btn btn-sm '+(node.isFinalized?'btn-outline':'btn-green');
-  f.textContent=node.isFinalized?'Unfinalize the idea':'Finalize the idea';
-  f.onclick=finalizeCurrentIdea; row.appendChild(f);
-  box.appendChild(row);
-  if(_chatMode) box.appendChild(buildChatComposer(_chatMode,node));
-  wrap.appendChild(box);
+  box.appendChild(buildChatComposer(_chatMode,node)); wrap.appendChild(box);
 }
 function buildChatComposer(mode,node){
   const c=document.createElement('div'); c.className='chat-composer';

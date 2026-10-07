@@ -466,7 +466,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 /* ============================================================
    IdeaForest (app3 / app4) layout + new components
    ============================================================ */
-:root{--cols3:minmax(220px,0.8fr) 1.2fr 1.2fr;--cols2:1.5fr 1fr}
+:root{--cols3:1fr 1fr 1fr;--cols2:1fr 1fr}
 .ai-three-col.ideation-grid{grid-template-columns:var(--cols3)}
 .ai-two-col.ideation-grid{grid-template-columns:var(--cols2)}
 .btn-red{background:var(--red);color:#fff}.btn-red:not(:disabled):hover{background:#b91c1c}
@@ -479,7 +479,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .instructions-grid{gap:0}
 .instructions-grid-3{grid-template-columns:var(--cols3)}
 .instructions-grid-2{grid-template-columns:var(--cols2)}
-.instructions-col{background:none;border:none;border-right:1px solid var(--border);border-radius:0;white-space:normal;font-size:0.84rem;text-align:left;padding:14px 12px 8px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.instructions-col{background:none;border:none;border-right:1px solid var(--border);border-radius:0;white-space:normal;font-size:0.86rem;text-align:left;padding:14px 12px 8px;display:flex;flex-direction:column;align-items:center;gap:8px}
 .instructions-col:last-child{border-right:none}
 .instr-text{align-self:stretch;line-height:1.5}
 .instr-arrow{font-size:2.4rem;line-height:1;color:var(--blue)}
@@ -533,3 +533,21 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 /* Self-report: ideas are completed in order; "Idea N of M" is the title */
 .sr-idea-tab.sr-locked{opacity:.45;cursor:not-allowed}
 .sr-right-header .sr-step-indicator{font-size:1.2273rem;font-weight:700;color:var(--text)}
+
+/* Summary arrows (left / down / right) and two-line descriptions */
+.instr-text{min-height:3em}
+.instr-arrow-left{align-self:flex-start}
+.instr-arrow-right{align-self:flex-end}
+
+/* Action buttons: a bar at the top of the chat panel, two rows, all the same size */
+.chat-actions-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:48px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-actions-bar:empty{display:none}
+.chat-actions-bar.busy{opacity:.5;pointer-events:none}
+.chat-action-btn{width:100%;height:100%;min-height:0;padding:4px 8px;box-sizing:border-box;font-size:0.82rem;white-space:normal;line-height:1.2;justify-content:center;text-align:center}
+.chat-action-btn.active{box-shadow:0 0 0 3px rgba(37,99,235,.25)}
+
+/* Idea Tree: empty skeleton nodes + outline around the current idea's tree */
+.tree-ghost{pointer-events:none;cursor:default}
+.tree-ghost .tree-node-inner{background:transparent;border:1.5px dashed var(--border2);box-shadow:none;opacity:.6}
+.edge-ghost{stroke-dasharray:5 4;opacity:.6}
+.tree-group-frame{position:absolute;border:2px solid var(--blue);border-radius:10px;pointer-events:none}

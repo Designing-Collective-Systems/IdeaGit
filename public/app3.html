@@ -22,7 +22,7 @@
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">IdeaForest has two panels</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
@@ -50,15 +50,12 @@
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
+        <div class="chat-actions-bar" id="chat-actions-bar"></div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
         <div class="reply-indicator" id="reply-indicator" style="display:none">
           <span>↩ Replying to: <em id="reply-text"></em></span>
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
-        </div>
-        <div class="chat-input-row">
-          <textarea id="chat-input" placeholder="Type your message to the AI…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
-          <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
         </div>
       </div>
     </div>

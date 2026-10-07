@@ -22,7 +22,7 @@
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">IdeaForest has three panels</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
@@ -60,15 +60,12 @@
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
+        <div class="chat-actions-bar" id="chat-actions-bar"></div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
         <div class="reply-indicator" id="reply-indicator" style="display:none">
           <span>↩ Replying to: <em id="reply-text"></em></span>
           <button onclick="clearReply()" class="reply-clear-btn">✕</button>
-        </div>
-        <div class="chat-input-row">
-          <textarea id="chat-input" placeholder="Type your message to the AI…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
-          <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
         </div>
       </div>
     </div>
@@ -77,17 +74,6 @@
       <div class="panel-subheader" id="tree-subheader" style="visibility:hidden">Click on any node to work on it</div>
       <div class="tree-area" id="tree-area">
         <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
-        <div class="tree-skeleton" id="tree-skeleton">
-          <svg width="340" height="310" viewBox="0 0 340 310" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 5">
-            <rect x="87.5" y="4" width="165" height="62" rx="8"/>
-            <rect x="7.5" y="130" width="165" height="62" rx="8"/>
-            <rect x="167.5" y="130" width="165" height="62" rx="8"/>
-            <rect x="167.5" y="240" width="165" height="62" rx="8"/>
-            <path d="M170 66 C170 98 90 98 90 130"/>
-            <path d="M170 66 C170 98 250 98 250 130"/>
-            <path d="M250 192 L250 240"/>
-          </svg>
-        </div>
       </div>
     </div>
   </div>
