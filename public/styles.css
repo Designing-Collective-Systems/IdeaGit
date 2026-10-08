@@ -601,3 +601,5 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:5;cursor:default}
 .tree-zoom button{width:32px;height:32px;border:1px solid var(--border2,#cbd5e1);background:var(--surface,#fff);border-radius:8px;font-size:20px;line-height:1;cursor:pointer;color:var(--text)}
 .tree-zoom button:hover{background:var(--surface2)}
+.panel-subheader{height:46px;box-sizing:border-box;display:flex;align-items:center;padding-top:0;padding-bottom:0}
+.chat-actions-bar{height:46px;box-sizing:border-box;align-content:center;padding-top:0;padding-bottom:0}
