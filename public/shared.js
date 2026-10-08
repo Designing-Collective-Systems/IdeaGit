@@ -459,9 +459,9 @@ function renderAllTrees(){
                    node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
     el.className=`tree-node ${tc}${node.id===S.currentNodeId?' current':''}`;
     el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
-      (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
-      `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`;
+      `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`+
+      (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
     el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
     el.addEventListener('click',()=>selectIdea(node.id));
     nodesEl.appendChild(el);
@@ -790,8 +790,8 @@ function renderSrTree(gid, currentNodeId){
     el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
       `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
       (isCurrent?'<div class="sr-current-ring"></div>':'')+
-      (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
-      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`;
+      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`+
+      (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
     nodesEl.appendChild(el);
     addSideNote(nodesEl,node,p.x+W/2+8,p.y);
   });

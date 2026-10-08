@@ -603,3 +603,5 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-zoom button:hover{background:var(--surface2)}
 .panel-subheader{height:46px;box-sizing:border-box;display:flex;align-items:center;padding-top:0;padding-bottom:0}
 .chat-actions-bar{height:46px;box-sizing:border-box;align-content:center;padding-top:0;padding-bottom:0}
+
+.tree-node-final{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;padding:0 6px;font-size:0.8rem;font-weight:700;color:var(--green);background:var(--bg);border-radius:4px;white-space:nowrap;line-height:1.3}
