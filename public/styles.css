@@ -594,3 +594,10 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-group-frame-other{border-color:var(--border2,#cbd5e1)}
 .sr-q-sub{font-weight:500;font-size:0.85rem;color:var(--text2)}
 .sr-idea-tab{color:#000 !important;font-size:1.1rem !important}
+
+.modal.instructions-wide{width:fit-content;max-width:96vw}
+.instr-text{text-wrap:balance;text-align:left}
+.generate-prompt-title{white-space:nowrap;overflow:hidden}
+.tree-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:5;cursor:default}
+.tree-zoom button{width:32px;height:32px;border:1px solid var(--border2,#cbd5e1);background:var(--surface,#fff);border-radius:8px;font-size:20px;line-height:1;cursor:pointer;color:var(--text)}
+.tree-zoom button:hover{background:var(--surface2)}

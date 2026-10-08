@@ -229,13 +229,13 @@ function renderIdeasPanel(containerId,onSelect){
 }
 
 // ── Process tree ──────────────────────────────────────────────
-const _pan={x:0,y:0,dragging:false,sx:0,sy:0,_canvasId:null};
+const _pan={x:0,y:0,k:1,dragging:false,sx:0,sy:0,_canvasId:null,_areaId:null};
 
 function initTreePanOn(areaId,canvasId){
-  _pan._canvasId=canvasId;
+  _pan._canvasId=canvasId; _pan._areaId=areaId;
   const area=document.getElementById(areaId); if(!area) return;
   area.addEventListener('mousedown',e=>{
-    if(e.target.closest('.tree-node')) return;
+    if(e.target.closest('.tree-node,.tree-zoom')) return;
     _pan.dragging=true; _pan.sx=e.clientX-_pan.x; _pan.sy=e.clientY-_pan.y;
     area.classList.add('dragging');
   });
@@ -246,9 +246,29 @@ function initTreePanOn(areaId,canvasId){
   window.addEventListener('mouseup',()=>{
     if(_pan.dragging){ _pan.dragging=false; document.getElementById(areaId)?.classList.remove('dragging'); }
   });
+  // Zoom: scroll wheel / trackpad (pinch too) around the cursor, plus + and - buttons
+  area.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const r=area.getBoundingClientRect();
+    zoomTree(Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0015)),e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  if(!area.querySelector('.tree-zoom')){
+    const z=document.createElement('div'); z.className='tree-zoom';
+    z.innerHTML='<button type="button" aria-label="Zoom in" title="Zoom in">+</button><button type="button" aria-label="Zoom out" title="Zoom out">\u2212</button>';
+    const [b1,b2]=z.querySelectorAll('button');
+    const mid=()=>[area.clientWidth/2,area.clientHeight/2];
+    b1.onclick=()=>zoomTree(1.25,...mid()); b2.onclick=()=>zoomTree(0.8,...mid());
+    area.appendChild(z);
+  }
+}
+function zoomTree(f,cx,cy){
+  const k2=Math.max(0.3,Math.min(2,_pan.k*f)); if(k2===_pan.k) return;
+  const ty=12;   // canvas top offset inside the area
+  const px=(cx-_pan.x)/_pan.k, py=(cy-ty-_pan.y)/_pan.k;
+  _pan.x=cx-px*k2; _pan.y=cy-ty-py*k2; _pan.k=k2; applyPan();
 }
 function applyPan(){
-  const el=document.getElementById(_pan._canvasId); if(el) el.style.transform=`translate(${_pan.x}px,${_pan.y}px)`;
+  const el=document.getElementById(_pan._canvasId); if(el) el.style.transform=`translate(${_pan.x}px,${_pan.y}px) scale(${_pan.k})`;
 }
 function resetPan(){ _pan.x=0; _pan.y=0; applyPan(); }
 
@@ -261,7 +281,7 @@ function computeLayout(gid,extraW){
   gNodes.forEach(n=>{ if(n.parentId&&children[n.parentId]) children[n.parentId].push(n.id); });
   const root=gNodes.find(n=>!n.parentId||!gNodes.find(p=>p.id===n.parentId));
   if(!root) return {};
-  const W=165+LW,H=62,HG=20,VG=70; const pos={};
+  const W=165+LW,H=62,HG=20,VG=120; const pos={};
   function getW(id){ const k=children[id]||[]; return !k.length?W:Math.max(W,k.reduce((s,c)=>s+getW(c),0)+HG*(k.length-1)); }
   function layout(id,x,y){
     pos[id]={x,y}; const k=children[id]||[]; if(!k.length) return;
@@ -373,7 +393,7 @@ function renderAllTrees(){
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML='';
   const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?'Click on any node to work on it':'When you create an idea, the idea tree will be populated'; }
-  const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=70,GAP=40,PAD=10;
+  const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
   const cur=curNode();
@@ -419,7 +439,7 @@ function renderAllTrees(){
   flat.forEach(x=>{
     if(!x.parent) return;
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d',`M${x.parent.x},${x.parent.y+H} C${x.parent.x},${x.parent.y+H+28} ${x.x},${x.y-28} ${x.x},${x.y}`);
+    path.setAttribute('d',`M${x.parent.x},${x.parent.y+H} C${x.parent.x},${x.parent.y+H+66} ${x.x},${x.y-66} ${x.x},${x.y}`);
     path.setAttribute('class','edge'+(x.real?'':' edge-ghost'));
     if(x.real) path.setAttribute('marker-end','url(#arr)');
     svg.appendChild(path);
@@ -588,6 +608,14 @@ function openInstructions(){
   document.getElementById('instructions-head').textContent=window.CONDITION_INSTRUCTIONS_TITLE||'IdeaForest';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
+  fitInstructionText();
+}
+// Each panel description wraps onto exactly two balanced lines; the popup width follows the text.
+function fitInstructionText(){
+  const ts=[...document.querySelectorAll('#instructions-content .instr-text')]; if(!ts.length) return;
+  ts.forEach(t=>{ t.innerHTML=t.innerHTML.replace(/<br\s*\/?>/g,' '); t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; });
+  const M=Math.max(...ts.map(t=>t.scrollWidth));
+  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display=''; t.style.width=Math.ceil(M/2)+12+'px'; });
 }
 function closeInstructions(){
   document.getElementById('instructions-modal').style.display='none';
@@ -747,7 +775,7 @@ function renderSrTree(gid, currentNodeId){
     if(!node.parentId) return;
     const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
     const p=document.createElementNS('http://www.w3.org/2000/svg','path');
-    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
+    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+66} ${tp.x},${tp.y-66} ${tp.x},${tp.y}`);
     p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
   });
   gNodes.forEach(node=>{
@@ -1057,18 +1085,26 @@ function renderChatActions(){
       mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
     }
   }
-  fitActionButtons(); requestAnimationFrame(fitActionButtons);
+  fitActionButtons(); requestAnimationFrame(()=>{ fitActionButtons(); fitPromptLabels(); }); fitPromptLabels();
   if(!node||!_chatMode||!wrap) return;
   const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
   box.appendChild(buildChatComposer(_chatMode,node)); wrap.appendChild(box);
 }
 // One line per button: shrink the shared font size until every label fits.
+// Prompt-box captions stay on one line: shrink the font only if needed.
+function fitPromptLabels(){
+  document.querySelectorAll('.generate-prompt-title').forEach(l=>{
+    if(!l.clientWidth) return;
+    let fs=17; l.style.fontSize=fs+'px';
+    while(fs>10&&l.scrollWidth>l.clientWidth+1){ fs-=0.5; l.style.fontSize=fs+'px'; }
+  });
+}
 function fitActionButtons(){
   const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn, #chat-actions-bar2 .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
   let fs=15; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
   while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
 }
-window.addEventListener('resize',()=>{ try{fitActionButtons();}catch(e){} });
+window.addEventListener('resize',()=>{ try{fitActionButtons(); fitPromptLabels();}catch(e){} });
 function buildChatComposer(mode,node){
   const c=document.createElement('div'); c.className='chat-composer';
   const label=document.createElement('label'); label.className='generate-prompt-title';
@@ -1196,7 +1232,7 @@ function chooseCreate(mode){
   const bAI=document.getElementById('btn-create-ai'), bSelf=document.getElementById('btn-create-self');
   if(bAI) bAI.classList.toggle('active',mode==='ai');
   if(bSelf) bSelf.classList.toggle('active',mode==='self');
-  if(mode==='ai') startAICreate();   // fills in the default prompt
+  if(mode==='ai'){ startAICreate(); fitPromptLabels(); }   // fills in the default prompt
   if(mode==='self'){ const ta=document.getElementById('create-body'); if(ta){ ta.value=''; ta.focus(); } }
 }
 function submitManualCreate(){
