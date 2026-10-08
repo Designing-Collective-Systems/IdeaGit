@@ -574,3 +574,23 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .chat-action-btn{transition:none !important}
 .chat-actions-bar{gap:6px;padding:10px 10px}
 .chat-action-btn{padding:2px 3px}
+
+.instr-text{color:#000 !important}
+.instructions-col{color:#000}
+
+.generate-prompt-title{font-size:1.05rem}
+.generate-prompt-title strong{font-weight:800;color:var(--text)}
+.generate-prompt-textarea,.chat-composer .field-textarea{font-size:1rem}
+.create-composer{margin-top:24px}
+
+.chat-actions-bar{grid-auto-rows:30px;padding:4px 10px;gap:6px}
+.chat-actions-bar2{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:30px;gap:6px;padding:8px 10px 0;flex-shrink:0}
+.chat-actions-bar2:empty{display:none}
+.chat-actions-bar2.busy{opacity:.5;pointer-events:none}
+.chat-action-btn{padding:0 3px}
+
+.node-note{position:absolute;font-size:10.5px;line-height:1.3;color:var(--text);pointer-events:none;user-select:none;-webkit-user-select:none}
+.node-note div+div{margin-top:3px}
+.tree-group-frame-other{border-color:var(--border2,#cbd5e1)}
+.sr-q-sub{font-weight:500;font-size:0.85rem;color:var(--text2)}
+.sr-idea-tab{color:#000 !important;font-size:1.1rem !important}

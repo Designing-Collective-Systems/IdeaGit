@@ -10,7 +10,7 @@
 <div id="page-landing">
   <div class="landing-card">
     <h1 class="landing-title">IdeaForest<img class="brand-icon brand-icon-lg" src="icon.svg" alt=""></h1>
-    <p class="landing-tagline">IdeaForest is a tool with which you can brainstorm with AI and track your ideation process</p>
+    <p class="landing-tagline">IdeaForest is a tool that helps you brainstorm with AI and automatically tracks your ideation process</p>
     <label class="landing-label" for="participant-id-input">Please enter your participant ID to begin</label>
     <input type="text" id="participant-id-input" class="field-input" maxlength="100" autocomplete="off" spellcheck="false"/>
     <button class="btn btn-primary" id="btn-begin" disabled onclick="beginStudy()">Begin</button>
@@ -31,8 +31,8 @@
       <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
       <div class="panel-subheader">Summary of Design Challenge</div>
       <div class="challenge-bubble">
-        <p>1. You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”.</p>
-        <p>2. Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.</p>
+        <p>1. You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</p>
+        <p>2. Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
         <p>3. Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</p>
       </div>
       <div class="ideas-area ai-ideas" id="ideas-list"></div>
@@ -47,7 +47,7 @@
             <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea without AI</button>
           </div>
           <div class="create-composer" id="create-ai-box" style="display:none">
-            <label class="generate-prompt-title">This is the default prompt to generate an idea using AI. You can edit it.</label>
+            <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
             <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
             <p class="field-error" id="generate-prompt-error" style="display:none"></p>
             <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
@@ -61,6 +61,7 @@
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
         <div class="chat-actions-bar" id="chat-actions-bar"></div>
+        <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
         <div class="reply-indicator" id="reply-indicator" style="display:none">
@@ -118,14 +119,14 @@
     <div class="modal-head">Details about the design challenge</div>
     <div class="modal-body details-body">
       <ol>
-        <li>Your goal is to write <strong>at least</strong> three ideas.</li>
+        <li>Your goal is to write <strong>at least</strong> three ideas for the design challenge mentioned below.</li>
         <li>The ideas need to satisfy the constraints of the design challenge.</li>
-        <li>Your goal is NOT to complete the task as quickly as possible.</li>
+        <li>Your goal is <strong>NOT</strong> to complete the task as quickly as possible.</li>
       </ol>
       <p><strong>Design challenge:</strong></p>
-      <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive-scrolling”. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
-      <p>If you don't know what compulsive-scrolling is, please let the researcher know.</p>
-      <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.</p>
+      <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p>If you don't know what compulsive scrolling is, please let the researcher know.</p>
+      <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
       <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>

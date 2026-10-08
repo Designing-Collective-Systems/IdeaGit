@@ -7,8 +7,8 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
 const FIXED_CHALLENGE = [
-  "Setup: You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive-scrolling\u201d. Compulsive-scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
-  "Constraints: Any feature proposed by you should not block the user from using an app, delete any app, or turn off the phone.",
+  "Setup: You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
+  "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.",
   "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
 ].join("\n\n");
 
@@ -107,16 +107,27 @@ function addNode(node){
 // Short (<10 words) summary of what changed vs. the parent version; shown on the tree edge.
 async function summarizeChange(node){
   const p=node.parentId&&S.nodes.find(n=>n.id===node.parentId);
-  if(!p||!p.body||!node.body) return;
+  const manual=node.tag==='manual-modification', aiPrompt=node.tag==='ai-generated'||node.tag==='ai-modification';
+  if(!node.body||(!p&&!aiPrompt)) return;
   try{
-    const t=await callClaude([{role:'user',content:'Old version:\n'+p.body+'\n\nNew version:\n'+node.body+
-      '\n\nIn fewer than 10 words, state what changed. Plain text, no punctuation at the end.'}],
-      'You summarize edits to a design idea in fewer than 10 words.');
-    const sm=t.trim().split(/\s+/).slice(0,9).join(' ');
-    node.meta=node.meta||{}; node.meta.changeSummary=sm;
+    const ask=`${p?'Old version:\n'+p.body+'\n\n':''}New version:\n${node.body}\n\n${aiPrompt?'Prompt the user gave the AI: '+node.userPrompt+'\n\n':''}`+
+      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do"}. Each value has at most 10 words, plain text.'+
+      (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".');
+    const t=await callClaude([{role:'user',content:ask}],'You write very short summaries.');
+    const j=JSON.parse(t.replace(/```json|```/g,'').trim());
+    const cut=v=>String(v||'').trim().split(/\s+/).filter(Boolean).slice(0,10).join(' ');
+    node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):'';
     // Saved in the node's existing `extras` JSON column (no new column needed)
-    node.extras=node.extras.filter(x=>x.type!=='change_summary'); node.extras.push({type:'change_summary',summary:sm,ts:Date.now()});
+    node.extras=node.extras.filter(x=>x.type!=='change_summary');
+    node.extras.push({type:'change_summary',summary:node.meta.changeSummary,prompt_summary:node.meta.promptSummary,ts:Date.now()});
     renderAllTrees(); queueSync();
+  }catch(e){}
+}
+// One-line summary of a question / clarification asked about a node (shown beside the node).
+async function summarizeQuestion(node,ex){
+  try{
+    const t=await callClaude([{role:'user',content:'Summarize this question in at most 10 words, plain text only:\n'+ex.userPrompt}],'You write very short summaries.');
+    ex.summary=t.trim().split(/\s+/).slice(0,10).join(' '); renderAllTrees(); queueSync();
   }catch(e){}
 }
 function curNode(){ return S.nodes.find(n=>n.id===S.currentNodeId); }
@@ -241,7 +252,8 @@ function applyPan(){
 }
 function resetPan(){ _pan.x=0; _pan.y=0; applyPan(); }
 
-function computeLayout(gid){
+function computeLayout(gid,extraW){
+  const LW=extraW||0;
   const gNodes=S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification');
   if(!gNodes.length) return {};
   const children={};
@@ -249,7 +261,7 @@ function computeLayout(gid){
   gNodes.forEach(n=>{ if(n.parentId&&children[n.parentId]) children[n.parentId].push(n.id); });
   const root=gNodes.find(n=>!n.parentId||!gNodes.find(p=>p.id===n.parentId));
   if(!root) return {};
-  const W=165,H=62,HG=20,VG=70; const pos={};
+  const W=165+LW,H=62,HG=20,VG=70; const pos={};
   function getW(id){ const k=children[id]||[]; return !k.length?W:Math.max(W,k.reduce((s,c)=>s+getW(c),0)+HG*(k.length-1)); }
   function layout(id,x,y){
     pos[id]={x,y}; const k=children[id]||[]; if(!k.length) return;
@@ -257,6 +269,7 @@ function computeLayout(gid){
     k.forEach(c=>{ const cw=getW(c); layout(c,cx+cw/2,y+H+VG); cx+=cw+HG; });
   }
   layout(root.id,getW(root.id)/2+24,24);
+  if(LW) Object.keys(pos).forEach(k=>{ pos[k].x-=LW/2; });
   return pos;
 }
 
@@ -275,7 +288,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   if(emptyEl) emptyEl.style.display='none';
   const pos=computeLayout(S.currentGroupId);
   const vals=Object.values(pos); if(!vals.length){ if(emptyEl) emptyEl.style.display='flex'; return; }
-  const maxX=Math.max(...vals.map(p=>p.x))+110, maxY=Math.max(...vals.map(p=>p.y))+80;
+  const maxX=Math.max(...vals.map(p=>p.x))+110+190, maxY=Math.max(...vals.map(p=>p.y))+80;
   const W=165,H=62;
   const canvas=document.getElementById(canvasId);
   if(canvas){ canvas.style.width=maxX+'px'; canvas.style.height=maxY+'px'; }
@@ -338,18 +351,33 @@ function treeNudge(real){
   if(refined<dirs) return `You've explored ${pl(dirs,'new direction')}. Want to refine one further?`;
   return `${pl(refined,'refinement')} and ${pl(dirs,'new direction')} so far. Keep exploring or refining!`;
 }
+// Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
+function nodeNotes(node){
+  const m=node.meta||{}, out=[];
+  if(m.changeSummary) out.push(['Changes',m.changeSummary]);
+  if(m.promptSummary) out.push(['Prompt',m.promptSummary]);
+  (node.extras||[]).forEach(ex=>{ if(ex.summary&&ex.type!=='change_summary') out.push([ex.type==='feedback'?'Feedback':'Question',ex.summary]); });
+  return out;
+}
+function addSideNote(parentEl,node,left,top,w){
+  const notes=nodeNotes(node); if(!notes.length) return;
+  const d=document.createElement('div'); d.className='node-note';
+  d.style.cssText=`left:${left}px;top:${top}px;width:${w||180}px`;
+  d.innerHTML=notes.map(([k,v])=>`<div><strong>${k}:</strong> ${esc(v)}</div>`).join('');
+  parentEl.appendChild(d);
+}
 function renderAllTrees(){
   const nodesEl=document.getElementById('tree-nodes'), svg=document.getElementById('tree-svg');
   const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML='';
-  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?'Click on any node to work on it':'Create an idea to create an idea tree'; }
-  const W=165,H=62,HG=20,VG=70,GAP=40,PAD=10;
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?'Click on any node to work on it':'When you create an idea, the idea tree will be populated'; }
+  const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=70,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
   const cur=curNode();
-  const getW=t=>!t.children.length?W:Math.max(W,t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1));
+  const getW=t=>!t.children.length?WW:Math.max(WW,t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1));
   const place=(t,cx,y)=>{ t.x=cx; t.y=y; if(!t.children.length) return;
     const tw=t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1); let x=cx-tw/2;
     t.children.forEach(c=>{ const cw=getW(c); place(c,x+cw/2,y+H+VG); x+=cw+HG; }); };
@@ -366,13 +394,14 @@ function renderAllTrees(){
     if(root) merge(root,t,real);
     place(t,getW(t)/2,0);
     const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
-    const minX=Math.min(...list.map(x=>x.x))-W/2, maxX=Math.max(...list.map(x=>x.x))+W/2;
-    const raw=maxX-minX, width=Math.max(raw,240), TOP=gid?78:0;
+    const minX=Math.min(...list.map(x=>x.x))-WW/2, maxX=Math.max(...list.map(x=>x.x))+WW/2;
+    const raw=maxX-minX, width=Math.max(raw,240), TOP=gids.length>1?78:0;
     const height=Math.max(...list.map(x=>x.y))+H+TOP, shiftX=cursor+PAD+(width-raw)/2-minX;
-    list.forEach(x=>{ x.x+=shiftX; x.y+=PAD+TOP; });
+    list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP; });
     flat.push(...list);
-    const nudge=gid?treeNudge(real):'';
-    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD,nudge});
+    const gi=gids.length-1-gids.indexOf(gid);   // 0 = oldest tree
+    const nudge=(gid&&gi>=1&&cur&&cur.groupId===gid)?treeNudge(real):'';   // current tree only, from the 2nd tree on
+    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD,nudge,isCur:!!(cur&&gid===cur.groupId)});
     maxH=Math.max(maxH,height+2*PAD);
     cursor+=width+2*PAD+GAP;
   });
@@ -383,8 +412,8 @@ function renderAllTrees(){
   frames.forEach(f=>{
     if(f.nudge){ const nd=document.createElement('div'); nd.className='tree-nudge';
       nd.style.cssText=`left:${f.left}px;top:${PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
-    if(!(cur&&f.gid===cur.groupId)) return;   // outline around the idea tree being worked on
-    const fr=document.createElement('div'); fr.className='tree-group-frame';
+    if(!f.gid) return;   // blue outline = tree being worked on, grey = the others
+    const fr=document.createElement('div'); fr.className='tree-group-frame'+(f.isCur?'':' tree-group-frame-other');
     fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr);
   });
   flat.forEach(x=>{
@@ -394,12 +423,6 @@ function renderAllTrees(){
     path.setAttribute('class','edge'+(x.real?'':' edge-ghost'));
     if(x.real) path.setAttribute('marker-end','url(#arr)');
     svg.appendChild(path);
-    const cs=x.real&&x.real.meta&&x.real.meta.changeSummary;
-    if(cs){
-      const lb=document.createElement('div'); lb.className='edge-label'; lb.textContent=cs;
-      lb.style.left=(x.parent.x+(x.x-x.parent.x)*0.7)+'px'; lb.style.top=(x.parent.y+H+(x.y-x.parent.y-H)/2)+'px';
-      nodesEl.appendChild(lb);
-    }
   });
   flat.forEach(x=>{
     const el=document.createElement('div');
@@ -422,6 +445,7 @@ function renderAllTrees(){
     el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
     el.addEventListener('click',()=>selectIdea(node.id));
     nodesEl.appendChild(el);
+    addSideNote(nodesEl,node,x.x+W/2+8,x.y);
   });
   // Focus the current idea's tree when all trees don't fit side by side
   let px=0;
@@ -643,10 +667,10 @@ function openSelfReport(){
       const page=document.createElement('div');
       page.className='sr-page'; page.id=`sr-page-${i}`;
       page.style.display=i===0?'flex':'none';
-      const opts=['No AI was used','AI created the idea','AI made minor modifications','AI made major modifications','AI provided feedback','AI clarified questions'];
+      const opts=['AI created the idea','AI made major changes','AI made minor changes','AI provided feedback','AI clarified questions','No AI was used'];
       page.innerHTML=`
         <div class="sr-question" id="sr-q1-${i}">
-          <p class="sr-q-label">Please select how AI was used for the generation of this idea (you can select more than one).</p>
+          <p class="sr-q-label">Please select how AI was used for the generation of this idea.<br><span class="sr-q-sub">You can select more than one</span></p>
           ${opts.map(o=>`<label class="sr-opt"><input type="checkbox" class="sr-pick-${i}" value="${o}" onchange="srRefreshLocks()"> ${o}</label>`).join('')}
         </div>
         <div class="sr-question" id="sr-q2-${i}" style="display:none">
@@ -710,7 +734,7 @@ function renderSrTree(gid, currentNodeId){
   if(!gNodes.length) return;
   const savedGid=S.currentGroupId;
   S.currentGroupId=gid;
-  const pos=computeLayout(gid);
+  const pos=computeLayout(gid,190);
   S.currentGroupId=savedGid;
   const vals=Object.values(pos); if(!vals.length) return;
   const W=165,H=62;
@@ -725,9 +749,6 @@ function renderSrTree(gid, currentNodeId){
     const p=document.createElementNS('http://www.w3.org/2000/svg','path');
     p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+28} ${tp.x},${tp.y-28} ${tp.x},${tp.y}`);
     p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
-    const cs=node.meta&&node.meta.changeSummary;
-    if(cs){ const lb=document.createElement('div'); lb.className='edge-label';
-      lb.style.left=(fp.x+(tp.x-fp.x)*0.7)+'px'; lb.style.top=(fp.y+H+(tp.y-fp.y-H)/2)+'px'; lb.textContent=cs; nodesEl.appendChild(lb); }
   });
   gNodes.forEach(node=>{
     const p=pos[node.id]; if(!p) return;
@@ -743,10 +764,8 @@ function renderSrTree(gid, currentNodeId){
       (isCurrent?'<div class="sr-current-ring"></div>':'')+
       (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`;
-    el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
-    el.addEventListener('mousemove',moveTreeTooltip);
-    el.addEventListener('mouseleave',hideTreeTooltip);
     nodesEl.appendChild(el);
+    addSideNote(nodesEl,node,p.x+W/2+8,p.y);
   });
 }
 function srSubTab(tab){
@@ -773,8 +792,8 @@ function srShowPage(n,stage){
   document.getElementById(`sr-q1-${n}`).style.display=_srStage===1?'':'none';
   document.getElementById(`sr-q2-${n}`).style.display=_srStage===2?'':'none';
   // Left side: chat history first; then the process tree (app4) or the same chat history (app3)
-  _srSubTab=(_srStage===2&&isCondition4())?'tree':'chat';
-  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=(_srStage===2&&isCondition4())?'flex':'none';
+  _srSubTab=(_srStage===2&&isCondition4())?'tree':'chat';   // both views are always available (app4); Q1 opens on chat, Q2 on the tree
+  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=isCondition4()?'flex':'none';
   document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',_srSubTab==='chat');
   document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',_srSubTab==='tree');
   srSelectIdea(n,S.nodes.filter(nd=>nd.isFinalized));
@@ -996,7 +1015,7 @@ function selectIdea(nodeId){
 
 // ── Chat display ──────────────────────────────────────────────
 let _chatMode=null;   // inline composer open under the idea: 'edit-self' | 'edit-ai' | 'clarify'
-const DEFAULT_EDIT_PROMPT='Edit the current idea to make it more specific and detailed.';
+const DEFAULT_EDIT_PROMPT='Edit the current idea to provide more details';
 
 function showChatInitial(){
   document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none';
@@ -1014,7 +1033,7 @@ function setNewIdeaButtonsVisible(show){
 function setChatThinking(on){
   document.getElementById('chat-thinking').style.display=on?'flex':'none';
   const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on;
-  const act=document.getElementById('chat-actions-bar'); if(act) act.classList.toggle('busy',on);
+  ['chat-actions-bar','chat-actions-bar2'].forEach(i=>{ const act=document.getElementById(i); if(act) act.classList.toggle('busy',on); });
 }
 function updateChatHeader(){ renderChatActions(); }
 
@@ -1025,15 +1044,15 @@ function renderChatActions(){
   if(wrap){ const old=wrap.querySelector('#chat-actions'); if(old) old.remove(); }
   const node=curNode();
   if(bar){
-    bar.innerHTML='';
+    bar.innerHTML=''; const bar2=document.getElementById('chat-actions-bar2'); if(bar2) bar2.innerHTML='';
     if(node){
-      const mk=(label,cls,fn,mode)=>{
+      const mk=(label,cls,fn,mode,target)=>{
         const b=document.createElement('button');
-        b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; bar.appendChild(b);
+        b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; (target||bar).appendChild(b);
       };
-      mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self');
-      mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai');
-      mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify');
+      mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self',bar2);
+      mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai',bar2);
+      mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify',bar2);
       mk('Discard the current idea','btn-red',()=>discardNode(node.id));
       mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
     }
@@ -1045,7 +1064,7 @@ function renderChatActions(){
 }
 // One line per button: shrink the shared font size until every label fits.
 function fitActionButtons(){
-  const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
+  const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn, #chat-actions-bar2 .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
   let fs=15; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
   while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
 }
@@ -1063,10 +1082,10 @@ function buildChatComposer(mode,node){
     label.textContent='Edit the idea below, then save your edit.'; ta.value=node.body;
     go.className='btn btn-amber btn-sm'; go.textContent='Save edit'; go.onclick=submitSelfEdit;
   } else if(mode==='edit-ai'){
-    label.textContent='This is the default prompt to edit the idea using AI. You can edit it.'; ta.value=DEFAULT_EDIT_PROMPT;
+    label.innerHTML='Here is a prompt to edit the idea using AI. <strong>You can edit it.</strong>'; ta.value=DEFAULT_EDIT_PROMPT;
     go.className='btn btn-blue2 btn-sm'; go.textContent='Edit the idea using AI'; go.onclick=submitAIEdit;
   } else {
-    label.textContent='Ask the AI to clarify the idea, or any question about the design challenge.'; ta.placeholder='Type your question…';
+    label.innerHTML='Here is a prompt to ask AI to clarify the idea. <strong>You can edit it.</strong>'; ta.value='Explain the idea'; ta.placeholder='Type your question…';
     go.className='btn btn-blue2 btn-sm'; go.textContent='Ask AI'; go.onclick=submitClarify;
   }
   row.appendChild(go); row.appendChild(cancel);
@@ -1333,14 +1352,14 @@ async function processMessage(msg,type){
         const {system,user}=PROMPTS.feedbackChat(parent.body,S.challenge,msg);
         aiText=await callClaude([...history,{role:'user',content:user}],system);
         const idx=parent.extras.length;
-        parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
+        parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()}); summarizeQuestion(parent,parent.extras[parent.extras.length-1]);
         appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
         queueSync();
       } else {
         const sys=PROMPTS.clarificationChat(parent.body,S.challenge);
         aiText=await callClaude([...history,{role:'user',content:msg}],sys);
         const idx=parent.extras.length;
-        parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()});
+        parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()}); summarizeQuestion(parent,parent.extras[parent.extras.length-1]);
         appendToChat(makeMsgBubble('assistant',aiText,parent.id,idx));
         queueSync();
       }
