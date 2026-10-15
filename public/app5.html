@@ -28,7 +28,8 @@
   </nav>
   <div class="a5-main">
     <div class="panel a5-tree">
-      <div class="panel-header">Idea Tree<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">Idea Tree<button class="btn btn-outline btn-sm" id="a5-newbtn" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="a5-start" id="a5-start"></div>
       <div class="tree-area" id="tree-area">
         <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
         <div class="panel-subheader a5-hint" id="tree-subheader"></div>

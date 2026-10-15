@@ -393,7 +393,7 @@ function renderAllTrees(){
   const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
-  nodesEl.innerHTML=''; svg.innerHTML='';
+  nodesEl.innerHTML=''; svg.innerHTML=''; _pan.pos={};
   const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on any node to work on it'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); }
   const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
@@ -465,7 +465,7 @@ function renderAllTrees(){
       `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`+
       (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
     el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
-    el.dataset.nodeId=node.id;
+    el.dataset.nodeId=node.id; _pan.pos[node.id]={x:x.x,y:x.y+H/2};
     el.addEventListener('click',()=>{ if(window.onTreeNodeClick) window.onTreeNodeClick(node.id); else selectIdea(node.id); });
     nodesEl.appendChild(el);
     addSideNote(nodesEl,node,x.x+W/2+8,x.y);

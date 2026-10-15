@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', initLanding);
 function onStudyBegin(){ startIdeation(); _detailsAfterSummary=true; openInstructions(); }
 
 // ── No chat / ideas panels: neutralise the old chat plumbing ──
-window.showChatInitial = function(){ _chatMode=null; };
+window.showChatInitial = function(){ _chatMode=null; showStart(); };
 window.showChatActive = function(){};
 window.setNewIdeaButtonsVisible = function(){};
 window.updateChatHeader = function(){};
@@ -35,9 +35,9 @@ window.selectIdea = function(nodeId){
 };
 
 // ── New idea (large popup) ─────────────────────────────────
-function openNewIdea(){ document.getElementById('newidea-modal').style.display='flex'; chooseCreate(null); }
+function openNewIdea(){ placeCreate('modal'); document.getElementById('newidea-modal').style.display='flex'; chooseCreate(null); }
 function closeNewIdea(){ document.getElementById('newidea-modal').style.display='none'; }
-window.startNewIdea = function(){ closePop(); offerFinalizeThen(openNewIdea); };
+window.startNewIdea = function(){ if(!S.nodes.length) return; closePop(); offerFinalizeThen(openNewIdea); };
 window.submitManualCreate = function(){
   const ta=document.getElementById('create-body'); const body=ta?ta.value.trim():'';
   if(!body){ toast('Please describe your idea.'); return; }
@@ -134,6 +134,10 @@ async function sendAsk(){
   if(!parent||!msg) return;
   const btn=document.getElementById('ask-send'); btn.disabled=true; inp.disabled=true; inp.value='';
   const m=document.getElementById('ask-msgs'); m.appendChild(makeMsgBubble('user',msg,parent.id));
+  if(classifyMsg(msg)==='modification'||isNewIdeaRequest(msg)){
+    m.appendChild(makeMsgBubble('assistant','I can only answer questions about the idea here. To change the idea, please close this chat and use the “Edit the idea using AI” button (or “Edit the idea yourself”).',parent.id));
+    m.scrollTop=m.scrollHeight; btn.disabled=false; inp.disabled=false; inp.focus(); return;
+  }
   const wait=makeMsgBubble('system-note','Loading AI response…'); m.appendChild(wait); m.scrollTop=m.scrollHeight;
   try{
     const history=buildAPIHistory(parent.id);
@@ -150,7 +154,38 @@ document.addEventListener('keydown',e=>{
 
 // ── Current idea (right side): updates whenever an idea is created, edited or selected ──
 const _refreshUIBase=window.refreshUI;
-window.refreshUI=function(){ _refreshUIBase(); renderCurrentIdea(); };
+let _lastCentered=null;
+window.refreshUI=function(){
+  _refreshUIBase(); renderCurrentIdea();
+  if(S.nodes.length){ hideStart(); } else showStart();
+  const nb=document.getElementById('a5-newbtn'); if(nb) nb.style.display=S.nodes.length?'':'none';
+  // a created / clicked node goes to the middle of the tree panel
+  if(S.currentNodeId&&S.currentNodeId!==_lastCentered){ _lastCentered=S.currentNodeId; centerOnNode(S.currentNodeId); }
+  if(!S.currentNodeId) _lastCentered=null;
+};
+function centerOnNode(id){
+  const area=document.getElementById('tree-area'), p=_pan.pos&&_pan.pos[id]; if(!area||!p) return;
+  _pan.x=area.clientWidth/2-p.x*_pan.k;
+  _pan.y=area.clientHeight/2-12-p.y*_pan.k;   // 12px = canvas top offset
+  applyPan();
+}
+// ── Start screen: the create-idea interface lives in the tree panel until the first idea exists ──
+let _createBox=null;
+function placeCreate(where){
+  if(!_createBox) _createBox=document.querySelector('#newidea-modal .generate-inline');
+  const host=where==='start'?document.getElementById('a5-start'):document.querySelector('#newidea-modal .modal-body');
+  if(host&&_createBox.parentNode!==host) host.appendChild(_createBox);
+}
+function showStart(){
+  const st=document.getElementById('a5-start'); if(!st) return;
+  const hdr=st.parentNode.querySelector('.panel-header'); st.style.top=(hdr?hdr.offsetHeight:56)+'px';
+  placeCreate('start'); st.style.display='flex';
+  if(!st.dataset.init){ st.dataset.init='1'; chooseCreate(null); }
+}
+function hideStart(){
+  const st=document.getElementById('a5-start'); if(!st||st.style.display==='none') return;
+  st.style.display='none'; st.dataset.init=''; placeCreate('modal');
+}
 function renderCurrentIdea(){
   const box=document.getElementById('a5-current'); if(!box) return;
   const n=curNode();
