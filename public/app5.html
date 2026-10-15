@@ -17,32 +17,38 @@
   </div>
 </div>
 <div id="page-ideation" style="display:none" class="app5">
-  <div class="a5-head">
-    <div class="a5-left">
-      <nav class="top-nav a5-row">
-        <div class="nav-logo" style="cursor:default">IdeaForest<img class="brand-icon" src="icon.svg" alt=""></div>
-        <div class="nav-actions">
-          <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
-          <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-          <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
-          <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
+  <nav class="top-nav a5-nav">
+    <div class="nav-logo" style="cursor:default">IdeaForest<img class="brand-icon" src="icon.svg" alt=""></div>
+    <div class="nav-actions">
+      <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
+      <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
+      <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
+    </div>
+  </nav>
+  <div class="a5-main">
+    <div class="panel a5-tree">
+      <div class="panel-header">Idea Tree<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="tree-area" id="tree-area">
+        <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
+        <div class="panel-subheader a5-hint" id="tree-subheader"></div>
+      </div>
+    </div>
+    <div class="a5-side">
+      <div class="a5-box">
+        <div class="panel-header">Summary of Design Challenge</div>
+        <div class="a5-box-body">
+          <ol>
+            <li>You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</li>
+            <li>Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</li>
+            <li>Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</li>
+          </ol>
         </div>
-      </nav>
-      <div class="panel-header a5-row">Idea Tree<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
-    </div>
-    <div class="a5-summary">
-      <div class="a5-summary-title">Summary of Design Challenge</div>
-      <ol>
-        <li>You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</li>
-        <li>Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</li>
-        <li>Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</li>
-      </ol>
-    </div>
-  </div>
-  <div class="panel a5-tree">
-    <div class="panel-subheader a5-hint" id="tree-subheader"></div>
-    <div class="tree-area" id="tree-area">
-      <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
+      </div>
+      <div class="a5-box a5-box-grow">
+        <div class="panel-header">Current Idea</div>
+        <div class="a5-box-body" id="a5-current"></div>
+      </div>
     </div>
   </div>
   <div id="legacy-chat" style="display:none"><div id="chat-messages"></div><div id="chat-thinking"></div></div>

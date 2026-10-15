@@ -7,7 +7,9 @@ S.studyCondition = "IdeaForest_TreeOnly"; // value stored in the database's stud
 
 window.TREE_EMPTY_TEXT = 'Click “+ New Idea” to create your first idea. The idea tree will be populated as you work.';
 window.TREE_HINT_TEXT = 'Click on any node to work on it';
-window.SR_TREE_ONLY = true;   // self-reports show only the idea tree
+window.SR_TREE_ONLY = true;
+window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
+document.body.classList.add('app5');   // self-reports show only the idea tree
 
 window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has one panel';
 window.CONDITION_INSTRUCTIONS = `
@@ -145,3 +147,13 @@ async function sendAsk(){
 document.addEventListener('keydown',e=>{
   if(e.target&&e.target.id==='ask-input'&&e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAsk(); }
 });
+
+// ── Current idea (right side): updates whenever an idea is created, edited or selected ──
+const _refreshUIBase=window.refreshUI;
+window.refreshUI=function(){ _refreshUIBase(); renderCurrentIdea(); };
+function renderCurrentIdea(){
+  const box=document.getElementById('a5-current'); if(!box) return;
+  const n=curNode();
+  if(!n){ box.innerHTML='<p class="a5-empty">No idea selected yet. Create a new idea, or click a node in the idea tree.</p>'; return; }
+  box.innerHTML=`<div class="a5-cur-tag">${esc(nodeTagLabel(n))}${n.isFinalized?' · Finalized':''}</div><div class="a5-cur-body">${esc(n.body)}</div>`;
+}

@@ -108,18 +108,19 @@ function addNode(node){
 async function summarizeChange(node){
   const p=node.parentId&&S.nodes.find(n=>n.id===node.parentId);
   const manual=node.tag==='manual-modification', aiPrompt=node.tag==='ai-generated'||node.tag==='ai-modification';
-  if(!node.body||(!p&&!aiPrompt)) return;
+  const wantIdea=!!window.SHOW_IDEA_SUMMARY&&!p;   // creation nodes: summary of the idea itself
+  if(!node.body||(!p&&!aiPrompt&&!wantIdea)) return;
   try{
     const ask=`${p?'Old version:\n'+p.body+'\n\n':''}New version:\n${node.body}\n\n${aiPrompt?'Prompt the user gave the AI: '+node.userPrompt+'\n\n':''}`+
-      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do"}. Each value has at most 10 words, plain text.'+
-      (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".');
+      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do","idea":"what the idea is"}. Each value has at most 10 words, plain text.'+
+      (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".')+(wantIdea?'':' Use an empty string for "idea".');
     const t=await callClaude([{role:'user',content:ask}],'You write very short summaries.');
     const j=JSON.parse(t.replace(/```json|```/g,'').trim());
     const cut=v=>String(v||'').trim().split(/\s+/).filter(Boolean).slice(0,10).join(' ');
-    node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):'';
+    node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):''; node.meta.ideaSummary=wantIdea?cut(j.idea):'';
     // Saved in the node's existing `extras` JSON column (no new column needed)
     node.extras=node.extras.filter(x=>x.type!=='change_summary');
-    node.extras.push({type:'change_summary',summary:node.meta.changeSummary,prompt_summary:node.meta.promptSummary,ts:Date.now()});
+    node.extras.push({type:'change_summary',summary:node.meta.changeSummary,prompt_summary:node.meta.promptSummary,idea_summary:node.meta.ideaSummary,ts:Date.now()});
     renderAllTrees(); queueSync();
   }catch(e){}
 }
@@ -374,6 +375,7 @@ function treeNudge(real){
 // Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
 function nodeNotes(node){
   const m=node.meta||{}, out=[];
+  if(m.ideaSummary) out.push(['Idea',m.ideaSummary]);
   if(m.changeSummary) out.push(['Changes',m.changeSummary]);
   if(m.promptSummary) out.push(['Prompt',m.promptSummary]);
   (node.extras||[]).forEach(ex=>{ if(ex.summary&&ex.type!=='change_summary') out.push([ex.type==='feedback'?'Feedback':'Question',ex.summary]); });

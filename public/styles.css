@@ -646,3 +646,38 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .a5-summary li{margin:0}
 .a5-summary-title{margin-bottom:0}
 .a5-summary{padding:3px 12px}
+
+/* ── app5 v2: tree 2/3 + side column 1/3 ────────────────── */
+.a5-nav{height:60px;min-height:0;box-sizing:border-box;padding-top:0;padding-bottom:0;flex-wrap:nowrap}
+.a5-main{display:flex;height:calc(100vh - 61px)}
+.a5-main>.a5-tree{flex:0 0 66.6667%;height:100%;min-width:0}
+.a5-main .a5-tree .tree-area{flex:1;height:auto}
+.a5-hint{top:auto;bottom:10px;left:0;right:0}
+.a5-side{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--border)}
+.a5-box{display:flex;flex-direction:column;min-height:0;border-bottom:1px solid var(--border)}
+.a5-box-grow{flex:1}
+.a5-box-body{padding:14px 18px;font-size:1.05rem;line-height:1.55;color:var(--text);overflow:auto;min-height:0}
+.a5-box-body ol{margin:0;padding-left:22px}
+.a5-box-body li{margin-bottom:8px}
+.a5-empty{color:var(--text2);font-style:italic}
+.a5-cur-tag{font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px}
+.a5-cur-body{font-size:1.15rem;line-height:1.6;white-space:pre-wrap}
+
+/* bigger popups everywhere in app5 */
+body.app5 .modal{font-size:1.1rem;min-width:min(680px,94vw)}
+body.app5 .modal-head{font-size:1.35rem}
+body.app5 .modal .btn{font-size:1.05rem;padding:10px 20px}
+body.app5 #modal-confirm .modal{max-width:720px}
+body.app5 .modal-details{width:min(1000px,94vw);max-width:94vw}
+body.app5 .a5-modal{width:min(1100px,95vw);max-height:92vh}
+body.app5 .a5-modal .chat-composer .field-textarea{min-height:420px;font-size:1.15rem;line-height:1.5}
+body.app5 .a5-modal .generate-prompt-title,body.app5 .a5-modal .chat-composer label{font-size:1.2rem}
+body.app5 .a5-modal-big{width:min(1280px,97vw);height:min(900px,95vh)}
+body.app5 .a5-modal-big .generate-prompt-textarea{min-height:360px;font-size:1.15rem}
+body.app5 .a5-ask{width:min(1100px,95vw);height:min(900px,95vh)}
+body.app5 .a5-ask .chat-msg,body.app5 .a5-ask .idea-bubble,body.app5 .a5-ask .feedback-bubble{font-size:1.1rem}
+body.app5 .a5-ask-row .field-textarea{min-height:72px;font-size:1.1rem}
+.node-pop{padding:14px;gap:14px}
+.node-pop-col{gap:10px}
+.node-pop-btn{width:250px !important;height:46px !important;font-size:1.05rem !important}
+body.app5 .node-note{font-size:12px;line-height:1.3}
