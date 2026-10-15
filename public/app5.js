@@ -13,8 +13,9 @@ document.body.classList.add('app5');   // self-reports show only the idea tree
 
 window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has one panel';
 window.CONDITION_INSTRUCTIONS = `
-  <div class="instructions-grid" style="grid-template-columns:1fr">
-    <div class="instructions-col"><div class="instr-text">The idea tree where you create ideas and see how they evolve. Click on any node to work on it.</div><div class="instr-arrow">&#8595;</div></div>
+  <div class="instructions-grid" style="grid-template-columns:1fr 1fr">
+    <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow">&#8595;</div></div>
+    <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow">&#8595;</div></div>
   </div>`;
 
 document.addEventListener('DOMContentLoaded', initLanding);
@@ -160,8 +161,6 @@ window.refreshUI=function(){
   if(S.nodes.length){ hideStart(); } else showStart();
   const nb=document.getElementById('a5-newbtn'); if(nb) nb.style.display=S.nodes.length?'':'none';
   // a created / clicked node goes to the middle of the tree panel
-  if(S.currentNodeId&&S.currentNodeId!==_lastCentered){ _lastCentered=S.currentNodeId; centerOnNode(S.currentNodeId); }
-  if(!S.currentNodeId) _lastCentered=null;
 };
 function centerOnNode(id){
   const area=document.getElementById('tree-area'), p=_pan.pos&&_pan.pos[id]; if(!area||!p) return;

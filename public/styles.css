@@ -692,3 +692,9 @@ body.app5 .a5-ask-row .field-textarea{min-height:60px;font-size:1rem}
 .a5-start .generate-inline{display:flex;flex-direction:column;gap:14px;flex:1;max-width:900px;width:100%;margin:0 auto}
 .a5-start .create-composer{margin-top:10px;flex:1;min-height:0}
 .a5-start .generate-prompt-textarea{min-height:140px;font-size:1rem}
+
+/* app5 v4 */
+.a5-box-last{border-bottom:none;border-top:1px solid var(--border)}
+.a5-box-grow{border-bottom:none}
+.a5-hint{top:8px !important;bottom:auto !important;font-size:1.15rem;font-weight:600;color:var(--text)}
+body.app5 .tree-canvas{top:52px}
