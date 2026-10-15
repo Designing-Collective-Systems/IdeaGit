@@ -392,7 +392,7 @@ function renderAllTrees(){
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML='';
-  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?'Click on any node to work on it':'When you create an idea, the idea tree will be populated'; }
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on any node to work on it'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); }
   const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
@@ -463,7 +463,8 @@ function renderAllTrees(){
       `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`+
       (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
     el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
-    el.addEventListener('click',()=>selectIdea(node.id));
+    el.dataset.nodeId=node.id;
+    el.addEventListener('click',()=>{ if(window.onTreeNodeClick) window.onTreeNodeClick(node.id); else selectIdea(node.id); });
     nodesEl.appendChild(el);
     addSideNote(nodesEl,node,x.x+W/2+8,x.y);
   });
@@ -473,7 +474,10 @@ function renderAllTrees(){
   if(f&&area&&area.clientWidth&&totalW>area.clientWidth){
     px=Math.max(area.clientWidth-totalW,Math.min(0,area.clientWidth/2-(f.left+f.width/2)));
   }
-  _pan.x=px; _pan.y=0; applyPan();
+  // Re-centre only when the focused tree (or the number of trees) changes, so panning/zooming isn't undone by re-renders
+  const fkey=(cur?cur.groupId:'')+'|'+frames.length;
+  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; _pan.x=px; _pan.y=0; }
+  applyPan();
 }
 
 // Discarding removes the node and every later version branching from it.
@@ -667,7 +671,7 @@ function openSelfReport(){
   const finalized=S.nodes.filter(n=>n.isFinalized);
   if(!finalized.length) return;
   _srPage=0; _srCurrentIdea=0;
-  _srSubTab=isCondition4()?'tree':'chat';
+  _srSubTab=(isCondition4()||window.SR_TREE_ONLY)?'tree':'chat';
 
   // ── Left panel: idea tabs ────────────────────────────────────
   const tabs=document.getElementById('sr-idea-tabs'); if(!tabs) return;
@@ -820,8 +824,8 @@ function srShowPage(n,stage){
   document.getElementById(`sr-q1-${n}`).style.display=_srStage===1?'':'none';
   document.getElementById(`sr-q2-${n}`).style.display=_srStage===2?'':'none';
   // Left side: chat history first; then the process tree (app4) or the same chat history (app3)
-  _srSubTab=(_srStage===2&&isCondition4())?'tree':'chat';   // both views are always available (app4); Q1 opens on chat, Q2 on the tree
-  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=isCondition4()?'flex':'none';
+  _srSubTab=window.SR_TREE_ONLY?'tree':(_srStage===2&&isCondition4())?'tree':'chat';   // both views are always available (app4); Q1 opens on chat, Q2 on the tree
+  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=(isCondition4()&&!window.SR_TREE_ONLY)?'flex':'none';
   document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',_srSubTab==='chat');
   document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',_srSubTab==='tree');
   srSelectIdea(n,S.nodes.filter(nd=>nd.isFinalized));

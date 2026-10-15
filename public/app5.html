@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IdeaForest</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div id="page-landing">
+  <div class="landing-card">
+    <h1 class="landing-title">IdeaForest<img class="brand-icon brand-icon-lg" src="icon.svg" alt=""></h1>
+    <p class="landing-tagline">IdeaForest is a tool that helps you brainstorm with AI and automatically tracks your ideation process</p>
+    <label class="landing-label" for="participant-id-input">Please enter your participant ID to begin</label>
+    <input type="text" id="participant-id-input" class="field-input" maxlength="100" autocomplete="off" spellcheck="false"/>
+    <button class="btn btn-primary" id="btn-begin" disabled onclick="beginStudy()">Begin</button>
+  </div>
+</div>
+<div id="page-ideation" style="display:none" class="app5">
+  <div class="a5-head">
+    <div class="a5-left">
+      <nav class="top-nav a5-row">
+        <div class="nav-logo" style="cursor:default">IdeaForest<img class="brand-icon" src="icon.svg" alt=""></div>
+        <div class="nav-actions">
+          <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
+          <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
+          <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
+          <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
+        </div>
+      </nav>
+      <div class="panel-header a5-row">Idea Tree<button class="btn btn-outline btn-sm" onclick="startNewIdea()">+ New Idea</button></div>
+    </div>
+    <div class="a5-summary">
+      <div class="a5-summary-title">Summary of Design Challenge</div>
+      <ol>
+        <li>You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</li>
+        <li>Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</li>
+        <li>Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="panel a5-tree">
+    <div class="panel-subheader a5-hint" id="tree-subheader"></div>
+    <div class="tree-area" id="tree-area">
+      <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
+    </div>
+  </div>
+  <div id="legacy-chat" style="display:none"><div id="chat-messages"></div><div id="chat-thinking"></div></div>
+</div>
+
+<div id="node-pop" class="node-pop" style="display:none"></div>
+
+<div class="modal-overlay" id="newidea-modal" style="display:none">
+  <div class="modal a5-modal a5-modal-big">
+    <div class="modal-head">Create a new idea</div>
+    <div class="modal-body">
+      <div class="generate-inline">
+        <p class="create-heading">Create an idea with or without AI</p>
+        <div class="create-choice">
+          <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
+          <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea without AI</button>
+        </div>
+        <div class="create-composer" id="create-ai-box" style="display:none">
+          <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
+          <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
+          <p class="field-error" id="generate-prompt-error" style="display:none"></p>
+          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
+        </div>
+        <div class="create-composer" id="create-self-box" style="display:none">
+          <label class="generate-prompt-title">Write your idea below.</label>
+          <textarea id="create-body" class="field-textarea generate-prompt-textarea" rows="10" placeholder="Describe your idea…"></textarea>
+          <button class="btn btn-primary" onclick="submitManualCreate()">Save idea</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeNewIdea()">Cancel</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="node-modal" style="display:none">
+  <div class="modal a5-modal"><div class="modal-body" id="node-modal-body"></div></div>
+</div>
+<div class="modal-overlay" id="ask-modal" style="display:none">
+  <div class="modal a5-modal a5-ask">
+    <div class="modal-head">Ask AI to clarify the idea</div>
+    <div class="modal-body"><div class="chat-messages a5-ask-msgs" id="ask-msgs"></div></div>
+    <div class="a5-ask-row">
+      <textarea id="ask-input" class="field-textarea" rows="2" placeholder="Ask a question about this idea…"></textarea>
+      <button class="btn btn-blue2" id="ask-send" onclick="sendAsk()">Send</button>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeAsk()">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="done-popup" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head" style="justify-content:center">Are you done with the task?</div>
+    <div class="modal-body" style="text-align:center">
+      <p style="font-size:16px;color:var(--text2)">You have finalized <strong id="done-count">3</strong> ideas.<br>Have you completed the task?</p>
+    </div>
+    <div class="modal-foot" style="justify-content:center;gap:12px">
+      <button class="btn btn-outline" onclick="closeDonePopup()">No, keep working</button>
+      <button class="btn btn-green" onclick="confirmDone()">Yes, I am done</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
+  <div class="modal instructions-wide">
+    <div class="modal-head" id="instructions-head">IdeaForest</div>
+    <div class="modal-body">
+      <div id="instructions-content" class="instructions-body"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeInstructions()">Close</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-confirm" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head" id="confirm-title"></div>
+    <div class="modal-body"><p id="confirm-message"></p></div>
+    <div class="modal-foot" id="confirm-buttons"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="self-report-modal" style="display:none">
+  <div class="self-report-modal">
+    <div class="sr-left" id="sr-left">
+      <div class="sr-idea-tabs" id="sr-idea-tabs"></div>
+      <div class="sr-sub-tabs" id="sr-sub-tabs" style="display:none">
+        <button class="sr-sub-tab sr-sub-active" id="sr-tab-chat" onclick="srSubTab('chat')">Chat History</button>
+        <button class="sr-sub-tab" id="sr-tab-tree" onclick="srSubTab('tree')">Idea Tree</button>
+      </div>
+      <div class="sr-content" id="sr-idea-display"></div>
+    </div>
+    <div class="sr-right"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="details-modal" style="display:none" onclick="if(event.target===this)closeDetailsModal()">
+  <div class="modal modal-details">
+    <div class="modal-head">Details about the design challenge</div>
+    <div class="modal-body details-body">
+      <ol>
+        <li>Your goal is to write <strong>at least</strong> three ideas for the design challenge mentioned below.</li>
+        <li>The ideas need to satisfy the constraints of the design challenge.</li>
+        <li>Your goal is <strong>NOT</strong> to complete the task as quickly as possible.</li>
+      </ol>
+      <p><strong>Design challenge:</strong></p>
+      <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p>If you don't know what compulsive scrolling is, please let the researcher know.</p>
+      <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
+      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>
+  </div>
+</div>
+<div class="toast-wrap" id="toasts"></div>
+<script src="prompts.js"></script>
+<script src="shared.js"></script>
+<script src="app5.js"></script>
+</body></html>

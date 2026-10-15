@@ -78,7 +78,7 @@ app.get('/', (req, res) => {
 });
 
 // IdeaGit conditions
-[1,2,3,4].forEach(n => {
+[1,2,3,4,5].forEach(n => {
   app.get('/app'+n, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'app'+n+'.html'));
   });

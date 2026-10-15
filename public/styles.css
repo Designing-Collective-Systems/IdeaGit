@@ -605,3 +605,44 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .chat-actions-bar{height:46px;box-sizing:border-box;align-content:center;padding-top:0;padding-bottom:0}
 
 .tree-node-final{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;padding:0 6px;font-size:0.8rem;font-weight:700;color:var(--green);background:var(--bg);border-radius:4px;white-space:nowrap;line-height:1.3}
+
+/* ── app5: idea tree only ───────────────────────────────── */
+.app5{height:100vh;overflow:hidden}
+.a5-head{display:flex;height:120px;border-bottom:1px solid var(--border);background:var(--surface)}
+.a5-left{flex:0 0 46%;display:flex;flex-direction:column;min-width:0}
+.a5-row{height:60px;min-height:0;box-sizing:border-box;flex-shrink:0;padding-top:0;padding-bottom:0;flex-wrap:nowrap}
+.a5-left .top-nav.a5-row{overflow:hidden;gap:8px}
+.a5-left .nav-actions{gap:6px}
+.a5-left .nav-actions .btn{padding:6px 9px;font-size:0.8rem;white-space:nowrap}
+.a5-left .nav-logo{white-space:nowrap}
+.a5-summary{flex:1;min-width:0;box-sizing:border-box;height:120px;overflow:auto;padding:6px 16px;background:var(--surface2);border-left:1px solid var(--border);font-size:0.76rem;line-height:1.3;color:var(--text)}
+.a5-summary-title{font-weight:700;font-size:0.8rem;margin-bottom:2px;color:var(--text2)}
+.a5-summary ol{margin:0;padding-left:18px}
+.a5-summary li{margin:0 0 2px}
+.a5-tree{height:calc(100vh - 121px);border-right:none;position:relative}
+.a5-tree .tree-area{height:100%}
+.a5-hint{position:absolute;top:0;left:0;right:0;z-index:3;background:transparent;border:none;justify-content:center;pointer-events:none;height:auto;padding:10px 16px}
+.node-pop{position:fixed;z-index:3000;gap:10px;padding:10px;background:var(--surface);border:1.5px solid var(--border2,#cbd5e1);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.node-pop-col{display:flex;flex-direction:column;gap:8px}
+.node-pop-btn{width:190px;height:34px;white-space:nowrap;justify-content:center}
+.a5-modal{width:min(720px,92vw);max-height:90vh;display:flex;flex-direction:column}
+.a5-modal .chat-composer{border:none;background:none;padding:0}
+.a5-modal .chat-composer .field-textarea{min-height:200px;font-size:1rem}
+.a5-modal-big{width:min(1000px,94vw);height:min(760px,90vh)}
+.a5-modal-big .modal-body{flex:1;overflow:auto;display:flex;flex-direction:column}
+.a5-modal-big .generate-inline{display:flex;flex-direction:column;gap:14px;flex:1}
+.a5-modal-big .create-composer{margin-top:10px}
+.a5-modal-big .generate-prompt-textarea{min-height:300px}
+.a5-ask{width:min(820px,94vw);height:min(760px,90vh)}
+.a5-ask .modal-body{flex:1;min-height:0;overflow:hidden;padding:0}
+.a5-ask-msgs{height:100%;overflow-y:auto}
+.a5-ask-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-end}
+.a5-ask-row .field-textarea{flex:1;min-height:56px;font-size:1rem}
+.a5-left{flex:0 0 54%}
+.a5-summary{font-size:0.72rem;line-height:1.22;padding:5px 14px}
+.a5-summary-title{font-size:0.76rem;margin-bottom:1px}
+.a5-hint{top:auto;bottom:10px;padding:6px 16px}
+.a5-summary{font-size:0.7rem;line-height:1.18;padding:4px 12px}
+.a5-summary li{margin:0}
+.a5-summary-title{margin-bottom:0}
+.a5-summary{padding:3px 12px}
