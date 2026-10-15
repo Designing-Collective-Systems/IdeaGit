@@ -271,6 +271,8 @@ function zoomTree(f,cx,cy){
 function applyPan(){
   const el=document.getElementById(_pan._canvasId); if(el) el.style.transform=`translate(${_pan.x}px,${_pan.y}px) scale(${_pan.k})`;
 }
+// back to default zoom, with the current idea's tree in view
+function refocusTree(){ _pan.k=1; _pan.x=_pan.focusPx||0; _pan.y=0; applyPan(); }
 function resetPan(){ _pan.x=0; _pan.y=0; applyPan(); }
 
 function computeLayout(gid,extraW){
@@ -478,7 +480,8 @@ function renderAllTrees(){
   }
   // Re-centre only when the focused tree (or the number of trees) changes, so panning/zooming isn't undone by re-renders
   const fkey=(cur?cur.groupId:'')+'|'+frames.length;
-  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; _pan.x=px; _pan.y=0; }
+  _pan.focusPx=px;
+  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; _pan.x=px; _pan.y=0; _pan.k=1; }
   applyPan();
 }
 

@@ -11,9 +11,9 @@ window.SR_TREE_ONLY = true;
 window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
 document.body.classList.add('app5');   // self-reports show only the idea tree
 
-window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has one panel';
+window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has two panels';
 window.CONDITION_INSTRUCTIONS = `
-  <div class="instructions-grid" style="grid-template-columns:1fr 1fr">
+  <div class="instructions-grid" style="grid-template-columns:auto auto;justify-content:center">
     <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow">&#8595;</div></div>
     <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow">&#8595;</div></div>
   </div>`;
@@ -72,7 +72,7 @@ window.confirmGenerateConfirm = async function(){
 // ── Node popup: click a node → five buttons beside it ───────
 function closePop(){ const p=document.getElementById('node-pop'); if(p) p.style.display='none'; }
 window.onTreeNodeClick = function(nodeId){
-  selectIdea(nodeId);
+  selectIdea(nodeId); refocusTree();   // default zoom, tree in view
   const el=document.querySelector(`.tree-node[data-node-id="${nodeId}"]`); if(!el) return;
   const node=S.nodes.find(n=>n.id===nodeId);
   const pop=document.getElementById('node-pop');
@@ -191,3 +191,15 @@ function renderCurrentIdea(){
   if(!n){ box.innerHTML='<p class="a5-empty">No idea selected yet. Create a new idea, or click a node in the idea tree.</p>'; return; }
   box.innerHTML=`<div class="a5-cur-tag">${esc(nodeTagLabel(n))}${n.isFinalized?' · Finalized':''}</div><div class="a5-cur-body">${esc(n.body)}</div>`;
 }
+
+// Each description gets its own column width so it wraps onto exactly two lines with no empty space on its right
+window.fitInstructionText=function(){
+  const ts=[...document.querySelectorAll('#instructions-content .instr-text')];
+  ts.forEach(t=>{ t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; t.dataset.full=t.scrollWidth; });
+  ts.forEach(t=>{
+    t.style.whiteSpace=''; t.style.display='block';
+    const lh=parseFloat(getComputedStyle(t).lineHeight)||24; let w=Math.ceil(t.dataset.full/2);
+    t.style.width=w+'px';
+    while(t.offsetHeight>lh*2+2 && w<t.dataset.full){ w+=4; t.style.width=w+'px'; }
+  });
+};
