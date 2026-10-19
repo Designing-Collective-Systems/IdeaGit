@@ -419,7 +419,7 @@ function renderAllTrees(){
     place(t,getW(t)/2,0);
     const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
     const minX=Math.min(...list.map(x=>x.x))-WW/2, maxX=Math.max(...list.map(x=>x.x))+WW/2;
-    const raw=maxX-minX, width=Math.max(raw,240), TOP=gids.length>1?78:0;
+    const raw=maxX-minX, width=Math.max(raw,240), TOP=gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0);
     const height=Math.max(...list.map(x=>x.y))+H+TOP, shiftX=cursor+PAD+(width-raw)/2-minX;
     list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP; });
     flat.push(...list);
@@ -552,7 +552,7 @@ async function enforceWords(body,userMsg){
 
 // ── Claude API ─────────────────────────────────────────────────
 async function callClaude(messages,system=''){
-  const body={model:'claude-sonnet-4-6',max_tokens:1024,messages};
+  const body={model:'claude-fable-5-1',max_tokens:8192,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
