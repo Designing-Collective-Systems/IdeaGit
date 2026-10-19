@@ -462,7 +462,8 @@ function renderAllTrees(){
     const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
                    node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
     el.className=`tree-node ${tc}${node.id===S.currentNodeId?' current':''}`;
-    el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+    el.innerHTML=(window.WORKING_BADGE&&node.id===S.currentNodeId?'<div class="work-badge">Working on this idea \u2193</div>':'')+
+      `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
       `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`+
       (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
@@ -1114,6 +1115,8 @@ function fitActionButtons(){
   while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
 }
 window.addEventListener('resize',()=>{ try{fitActionButtons(); fitPromptLabels();}catch(e){} });
+// A default prompt is shown in gray and turns black as soon as the participant edits it
+function markDefault(ta){ ta.classList.add('is-default'); ta.addEventListener('input',()=>ta.classList.remove('is-default'),{once:true}); }
 function buildChatComposer(mode,node){
   const c=document.createElement('div'); c.className='chat-composer';
   const label=document.createElement('label'); label.className='generate-prompt-title';
@@ -1127,10 +1130,10 @@ function buildChatComposer(mode,node){
     label.textContent='Edit the idea below, then save your edit.'; ta.value=node.body;
     go.className='btn btn-amber btn-sm'; go.textContent='Save edit'; go.onclick=submitSelfEdit;
   } else if(mode==='edit-ai'){
-    label.innerHTML='Here is a prompt to edit the idea using AI. <strong>You can edit it.</strong>'; ta.value=DEFAULT_EDIT_PROMPT;
+    label.innerHTML='Here is a prompt to edit the idea using AI. <strong>You can edit it.</strong>'; ta.value=DEFAULT_EDIT_PROMPT; markDefault(ta);
     go.className='btn btn-blue2 btn-sm'; go.textContent='Edit the idea using AI'; go.onclick=submitAIEdit;
   } else {
-    label.innerHTML='Here is a prompt to ask AI to clarify the idea. <strong>You can edit it.</strong>'; ta.value='Explain the idea'; ta.placeholder='Type your question…';
+    label.innerHTML='Here is a prompt to ask AI to clarify the idea. <strong>You can edit it.</strong>'; ta.value='Explain the idea'; ta.placeholder='Type your question…'; markDefault(ta);
     go.className='btn btn-blue2 btn-sm'; go.textContent='Ask AI'; go.onclick=submitClarify;
   }
   row.appendChild(go); row.appendChild(cancel);
@@ -1259,7 +1262,7 @@ const GENERATE_LABEL='Generate';
 function startAICreate(){
   const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
   _pendingGenerate={system,hiddenSuffix};
-  const ta=document.getElementById('generate-prompt-text'); if(ta) ta.value=editable;
+  const ta=document.getElementById('generate-prompt-text'); if(ta){ ta.value=editable; markDefault(ta); }
   setGeneratePromptError('');
   const btn=document.getElementById('btn-generate-confirm');
   if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }

@@ -6,7 +6,7 @@ S.condition = "AI-Assisted Structured Ideation";
 S.studyCondition = "IdeaForest_TreeOnly"; // value stored in the database's study_condition column
 
 window.TREE_EMPTY_TEXT = 'Click “+ New Idea” to create your first idea. The idea tree will be populated as you work.';
-window.TREE_HINT_TEXT = 'Click on any node to work on it';
+window.TREE_HINT_TEXT = 'Click on any idea to select it and work on it';
 window.SR_TREE_ONLY = true;
 window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
 document.body.classList.add('app5');   // self-reports show only the idea tree
@@ -14,8 +14,8 @@ document.body.classList.add('app5');   // self-reports show only the idea tree
 window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has two panels';
 window.CONDITION_INSTRUCTIONS = `
   <div class="instructions-grid" style="grid-template-columns:auto auto;justify-content:center">
-    <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow">&#8595;</div></div>
-    <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow">&#8595;</div></div>
+    <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow instr-arrow-left">&#8592;</div></div>
+    <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow instr-arrow-right">&#8594;</div></div>
   </div>`;
 
 document.addEventListener('DOMContentLoaded', initLanding);
@@ -38,7 +38,7 @@ window.selectIdea = function(nodeId){
 // ── New idea (large popup) ─────────────────────────────────
 function openNewIdea(){ placeCreate('modal'); document.getElementById('newidea-modal').style.display='flex'; chooseCreate(null); }
 function closeNewIdea(){ document.getElementById('newidea-modal').style.display='none'; }
-window.startNewIdea = function(){ if(!S.nodes.length) return; closePop(); offerFinalizeThen(openNewIdea); };
+window.startNewIdea = function(){ if(!S.nodes.length) return; offerFinalizeThen(openNewIdea); };
 window.submitManualCreate = function(){
   const ta=document.getElementById('create-body'); const body=ta?ta.value.trim():'';
   if(!body){ toast('Please describe your idea.'); return; }
@@ -69,35 +69,22 @@ window.confirmGenerateConfirm = async function(){
   finally{ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
 };
 
-// ── Node popup: click a node → five buttons beside it ───────
-function closePop(){ const p=document.getElementById('node-pop'); if(p) p.style.display='none'; }
-window.onTreeNodeClick = function(nodeId){
-  selectIdea(nodeId); refocusTree();   // default zoom, tree in view
-  const el=document.querySelector(`.tree-node[data-node-id="${nodeId}"]`); if(!el) return;
-  const node=S.nodes.find(n=>n.id===nodeId);
-  const pop=document.getElementById('node-pop');
-  pop.innerHTML='';
-  const col=()=>{ const c=document.createElement('div'); c.className='node-pop-col'; pop.appendChild(c); return c; };
-  const c1=col(), c2=col();
-  const mk=(c,label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn btn-sm node-pop-btn '+cls; b.textContent=label;
-    b.onclick=()=>{ closePop(); fn(); }; c.appendChild(b); };
-  mk(c1,'Edit the idea yourself','btn-outline',()=>openNodeModal('edit-self'));
-  mk(c1,'Edit the idea using AI','btn-outline',()=>openNodeModal('edit-ai'));
-  mk(c1,'Ask AI to clarify the idea','btn-outline',openAsk);
-  mk(c2,node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
-  mk(c2,'Discard the current idea','btn-red',()=>discardNode(node.id));
-  pop.style.display='flex';
-  // place beside the node (and its notes); fall back to the left side if there is no room
-  const r=el.getBoundingClientRect(), pw=pop.offsetWidth, ph=pop.offsetHeight;
-  let x=r.right+(190+14)*_pan.k; if(x+pw>innerWidth-8) x=r.left-pw-10;
-  x=Math.max(8,Math.min(x,innerWidth-pw-8));
-  const y=Math.max(8,Math.min(r.top,innerHeight-ph-8));
-  pop.style.left=x+'px'; pop.style.top=y+'px';
-};
-document.addEventListener('mousedown',e=>{
-  const p=document.getElementById('node-pop');
-  if(p&&p.style.display!=='none'&&!e.target.closest('#node-pop')&&!e.target.closest('.tree-node')) closePop();
-});
+// ── Clicking a node selects it; the action buttons are always visible at the top right of the tree panel ──
+window.WORKING_BADGE = true;   // "Working on this idea" bubble above the selected node
+window.onTreeNodeClick = function(nodeId){ selectIdea(nodeId); refocusTree(); };
+function renderActions(){
+  const box=document.getElementById('a5-actions'); if(!box) return;
+  const node=curNode();
+  if(!node||!S.nodes.length){ box.style.display='none'; return; }
+  box.innerHTML='';
+  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn node-pop-btn '+cls; b.textContent=label; b.onclick=fn; box.appendChild(b); };
+  mk('Edit the idea yourself','btn-outline',()=>openNodeModal('edit-self'));
+  mk('Edit the idea using AI','btn-outline',()=>openNodeModal('edit-ai'));
+  mk('Ask AI to clarify the idea','btn-outline',openAsk);
+  mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
+  mk('Discard the current idea','btn-red',()=>discardNode(node.id));
+  box.style.display='flex';
+}
 
 // ── Edit popups (default prompt / manual text box) ──────────
 function openNodeModal(mode){
@@ -122,7 +109,7 @@ function closeNodeModal(){ document.getElementById('node-modal').style.display='
 function openAsk(){
   const node=curNode(); if(!node) return;
   renderAsk();
-  const inp=document.getElementById('ask-input'); inp.value=node.extras.some(x=>x.userPrompt)?'':'Explain the idea';
+  const inp=document.getElementById('ask-input'); inp.value=node.extras.some(x=>x.userPrompt)?'':'Explain the idea'; if(inp.value) markDefault(inp);
   document.getElementById('ask-modal').style.display='flex'; inp.focus();
 }
 function closeAsk(){ document.getElementById('ask-modal').style.display='none'; }
@@ -157,7 +144,7 @@ document.addEventListener('keydown',e=>{
 const _refreshUIBase=window.refreshUI;
 let _lastCentered=null;
 window.refreshUI=function(){
-  _refreshUIBase(); renderCurrentIdea();
+  _refreshUIBase(); renderCurrentIdea(); renderActions();
   if(S.nodes.length){ hideStart(); } else showStart();
   const nb=document.getElementById('a5-newbtn'); if(nb) nb.style.display=S.nodes.length?'':'none';
   // a created / clicked node goes to the middle of the tree panel

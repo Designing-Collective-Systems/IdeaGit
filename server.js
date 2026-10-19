@@ -72,9 +72,9 @@ app.post('/api/save-nodes', async (req, res) => {
   }
 });
 
-// Root redirects straight to app4
+// Root redirects straight to app5
 app.get('/', (req, res) => {
-  res.redirect('/app4');
+  res.redirect('/app5');
 });
 
 // IdeaGit conditions
@@ -84,7 +84,7 @@ app.get('/', (req, res) => {
   });
 });
 // Legacy route
-app.get('/app', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'app4.html')); });
+app.get('/app', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'app5.html')); });
 
 // Fallback — redirect everything else to landing
 app.get('*', (req, res) => {
