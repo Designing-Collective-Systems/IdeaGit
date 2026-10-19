@@ -563,13 +563,17 @@ function parseAIJSON(text){
   }
 }
 // ── Claude API ─────────────────────────────────────────────────
-async function callClaude(messages,system=''){
-  const body={model:'claude-fable-5-1',max_tokens:8192,messages};
+async function callClaude(messages,system='',maxTokens=8192){
+  const body={model:'claude-fable-5-1',max_tokens:maxTokens,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
-  const data=await res.json();   // skip any thinking blocks; join the text blocks
-  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;
+  const data=await res.json();
+  const why=data.stop_reason;
+  // thinking can use up the token limit: try again once with a bigger limit
+  if(why==='max_tokens'&&maxTokens<32000){ console.warn('Reply hit the token limit; retrying with a larger limit'); return callClaude(messages,system,maxTokens*2); }
+  if(why&&why!=='end_turn'&&why!=='stop_sequence'){ console.error('AI reply ended early ('+why+'):',data); throw new Error('The AI reply ended early ('+why+'). Please try again.'); }
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;   // skip thinking blocks
 }
 
 // ── Classification (C3/C4) ────────────────────────────────────
