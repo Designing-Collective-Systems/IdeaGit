@@ -562,7 +562,7 @@ function parseAIJSON(text){
 }
 // ── Claude API ─────────────────────────────────────────────────
 async function callClaude(messages,system=''){
-  const body={model:'claude-sonnet-4-6',max_tokens:1024,messages};
+  const body={model:'claude-fable-5-1',max_tokens:8192,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
