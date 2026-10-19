@@ -553,14 +553,15 @@ async function enforceWords(body,userMsg){
 // The model sometimes returns JSON with unescaped quotes inside the text; recover the body in that case
 function parseAIJSON(text){
   let t=String(text).replace(/```json|```/g,'').trim();
-  const a=t.indexOf('{'), b=t.lastIndexOf('}'); if(a>=0&&b>a) t=t.slice(a,b+1);
-  try{ return JSON.parse(t); }catch(e){
-    // text up to the closing quote that is followed by another key or the final brace (any extra keys are ignored)
-    const m=t.match(/"body"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"\w+"\s*:|\}\s*$)/);
-    if(m) return {body:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').trim()};
-    console.error('Unreadable AI reply:',text);
-    throw new Error('Could not read the AI reply ('+String(text).slice(0,160).replace(/\s+/g,' ')+')');
-  }
+  const a=t.indexOf('{'); if(a>0) t=t.slice(a);
+  const b=t.lastIndexOf('}'); const whole=t;
+  const tries=[t, b>0?t.slice(0,b+1):t, whole+'}', whole+'"}'];   // the model sometimes leaves off the closing quote/brace
+  for(const c of tries){ try{ return JSON.parse(c); }catch(e){} }
+  // text up to the closing quote that is followed by another key or the end (extra keys are ignored)
+  const m=whole.match(/"body"\s*:\s*"([\s\S]*?)"?\s*(?:,\s*"\w+"\s*:|\}?\s*$)/);
+  if(m&&m[1].trim()) return {body:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').trim()};
+  console.error('Unreadable AI reply:',text);
+  throw new Error('Could not read the AI reply ('+String(text).slice(0,160).replace(/\s+/g,' ')+')');
 }
 // ── Claude API ─────────────────────────────────────────────────
 async function callClaude(messages,system='',maxTokens=8192){
@@ -572,7 +573,8 @@ async function callClaude(messages,system='',maxTokens=8192){
   const why=data.stop_reason;
   // thinking can use up the token limit: try again once with a bigger limit
   if(why==='max_tokens'&&maxTokens<32000){ console.warn('Reply hit the token limit; retrying with a larger limit'); return callClaude(messages,system,maxTokens*2); }
-  if(why&&why!=='end_turn'&&why!=='stop_sequence'){ console.error('AI reply ended early ('+why+'):',data); throw new Error('The AI reply ended early ('+why+'). Please try again.'); }
+  if(why==='refusal'){ console.error('AI declined:',data); throw new Error('The AI declined this request. Please rephrase and try again.'); }
+  if(why&&why!=='end_turn'&&why!=='stop_sequence') console.warn('AI reply stop_reason:',why);
   return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;   // skip thinking blocks
 }
 
