@@ -438,7 +438,7 @@ function renderAllTrees(){
       nd.style.cssText=`left:${f.left}px;top:${PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
     if(!f.gid) return;   // blue outline = tree being worked on, grey = the others
     const fr=document.createElement('div'); fr.className='tree-group-frame'+(f.isCur?'':' tree-group-frame-other');
-    fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr);
+    fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr); f.el=fr;
   });
   flat.forEach(x=>{
     if(!x.parent) return;
@@ -473,6 +473,18 @@ function renderAllTrees(){
     nodesEl.appendChild(el);
     addSideNote(nodesEl,node,x.x+W/2+8,x.y);
   });
+  // A tree's frame always grows to contain every piece of text inside it (side notes, "Finalized" labels, ...), so it never crosses text
+  if(canvas.getBoundingClientRect().width){
+    const cr=canvas.getBoundingClientRect(), k=_pan.k||1; let tall=totalH;
+    const items=[...nodesEl.querySelectorAll('.tree-node,.node-note,.tree-node-final,.tree-nudge,.work-badge')].map(el=>{
+      const r=el.getBoundingClientRect(); return {l:(r.left-cr.left)/k,r:(r.right-cr.left)/k,b:(r.bottom-cr.top)/k};});
+    frames.forEach(f=>{
+      if(!f.el) return; let bot=f.height, right=f.left+f.width;
+      items.forEach(i=>{ const mid=(i.l+i.r)/2; if(mid<f.left||mid>f.left+f.width) return; bot=Math.max(bot,i.b+PAD+2); right=Math.max(right,i.r+PAD+2); });
+      f.el.style.height=bot+'px'; f.el.style.width=(right-f.left)+'px'; tall=Math.max(tall,bot+8);
+    });
+    canvas.style.height=tall+'px'; svg.style.height=tall+'px';
+  }
   // Focus the current idea's tree when all trees don't fit side by side
   let px=0;
   const f=cur&&frames.find(f=>f.gid===cur.groupId);
