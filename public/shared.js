@@ -115,7 +115,7 @@ async function summarizeChange(node){
       'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do","idea":"what the idea is"}. Each value has at most 10 words, plain text.'+
       (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".')+(wantIdea?'':' Use an empty string for "idea".');
     const t=await callClaude([{role:'user',content:ask}],'You write very short summaries.');
-    const j=JSON.parse(t.replace(/```json|```/g,'').trim());
+    const j=parseAIJSON(t);
     const cut=v=>String(v||'').trim().split(/\s+/).filter(Boolean).slice(0,10).join(' ');
     node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):''; node.meta.ideaSummary=wantIdea?cut(j.idea):'';
     // Saved in the node's existing `extras` JSON column (no new column needed)
@@ -550,9 +550,19 @@ async function enforceWords(body,userMsg){
   }catch(e){ return body; }
 }
 
+// The model sometimes returns JSON with unescaped quotes inside the text; recover the body in that case
+function parseAIJSON(text){
+  let t=String(text).replace(/```json|```/g,'').trim();
+  const a=t.indexOf('{'), b=t.lastIndexOf('}'); if(a>=0&&b>a) t=t.slice(a,b+1);
+  try{ return JSON.parse(t); }catch(e){
+    const m=t.match(/"body"\s*:\s*"([\s\S]*)"\s*\}\s*$/);
+    if(m) return {body:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').trim()};
+    throw e;
+  }
+}
 // ── Claude API ─────────────────────────────────────────────────
 async function callClaude(messages,system=''){
-  const body={model:'claude-fable-5-1',max_tokens:8192,messages};
+  const body={model:'claude-sonnet-4-6',max_tokens:1024,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
@@ -1301,7 +1311,7 @@ async function confirmGenerateConfirm(){
   setChatThinking(true);
   try{
     const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
-    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const json=parseAIJSON(text);
     wrap.innerHTML='';
     const node=mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited}); addNode(node);
     updateChatHeader(); rebuildChat(node.id); refreshUI();
@@ -1387,7 +1397,7 @@ async function processMessage(msg,type){
       const recentContext=buildRecentContext(parent);
       const {system,user}=PROMPTS.modifyIdeaChat(parent.body,S.challenge,msg,recentContext);
       const text=await callClaude([{role:'user',content:user}],system);
-      const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+      const json=parseAIJSON(text);
       json.body=await enforceWords(json.body,msg);
       const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
         body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});

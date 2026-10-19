@@ -62,7 +62,7 @@ window.confirmGenerateConfirm = async function(){
     }
     btn.textContent='Generating…';
     const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
-    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const json=parseAIJSON(text);
     addNode(mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited}));
     _pendingGenerate=null; closeNewIdea(); refreshUI();
   }catch(e){ setGeneratePromptError('Could not generate an idea: '+e.message); }
