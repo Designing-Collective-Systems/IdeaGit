@@ -555,9 +555,11 @@ function parseAIJSON(text){
   let t=String(text).replace(/```json|```/g,'').trim();
   const a=t.indexOf('{'), b=t.lastIndexOf('}'); if(a>=0&&b>a) t=t.slice(a,b+1);
   try{ return JSON.parse(t); }catch(e){
-    const m=t.match(/"body"\s*:\s*"([\s\S]*)"\s*\}\s*$/);
+    // text up to the closing quote that is followed by another key or the final brace (any extra keys are ignored)
+    const m=t.match(/"body"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"\w+"\s*:|\}\s*$)/);
     if(m) return {body:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').trim()};
-    throw e;
+    console.error('Unreadable AI reply:',text);
+    throw new Error('Could not read the AI reply ('+String(text).slice(0,160).replace(/\s+/g,' ')+')');
   }
 }
 // ── Claude API ─────────────────────────────────────────────────
@@ -566,7 +568,8 @@ async function callClaude(messages,system=''){
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
-  return (await res.json()).content[0].text;
+  const data=await res.json();   // skip any thinking blocks; join the text blocks
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;
 }
 
 // ── Classification (C3/C4) ────────────────────────────────────
