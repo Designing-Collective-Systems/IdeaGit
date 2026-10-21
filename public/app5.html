@@ -25,15 +25,18 @@
       <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
+    <button class="btn btn-outline btn-sm nav-export" id="btn-export" onclick="exportIdeas()">Export Ideas</button>
   </nav>
   <div class="a5-main">
     <div class="panel a5-tree">
       <div class="panel-header">Idea Tree<button class="btn btn-outline btn-sm" id="a5-newbtn" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="a5-toolbar" id="a5-actions" style="display:none"></div>
+      <div class="a5-hintrow" id="tree-subheader"></div>
       <div class="a5-start" id="a5-start"></div>
       <div class="tree-area" id="tree-area">
-        <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
-        <div class="panel-subheader a5-hint" id="tree-subheader"></div>
-        <div class="a5-actions" id="a5-actions" style="display:none"></div>
+        <div class="tree-scroll" id="tree-scroll">
+          <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
+        </div>
       </div>
     </div>
     <div class="a5-side">
@@ -47,7 +50,7 @@
           <ol>
             <li>You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</li>
             <li>Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</li>
-            <li>Describe each idea with enough detail that a software engineering team wouldn't need to ask follow-up questions.</li>
+            <li>Describe each idea with enough detail about what the feature does and when/how it is triggered that a software engineering team wouldn’t need to ask follow-up questions.</li>
           </ol>
         </div>
       </div>
@@ -152,7 +155,7 @@
       <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
       <p>If you don't know what compulsive scrolling is, please let the researcher know.</p>
       <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
-      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions.</p>
+      <p><strong>Scenario:</strong> Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail about what the feature does and when/how it is triggered that they wouldn’t need to ask follow-up questions.</p>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeDetailsModal()">Close</button></div>
   </div>

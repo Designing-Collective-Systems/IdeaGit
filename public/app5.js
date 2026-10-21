@@ -1,3 +1,4 @@
+window.EXPORT_MODE='trees';
 // ============================================================
 //  IdeaForest — Condition 5: Idea Tree only (no chat / ideas panels)
 //  Reuses shared.js; everything specific to this layout is overridden here.
@@ -13,7 +14,7 @@ document.body.classList.add('app5');   // self-reports show only the idea tree
 
 window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has two panels';
 window.CONDITION_INSTRUCTIONS = `
-  <div class="instructions-grid" style="grid-template-columns:auto auto;justify-content:center">
+  <div class="instructions-grid" style="grid-template-columns:2fr 1fr">
     <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow instr-arrow-left">&#8592;</div></div>
     <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow instr-arrow-right">&#8594;</div></div>
   </div>`;
@@ -70,20 +71,21 @@ window.confirmGenerateConfirm = async function(){
 };
 
 // ── Clicking a node selects it; the action buttons are always visible at the top right of the tree panel ──
-window.WORKING_BADGE = true;   // "Working on this idea" bubble above the selected node
+window.WORKING_BADGE = true; window.TREE_STACK = true;   // trees stack top-to-bottom and scroll   // "Working on this idea" bubble above the selected node
 window.onTreeNodeClick = function(nodeId){ selectIdea(nodeId); refocusTree(); };
 function renderActions(){
   const box=document.getElementById('a5-actions'); if(!box) return;
   const node=curNode();
   if(!node||!S.nodes.length){ box.style.display='none'; return; }
   box.innerHTML='';
-  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn node-pop-btn '+cls; b.textContent=label; b.onclick=fn; box.appendChild(b); };
+  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn a5-tb-btn '+cls; b.textContent=label; b.onclick=fn; box.appendChild(b); };
   mk('Edit the idea yourself','btn-outline',()=>openNodeModal('edit-self'));
   mk('Edit the idea using AI','btn-outline',()=>openNodeModal('edit-ai'));
   mk('Ask AI to clarify the idea','btn-outline',openAsk);
   mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
   mk('Discard the current idea','btn-red',()=>discardNode(node.id));
   box.style.display='flex';
+  const st=document.getElementById('a5-start'); if(st&&st.style.display!=='none') box.style.display='none';
 }
 
 // ── Edit popups (default prompt / manual text box) ──────────
@@ -179,14 +181,23 @@ function renderCurrentIdea(){
   box.innerHTML=`<div class="a5-cur-tag">${esc(nodeTagLabel(n))}${n.isFinalized?' · Finalized':''}</div><div class="a5-cur-body">${esc(n.body)}</div>`;
 }
 
-// Each description gets its own column width so it wraps onto exactly two lines with no empty space on its right
+// The two columns are 2:1, like the real panels. The right text (the longer one) wraps onto two lines and sets the width.
 window.fitInstructionText=function(){
-  const ts=[...document.querySelectorAll('#instructions-content .instr-text')];
-  ts.forEach(t=>{ t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; t.dataset.full=t.scrollWidth; });
-  ts.forEach(t=>{
-    t.style.whiteSpace=''; t.style.display='block';
-    const lh=parseFloat(getComputedStyle(t).lineHeight)||24; let w=Math.ceil(t.dataset.full/2);
-    t.style.width=w+'px';
-    while(t.offsetHeight>lh*2+2 && w<t.dataset.full){ w+=4; t.style.width=w+'px'; }
-  });
+  const grid=document.querySelector('#instructions-content .instructions-grid'); if(!grid) return;
+  const ts=[...grid.querySelectorAll('.instr-text')]; if(ts.length<2) return;
+  const PADX=24;
+  ts.forEach(t=>{ t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; t.style.textAlign='center'; t.dataset.full=t.scrollWidth; });
+  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display='block'; });
+  const [L,R]=ts;
+  const maxTotal=Math.floor(innerWidth*0.9);
+  let colR=Math.ceil(R.dataset.full/2)+PADX+8;                 // two lines for the right text
+  const lh=parseFloat(getComputedStyle(R).lineHeight)||24;
+  R.style.width=(colR-PADX)+'px';
+  while(R.offsetHeight>lh*2+2 && colR*3<maxTotal){ colR+=4; R.style.width=(colR-PADX)+'px'; }
+  colR=Math.min(colR,Math.floor(maxTotal/3));
+  R.style.width=(colR-PADX)+'px';
+  const colL=colR*2;
+  grid.style.gridTemplateColumns=colL+'px '+colR+'px'; grid.style.width=(colL+colR)+'px';
+  // left text: one line if it fits in its (wider) column, otherwise two balanced lines
+  L.style.width=Math.min(L.dataset.full,colL-PADX)+'px';
 };

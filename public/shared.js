@@ -9,7 +9,7 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 const FIXED_CHALLENGE = [
   "Setup: You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
   "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.",
-  "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
+  "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail about what the feature does and when/how it is triggered that they wouldn’t need to ask follow-up questions."
 ].join("\n\n");
 
 const TASK_PREAMBLE_TEXT = 'For the following design challenge, please brainstorm and write down at least three ideas within 15 minutes (after you read the instructions). The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly. Please let the research team member know once you are done brainstorming ideas.';
@@ -235,6 +235,7 @@ const _pan={x:0,y:0,k:1,dragging:false,sx:0,sy:0,_canvasId:null,_areaId:null};
 function initTreePanOn(areaId,canvasId){
   _pan._canvasId=canvasId; _pan._areaId=areaId;
   const area=document.getElementById(areaId); if(!area) return;
+  if(window.TREE_STACK){ initStackScroll(area); return; }
   area.addEventListener('mousedown',e=>{
     if(e.target.closest('.tree-node,.tree-zoom')) return;
     _pan.dragging=true; _pan.sx=e.clientX-_pan.x; _pan.sy=e.clientY-_pan.y;
@@ -262,17 +263,61 @@ function initTreePanOn(areaId,canvasId){
     area.appendChild(z);
   }
 }
+// ── Stacked trees: the tree panel scrolls natively (scroll bar, trackpad, wheel); dragging pans; zoom keeps its buttons ──
+function _scroller(){ return document.getElementById('tree-scroll'); }
+function initStackScroll(area){
+  const sc=_scroller(); if(!sc) return;
+  let drag=null;
+  sc.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.target.closest('.tree-node')) return;
+    drag={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop}; sc.classList.add('dragging');
+  });
+  window.addEventListener('mousemove',e=>{ if(!drag) return; sc.scrollLeft=drag.l-(e.clientX-drag.x); sc.scrollTop=drag.t-(e.clientY-drag.y); });
+  window.addEventListener('mouseup',()=>{ if(drag){ drag=null; sc.classList.remove('dragging'); } });
+  // pinch (ctrl + wheel) zooms; a plain wheel / two-finger swipe scrolls natively
+  sc.addEventListener('wheel',e=>{
+    if(!e.ctrlKey) return; e.preventDefault();
+    const r=sc.getBoundingClientRect(); zoomTree(Math.exp(-e.deltaY*0.01),e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  if(!area.querySelector('.tree-zoom')){
+    const z=document.createElement('div'); z.className='tree-zoom';
+    z.innerHTML='<button type="button" aria-label="Zoom in" title="Zoom in">+</button><button type="button" aria-label="Zoom out" title="Zoom out">\u2212</button>';
+    const [b1,b2]=z.querySelectorAll('button');
+    const mid=()=>[sc.clientWidth/2,sc.clientHeight/2];
+    b1.onclick=()=>zoomTree(1.25,...mid()); b2.onclick=()=>zoomTree(0.8,...mid());
+    area.appendChild(z);
+  }
+}
 function zoomTree(f,cx,cy){
+  if(window.TREE_STACK){
+    const sc=_scroller(), canvas=document.getElementById(_pan._canvasId); if(!sc||!canvas) return;
+    const k2=Math.max(0.3,Math.min(2,_pan.k*f)); if(k2===_pan.k) return;
+    const ty=canvas.offsetTop, px=(sc.scrollLeft+cx)/_pan.k, py=(sc.scrollTop+cy-ty)/_pan.k;
+    _pan.k=k2; applyPan(); sc.scrollLeft=px*k2-cx; sc.scrollTop=py*k2+ty-cy; return;
+  }
   const k2=Math.max(0.3,Math.min(2,_pan.k*f)); if(k2===_pan.k) return;
   const ty=12;   // canvas top offset inside the area
   const px=(cx-_pan.x)/_pan.k, py=(cy-ty-_pan.y)/_pan.k;
   _pan.x=cx-px*k2; _pan.y=cy-ty-py*k2; _pan.k=k2; applyPan();
 }
 function applyPan(){
-  const el=document.getElementById(_pan._canvasId); if(el) el.style.transform=`translate(${_pan.x}px,${_pan.y}px) scale(${_pan.k})`;
+  const el=document.getElementById(_pan._canvasId); if(!el) return;
+  el.style.transform=window.TREE_STACK?`scale(${_pan.k})`:`translate(${_pan.x}px,${_pan.y}px) scale(${_pan.k})`;
 }
 // back to default zoom, with the current idea's tree in view
-function refocusTree(){ _pan.k=1; _pan.x=_pan.focusPx||0; _pan.y=0; applyPan(); }
+function refocusTree(){
+  if(window.TREE_STACK){ stackFocus(); return; }
+  _pan.k=1; _pan.x=_pan.focusPx||0; _pan.y=0; applyPan();
+}
+// stacked trees: default zoom, the current idea's tree scrolled to the top of the panel
+function stackFocus(){
+  const sc=_scroller(), canvas=document.getElementById(_pan._canvasId); if(!sc||!canvas) return;
+  _pan.k=1; applyPan();
+  const f=(_pan.frames||[]).find(f=>f.isCur); if(!f){ sc.scrollTop=0; sc.scrollLeft=0; return; }
+  sc.scrollTop=Math.max(0,f.top+canvas.offsetTop-8);
+  const p=_pan.pos&&curNode()&&_pan.pos[curNode().id];
+  sc.scrollLeft=(p&&f.width>sc.clientWidth)?Math.max(0,p.x-sc.clientWidth/2):0;
+}
 function resetPan(){ _pan.x=0; _pan.y=0; applyPan(); }
 
 function computeLayout(gid,extraW){
@@ -390,7 +435,13 @@ function addSideNote(parentEl,node,left,top,w){
   d.innerHTML=notes.map(([k,v])=>`<div><strong>${k}:</strong> ${esc(v)}</div>`).join('');
   parentEl.appendChild(d);
 }
+// Stacked mode lays every tree out under the previous one; the first pass measures how tall each tree's text needs
+// to be, the second pass lays the trees out with those heights so nothing overlaps.
 function renderAllTrees(){
+  const m=_renderAllTreesOnce(null);
+  if(window.TREE_STACK&&m&&m.grew) _renderAllTreesOnce(m.heights);
+}
+function _renderAllTreesOnce(minH){
   const nodesEl=document.getElementById('tree-nodes'), svg=document.getElementById('tree-svg');
   const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
   if(!nodesEl||!svg||!canvas) return;
@@ -410,7 +461,7 @@ function renderAllTrees(){
   const merge=(real,t,all)=>{ t.real=real;
     all.filter(n=>n.parentId===real.id).sort((a,b)=>a.ts-b.ts).forEach((k,i)=>{
       let c=t.children[i]; if(!c){ c={children:[]}; t.children.push(c); } merge(k,c,all); }); };
-  const flat=[], frames=[]; let cursor=4, maxH=0;
+  const stack=!!window.TREE_STACK; const flat=[], frames=[]; let cursor=4, cursorY=0, maxH=0, maxW=0;
   (gids.length?gids:[null]).forEach(gid=>{
     const real=gid?S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification'):[];
     const t={children:[{children:[]},{children:[{children:[]}]}]}; // the skeleton
@@ -419,26 +470,30 @@ function renderAllTrees(){
     place(t,getW(t)/2,0);
     const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
     const minX=Math.min(...list.map(x=>x.x))-WW/2, maxX=Math.max(...list.map(x=>x.x))+WW/2;
-    const raw=maxX-minX, width=Math.max(raw,240), TOP=gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0);
-    const height=Math.max(...list.map(x=>x.y))+H+TOP, shiftX=cursor+PAD+(width-raw)/2-minX;
-    list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP; });
+    const isCurT=!!(cur&&gid===cur.groupId);
+    const gi0=gids.length-1-gids.indexOf(gid), nudge0=(gid&&gi0>=1&&isCurT)?treeNudge(real):'';
+    const raw=maxX-minX, width=Math.max(raw,240),
+      TOP=stack?(isCurT?(nudge0?104:40):0):(gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0));
+    let height=Math.max(...list.map(x=>x.y))+H+TOP; const shiftX=cursor+PAD+(width-raw)/2-minX;
+    if(stack&&minH&&gid&&minH[gid]) height=Math.max(height,minH[gid]-2*PAD);
+    list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP+(stack?cursorY:0); });
     flat.push(...list);
     const gi=gids.length-1-gids.indexOf(gid);   // 0 = oldest tree
     const nudge=(gid&&gi>=1&&cur&&cur.groupId===gid)?treeNudge(real):'';   // current tree only, from the 2nd tree on
-    frames.push({gid,left:cursor,width:width+2*PAD,height:height+2*PAD,nudge,isCur:!!(cur&&gid===cur.groupId)});
-    maxH=Math.max(maxH,height+2*PAD);
-    cursor+=width+2*PAD+GAP;
+    frames.push({gid,left:cursor,top:stack?cursorY:0,width:width+2*PAD,height:height+2*PAD,nudge,isCur:!!(cur&&gid===cur.groupId)});
+    maxH=Math.max(maxH,height+2*PAD); maxW=Math.max(maxW,width+2*PAD);
+    if(stack) cursorY+=height+2*PAD+GAP; else cursor+=width+2*PAD+GAP;
   });
-  const totalW=cursor-GAP+4, totalH=maxH+8;
+  const totalW=stack?maxW+8:cursor-GAP+4, totalH=stack?cursorY-GAP+8:maxH+8;
   canvas.style.width=totalW+'px'; canvas.style.height=totalH+'px';
   svg.style.width=totalW+'px'; svg.style.height=totalH+'px';
   svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
   frames.forEach(f=>{
     if(f.nudge){ const nd=document.createElement('div'); nd.className='tree-nudge';
-      nd.style.cssText=`left:${f.left}px;top:${PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
+      nd.style.cssText=`left:${f.left}px;top:${f.top+PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
     if(!f.gid) return;   // blue outline = tree being worked on, grey = the others
     const fr=document.createElement('div'); fr.className='tree-group-frame'+(f.isCur?'':' tree-group-frame-other');
-    fr.style.cssText=`left:${f.left}px;top:0;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr); f.el=fr;
+    fr.style.cssText=`left:${f.left}px;top:${f.top}px;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr); f.el=fr;
   });
   flat.forEach(x=>{
     if(!x.parent) return;
@@ -474,17 +529,23 @@ function renderAllTrees(){
     addSideNote(nodesEl,node,x.x+W/2+8,x.y);
   });
   // A tree's frame always grows to contain every piece of text inside it (side notes, "Finalized" labels, ...), so it never crosses text
+  let result=null;
   if(canvas.getBoundingClientRect().width){
-    const cr=canvas.getBoundingClientRect(), k=_pan.k||1; let tall=totalH;
+    const cr=canvas.getBoundingClientRect(), k=_pan.k||1; let tall=totalH, grew=false; const heights={};
     const items=[...nodesEl.querySelectorAll('.tree-node,.node-note,.tree-node-final,.tree-nudge,.work-badge')].map(el=>{
-      const r=el.getBoundingClientRect(); return {l:(r.left-cr.left)/k,r:(r.right-cr.left)/k,b:(r.bottom-cr.top)/k};});
+      const r=el.getBoundingClientRect(); return {l:(r.left-cr.left)/k,r:(r.right-cr.left)/k,t:(r.top-cr.top)/k,b:(r.bottom-cr.top)/k};});
     frames.forEach(f=>{
-      if(!f.el) return; let bot=f.height, right=f.left+f.width;
-      items.forEach(i=>{ const mid=(i.l+i.r)/2; if(mid<f.left||mid>f.left+f.width) return; bot=Math.max(bot,i.b+PAD+2); right=Math.max(right,i.r+PAD+2); });
-      f.el.style.height=bot+'px'; f.el.style.width=(right-f.left)+'px'; tall=Math.max(tall,bot+8);
+      if(!f.el) return; let bot=f.top+f.height, right=f.left+f.width;
+      items.forEach(i=>{
+        const inside=stack?(i.t>=f.top-1&&i.t<=f.top+f.height):(((i.l+i.r)/2)>=f.left&&((i.l+i.r)/2)<=f.left+f.width);
+        if(!inside) return; bot=Math.max(bot,i.b+PAD+2); right=Math.max(right,i.r+PAD+2); });
+      const h=bot-f.top; heights[f.gid]=h; if(h>f.height+0.5) grew=true;
+      f.el.style.height=h+'px'; f.el.style.width=(right-f.left)+'px'; tall=Math.max(tall,(stack?bot:bot)+8);
     });
-    canvas.style.height=tall+'px'; svg.style.height=tall+'px';
+    if(stack) tall+=24;
+    canvas.style.height=tall+'px'; svg.style.height=tall+'px'; result={heights,grew};
   }
+  _pan.frames=frames;
   // Focus the current idea's tree when all trees don't fit side by side
   let px=0;
   const f=cur&&frames.find(f=>f.gid===cur.groupId);
@@ -494,8 +555,9 @@ function renderAllTrees(){
   // Re-centre only when the focused tree (or the number of trees) changes, so panning/zooming isn't undone by re-renders
   const fkey=(cur?cur.groupId:'')+'|'+frames.length;
   _pan.focusPx=px;
-  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; _pan.x=px; _pan.y=0; _pan.k=1; }
+  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; if(stack){ _pan.k=1; applyPan(); setTimeout(stackFocus,0); } else { _pan.x=px; _pan.y=0; _pan.k=1; } }
   applyPan();
+  return result;
 }
 
 // Discarding removes the node and every later version branching from it.
@@ -577,7 +639,7 @@ function parseAIJSON(text){
 }
 // ── Claude API ─────────────────────────────────────────────────
 async function callClaude(messages,system='',maxTokens=8192){
-  const body={model:'claude-fable-5-1',max_tokens:maxTokens,messages};
+  const body={model:'claude-sonnet-5-5',max_tokens:maxTokens,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
@@ -588,6 +650,106 @@ async function callClaude(messages,system='',maxTokens=8192){
   if(why==='refusal'){ console.error('AI declined:',data); throw new Error('The AI declined this request. Please rephrase and try again.'); }
   if(why&&why!=='end_turn'&&why!=='stop_sequence') console.warn('AI reply stop_reason:',why);
   return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;   // skip thinking blocks
+}
+
+
+// ── Export ideas as one PDF ────────────────────────────────────
+// app3: the AI chat history of every idea (coloured like the chat). app5: the idea tree of every idea.
+// The two libraries are loaded from /lib only when the button is used.
+function _loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector('script[data-lib="'+src+'"]')) return res();
+    const el=document.createElement('script'); el.src=src; el.dataset.lib=src; el.onload=res;
+    el.onerror=()=>rej(new Error('Could not load '+src)); document.head.appendChild(el);
+  });
+}
+async function _loadPdfLibs(){
+  if(!window.html2canvas) await _loadScript('lib/html2canvas.min.js');
+  if(!window.jspdf) await _loadScript('lib/jspdf.umd.min.js');
+}
+function _exportHost(){
+  let h=document.getElementById('export-host');
+  if(!h){ h=document.createElement('div'); h.id='export-host'; h.style.cssText='position:fixed;left:-30000px;top:0;background:#fff;pointer-events:none'; document.body.appendChild(h); }
+  h.innerHTML=''; return h;
+}
+function _pdfHeader(doc,text){ doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(30,41,59); doc.text(text,36,30); }
+const _ascii=t=>String(t).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\x20-\x7e]/g,'');
+
+async function exportIdeas(){
+  const btn=document.getElementById('btn-export'); const label=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='Exporting…'; }
+  try{
+    if(!S.nodes.length){ toast('There are no ideas to export yet.'); return; }
+    await _loadPdfLibs();
+    if(window.EXPORT_MODE==='trees') await _exportTrees(); else await _exportChats();
+  }catch(e){ console.error(e); toast('Could not export: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=label; } }
+}
+
+// app3: one section per idea, chat history from the first message to that idea
+async function _exportChats(){
+  const {jsPDF}=window.jspdf, {finalized,ongoing,unfinalized}=getDisplayIdeas();
+  const list=[...finalized.map((n,i)=>({n,tag:'Finalized idea '+(i+1)})),
+              ...ongoing.concat(unfinalized).sort((a,b)=>a.ts-b.ts).map(n=>({n,tag:'In progress'}))];
+  if(!list.length){ toast('There are no ideas to export yet.'); return; }
+  const doc=new jsPDF({orientation:'p',unit:'pt',format:'letter'});
+  const PW=612, PH=792, M=36, CW=PW-2*M, CSS_W=720, k=CW/CSS_W;            // css px -> pt
+  const pageH=PH-M-50;                                                      // room under the header
+  let first=true;
+  for(let idx=0;idx<list.length;idx++){
+    const {n,tag}=list[idx];
+    const host=_exportHost();
+    const wrap=document.createElement('div'); wrap.className='chat-messages';
+    wrap.style.cssText='width:'+CSS_W+'px;height:auto;max-height:none;overflow:visible;flex:none;background:#fff;padding:12px 16px;box-sizing:border-box';
+    host.appendChild(wrap); buildChatInto(wrap,n.id);
+    wrap.querySelectorAll('.bubble-content,.chat-msg,.feedback-bubble,.idea-bubble').forEach(e=>{ e.style.cursor='default'; });
+    const H=wrap.offsetHeight, scale=Math.min(2,15000/H);
+    const canvas=await html2canvas(wrap,{scale,backgroundColor:'#ffffff',logging:false,useCORS:true});
+    // choose page breaks between messages where possible
+    const bounds=[...wrap.children].map(c=>c.offsetTop+c.offsetHeight);
+    const maxPx=pageH/k; let y0=0, page=0; const pages=[];
+    while(y0<H-1){
+      let y1=Math.min(H,y0+maxPx);
+      if(y1<H){ const fit=bounds.filter(b=>b>y0+40&&b<=y1); if(fit.length) y1=fit[fit.length-1]+6; }
+      pages.push([y0,Math.min(H,y1)]); y0=Math.min(H,y1);
+    }
+    pages.forEach(([a,b],pi)=>{
+      if(!first) doc.addPage('letter','p'); first=false;
+      _pdfHeader(doc,_ascii('Idea '+(idx+1)+' of '+list.length+' - '+tag+(pages.length>1?'  (page '+(pi+1)+' of '+pages.length+')':'')));
+      const sl=document.createElement('canvas'); sl.width=canvas.width; sl.height=Math.max(1,Math.round((b-a)*scale));
+      const cx=sl.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,sl.width,sl.height);
+      cx.drawImage(canvas,0,Math.round(a*scale),canvas.width,sl.height,0,0,canvas.width,sl.height);
+      doc.addImage(sl.toDataURL('image/jpeg',0.92),'JPEG',M,44,CW,(b-a)*k);
+    });
+    host.innerHTML='';
+  }
+  doc.save('IdeaForest_'+_ascii(S.participantId||'participant')+'_chat_history.pdf');
+}
+
+// app5: one landscape page per idea tree (oldest first), taken from the tree on screen
+async function _exportTrees(){
+  const {jsPDF}=window.jspdf; const canvasEl=document.getElementById(_pan._canvasId||'tree-canvas');
+  const frames=(_pan.frames||[]).filter(f=>f.gid).slice().reverse();          // oldest first
+  if(!canvasEl||!frames.length){ toast('There are no ideas to export yet.'); return; }
+  const doc=new jsPDF({orientation:'l',unit:'pt',format:'letter'});
+  const PW=792, PH=612, M=36;
+  for(let i=0;i<frames.length;i++){
+    const f=frames[i], host=_exportHost();
+    const box=document.createElement('div'); box.style.cssText='position:relative;overflow:hidden;background:#fff;width:'+f.width+'px;height:'+f.height+'px';
+    const clone=canvasEl.cloneNode(true); clone.removeAttribute('id'); clone.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+    clone.style.cssText+=';position:absolute;transform:none;left:'+(-f.left)+'px;top:'+(-f.top)+'px';
+    clone.querySelectorAll('.tree-group-frame,.tree-nudge,.work-badge,.tree-ghost,.edge-ghost,.tree-node-discard').forEach(e=>e.remove());
+    clone.querySelectorAll('.tree-node.current').forEach(e=>e.classList.remove('current'));
+    box.appendChild(clone); host.appendChild(box);
+    const canvas=await html2canvas(box,{scale:2,backgroundColor:'#ffffff',logging:false,useCORS:true});
+    const real=S.nodes.filter(n=>n.groupId===f.gid), fin=real.some(n=>n.isFinalized);
+    if(i) doc.addPage('letter','l');
+    _pdfHeader(doc,_ascii('Idea tree '+(i+1)+' of '+frames.length+' - '+(fin?'finalized':'in progress')));
+    const maxW=PW-2*M, maxH=PH-M-50; let w=f.width*0.75, h=f.height*0.75; const sc=Math.min(2,maxW/w,maxH/h); w*=sc; h*=sc;
+    doc.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',M,46,w,h);
+    host.innerHTML='';
+  }
+  doc.save('IdeaForest_'+_ascii(S.participantId||'participant')+'_idea_trees.pdf');
 }
 
 // ── Classification (C3/C4) ────────────────────────────────────
