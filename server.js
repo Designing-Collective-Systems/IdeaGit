@@ -72,19 +72,18 @@ app.post('/api/save-nodes', async (req, res) => {
   }
 });
 
-// Root redirects straight to app5
+// Root redirects straight to the Idea Tree version
 app.get('/', (req, res) => {
-  res.redirect('/app5');
+  res.redirect('/idea-tree');
 });
 
-// IdeaGit conditions
-[1,2,3,4,5].forEach(n => {
-  app.get('/app'+n, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'app'+n+'.html'));
-  });
-});
-// Legacy route
-app.get('/app', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'app5.html')); });
+// The two study versions
+app.get('/ai-only', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ai-only.html')); });
+app.get('/idea-tree', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'idea-tree.html')); });
+// Legacy routes
+app.get('/app', (req, res) => { res.redirect('/idea-tree'); });
+app.get('/app3', (req, res) => { res.redirect('/ai-only'); });
+app.get('/app5', (req, res) => { res.redirect('/idea-tree'); });
 
 // Fallback — redirect everything else to landing
 app.get('*', (req, res) => {

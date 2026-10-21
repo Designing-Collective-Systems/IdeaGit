@@ -16,8 +16,8 @@
     <button class="btn btn-primary" id="btn-begin" disabled onclick="beginStudy()">Begin</button>
   </div>
 </div>
-<div id="page-ideation" style="display:none">
-  <nav class="top-nav">
+<div id="page-ideation" style="display:none" class="app5">
+  <nav class="top-nav a5-nav">
     <div class="nav-logo" style="cursor:default">IdeaForest<img class="brand-icon" src="icon.svg" alt=""></div>
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count">0 / 3 finalized</span>
@@ -27,52 +27,77 @@
     </div>
     <button class="btn btn-outline btn-sm nav-export" id="btn-export" onclick="exportIdeas()">Export Ideas</button>
   </nav>
-  <div class="two-col ideation-grid ai-two-col">
-    <div class="panel">
-      <div class="panel-header">AI Chat<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
-      <div class="chat-initial" id="chat-initial">
-        <div class="empty-state-inner generate-inline">
-          <p class="create-heading">Create an idea with or without AI</p>
-          <div class="create-choice">
-            <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
-            <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea without AI</button>
-          </div>
-          <div class="create-composer" id="create-ai-box" style="display:none">
-            <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
-            <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
-            <p class="field-error" id="generate-prompt-error" style="display:none"></p>
-            <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
-          </div>
-          <div class="create-composer" id="create-self-box" style="display:none">
-            <label class="generate-prompt-title">Write your idea below.</label>
-            <textarea id="create-body" class="field-textarea generate-prompt-textarea" rows="10" placeholder="Describe your idea…"></textarea>
-            <button class="btn btn-primary" onclick="submitManualCreate()">Save idea</button>
-          </div>
-        </div>
-      </div>
-      <div class="chat-active" id="chat-active" style="display:none">
-        <div class="chat-actions-bar" id="chat-actions-bar"></div>
-        <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
-        <div class="reply-indicator" id="reply-indicator" style="display:none">
-          <span>↩ Replying to: <em id="reply-text"></em></span>
-          <button onclick="clearReply()" class="reply-clear-btn">✕</button>
+  <div class="a5-main">
+    <div class="panel a5-tree">
+      <div class="panel-header">Idea Tree<button class="btn btn-outline btn-sm" id="a5-newbtn" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="a5-toolbar" id="a5-actions" style="display:none"></div>
+      <div class="a5-hintrow" id="tree-subheader"></div>
+      <div class="a5-start" id="a5-start"></div>
+      <div class="tree-area" id="tree-area">
+        <div class="tree-scroll" id="tree-scroll">
+          <div id="tree-canvas" class="tree-canvas"><svg id="tree-svg"></svg><div id="tree-nodes"></div></div>
         </div>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel-header">Current Ideas<button class="btn btn-outline btn-sm btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
-      <div class="ideas-area ai-ideas" id="ideas-list"></div>
-      <div class="a3-summary">
-      <div class="panel-subheader a3-summary-head">Summary of Design Challenge</div>
-      <div class="challenge-bubble a3-summary-body">
-        <p>1. You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</p>
-        <p>2. Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
-        <p>3. Describe each idea with enough detail about what the feature does and when/how it is triggered that a software engineering team wouldn’t need to ask follow-up questions.</p>
+    <div class="a5-side">
+      <div class="a5-box a5-box-grow">
+        <div class="panel-header">Current Idea</div>
+        <div class="a5-box-body" id="a5-current"></div>
       </div>
+      <div class="a5-box a5-box-last">
+        <div class="panel-header">Summary of Design Challenge</div>
+        <div class="a5-box-body">
+          <ol>
+            <li>You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend “compulsive scrolling”.</li>
+            <li>Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</li>
+            <li>Describe each idea with enough detail about what the feature does and when/how it is triggered that a software engineering team wouldn’t need to ask follow-up questions.</li>
+          </ol>
+        </div>
       </div>
     </div>
+  </div>
+  <div id="legacy-chat" style="display:none"><div id="chat-messages"></div><div id="chat-thinking"></div></div>
+</div>
+
+
+<div class="modal-overlay" id="newidea-modal" style="display:none">
+  <div class="modal a5-modal a5-modal-big">
+    <div class="modal-head">Create a new idea</div>
+    <div class="modal-body">
+      <div class="generate-inline">
+        <p class="create-heading">Create an idea with or without AI</p>
+        <div class="create-choice">
+          <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
+          <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea without AI</button>
+        </div>
+        <div class="create-composer" id="create-ai-box" style="display:none">
+          <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
+          <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
+          <p class="field-error" id="generate-prompt-error" style="display:none"></p>
+          <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
+        </div>
+        <div class="create-composer" id="create-self-box" style="display:none">
+          <label class="generate-prompt-title">Write your idea below.</label>
+          <textarea id="create-body" class="field-textarea generate-prompt-textarea" rows="10" placeholder="Describe your idea…"></textarea>
+          <button class="btn btn-primary" onclick="submitManualCreate()">Save idea</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeNewIdea()">Cancel</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="node-modal" style="display:none">
+  <div class="modal a5-modal"><div class="modal-body" id="node-modal-body"></div></div>
+</div>
+<div class="modal-overlay" id="ask-modal" style="display:none">
+  <div class="modal a5-modal a5-ask">
+    <div class="modal-head">Ask AI to clarify the idea</div>
+    <div class="modal-body"><div class="chat-messages a5-ask-msgs" id="ask-msgs"></div></div>
+    <div class="a5-ask-row">
+      <textarea id="ask-input" class="field-textarea" rows="2" placeholder="Ask a question about this idea…"></textarea>
+      <button class="btn btn-blue2" id="ask-send" onclick="sendAsk()">Send</button>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeAsk()">Close</button></div>
   </div>
 </div>
 
@@ -138,5 +163,5 @@
 <div class="toast-wrap" id="toasts"></div>
 <script src="prompts.js"></script>
 <script src="shared.js"></script>
-<script src="app3.js"></script>
+<script src="idea-tree.js"></script>
 </body></html>
