@@ -825,7 +825,7 @@ function fitInstructionText(){
   const ts=[...document.querySelectorAll('#instructions-content .instr-text')]; if(!ts.length) return;
   ts.forEach(t=>{ t.innerHTML=t.innerHTML.replace(/<br\s*\/?>/g,' '); t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; });
   const M=Math.max(...ts.map(t=>t.scrollWidth));
-  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display=''; t.style.width=Math.ceil(M/2)+12+'px'; });
+  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display=''; t.style.width=Math.ceil(M/2)+48+'px'; });
 }
 function closeInstructions(){
   document.getElementById('instructions-modal').style.display='none';
