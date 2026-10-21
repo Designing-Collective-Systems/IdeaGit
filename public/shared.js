@@ -746,7 +746,14 @@ async function _exportTrees(){
     if(i) doc.addPage('letter','l');
     _pdfHeader(doc,_ascii('Idea tree '+(i+1)+' of '+frames.length+' - '+(fin?'finalized':'in progress')));
     const maxW=PW-2*M, maxH=PH-M-50; let w=f.width*0.75, h=f.height*0.75; const sc=Math.min(2,maxW/w,maxH/h); w*=sc; h*=sc;
+    const finals=real.filter(n=>n.isFinalized).sort((a,b)=>b.ts-a.ts), fn=finals[0];
+    const reserve=fn?150:0; const sc2=Math.min(1,(maxH-reserve)/h); if(sc2<1){ w*=sc2; h*=sc2; }
     doc.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',M,46,w,h);
+    if(fn){
+      let y=46+h+22; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,41,59); doc.text('Final idea',M,y); y+=15;
+      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      doc.splitTextToSize(_ascii(fn.body||''),PW-2*M).forEach(line=>{ if(y>PH-M){ doc.addPage('letter','l'); y=M+10; } doc.text(line,M,y); y+=13; });
+    }
     host.innerHTML='';
   }
   doc.save('IdeaForest_'+_ascii(S.participantId||'participant')+'_idea_trees.pdf');

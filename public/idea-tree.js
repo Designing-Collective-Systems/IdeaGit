@@ -14,9 +14,9 @@ document.body.classList.add('app5');   // self-reports show only the idea tree
 
 window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has two panels';
 window.CONDITION_INSTRUCTIONS = `
-  <div class="instructions-grid" style="grid-template-columns:2fr 1fr">
-    <div class="instructions-col"><div class="instr-text">The left panel where you can create and see how your ideas evolve</div><div class="instr-arrow instr-arrow-left">&#8592;</div></div>
-    <div class="instructions-col"><div class="instr-text">The right panel where you can see the current/selected idea and a summary of the design challenge</div><div class="instr-arrow instr-arrow-right">&#8594;</div></div>
+  <div class="instructions-grid instructions-grid-2">
+    <div class="instructions-col"><div class="instr-text">The left panel where you can create ideas and see how they evolve</div><div class="instr-arrow instr-arrow-left">&#8592;</div></div>
+    <div class="instructions-col"><div class="instr-text">The right panel that shows the selected idea and the design challenge</div><div class="instr-arrow instr-arrow-right">&#8594;</div></div>
   </div>`;
 
 document.addEventListener('DOMContentLoaded', initLanding);
@@ -86,7 +86,16 @@ function renderActions(){
   mk('Discard the current idea','btn-red',()=>discardNode(node.id));
   box.style.display='flex';
   const st=document.getElementById('a5-start'); if(st&&st.style.display!=='none') box.style.display='none';
+  fitToolbar();
 }
+// Every button label stays on one line: the font scales down only as far as needed to fit the row.
+function fitToolbar(){
+  const box=document.getElementById('a5-actions'); if(!box||box.style.display==='none') return;
+  const bs=[...box.querySelectorAll('.a5-tb-btn')]; let fs=15;
+  bs.forEach(b=>{ b.style.fontSize=fs+'px'; });
+  while(fs>7 && box.scrollWidth>box.clientWidth+1){ fs-=0.5; bs.forEach(b=>{ b.style.fontSize=fs+'px'; }); }
+}
+window.addEventListener('resize',fitToolbar);
 
 // ── Edit popups (default prompt / manual text box) ──────────
 function openNodeModal(mode){
@@ -146,8 +155,9 @@ document.addEventListener('keydown',e=>{
 const _refreshUIBase=window.refreshUI;
 let _lastCentered=null;
 window.refreshUI=function(){
-  _refreshUIBase(); renderCurrentIdea(); renderActions();
+  _refreshUIBase(); renderCurrentIdea();
   if(S.nodes.length){ hideStart(); } else showStart();
+  renderActions();
   const nb=document.getElementById('a5-newbtn'); if(nb) nb.style.display=S.nodes.length?'':'none';
   // a created / clicked node goes to the middle of the tree panel
 };
@@ -181,23 +191,3 @@ function renderCurrentIdea(){
   box.innerHTML=`<div class="a5-cur-tag">${esc(nodeTagLabel(n))}${n.isFinalized?' · Finalized':''}</div><div class="a5-cur-body">${esc(n.body)}</div>`;
 }
 
-// The two columns are 2:1, like the real panels. The right text (the longer one) wraps onto two lines and sets the width.
-window.fitInstructionText=function(){
-  const grid=document.querySelector('#instructions-content .instructions-grid'); if(!grid) return;
-  const ts=[...grid.querySelectorAll('.instr-text')]; if(ts.length<2) return;
-  const PADX=24;
-  ts.forEach(t=>{ t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; t.style.textAlign='center'; t.dataset.full=t.scrollWidth; });
-  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display='block'; });
-  const [L,R]=ts;
-  const maxTotal=Math.floor(innerWidth*0.9);
-  let colR=Math.ceil(R.dataset.full/2)+PADX+8;                 // two lines for the right text
-  const lh=parseFloat(getComputedStyle(R).lineHeight)||24;
-  R.style.width=(colR-PADX)+'px';
-  while(R.offsetHeight>lh*2+2 && colR*3<maxTotal){ colR+=4; R.style.width=(colR-PADX)+'px'; }
-  colR=Math.min(colR,Math.floor(maxTotal/3));
-  R.style.width=(colR-PADX)+'px';
-  const colL=colR*2;
-  grid.style.gridTemplateColumns=colL+'px '+colR+'px'; grid.style.width=(colL+colR)+'px';
-  // left text: one line if it fits in its (wider) column, otherwise two balanced lines
-  L.style.width=Math.min(L.dataset.full,colL-PADX)+'px';
-};

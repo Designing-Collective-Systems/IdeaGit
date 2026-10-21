@@ -560,7 +560,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-nudge{position:absolute;font-size:11.5px;line-height:1.3;text-align:center;color:var(--text2);padding:0 8px;box-sizing:border-box;pointer-events:none}
 
 .tree-nudge{left:auto;font-size:14px;font-weight:600;line-height:1.35;color:var(--blue);background:#eff6ff;border:2px solid var(--blue);border-radius:8px;padding:8px 10px;margin-left:10px;height:62px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.chat-action-btn{white-space:nowrap;overflow:hidden;padding:4px 6px}
+.chat-action-btn{white-space:nowrap;padding:4px 6px}
 
 .tree-nudge{color:#c2410c;background:#fff7ed;border-color:#f97316}
 #tree-area,.tree-node,.edge-label,.tree-nudge,#sr-tree-inner{user-select:none;-webkit-user-select:none}
@@ -719,7 +719,7 @@ body.app5 .a5-hint{right:290px !important}
 
 /* app5 v5: toolbar row, hint row, scrolling stacked trees */
 .a5-toolbar{display:none;gap:8px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-.a5-toolbar .a5-tb-btn{flex:1 1 0;min-width:0;min-height:44px;padding:6px 8px;font-size:0.95rem;line-height:1.15;white-space:normal;justify-content:center;text-align:center}
+.a5-toolbar .a5-tb-btn{flex:1 1 auto;min-width:auto;min-height:44px;padding:6px 6px;font-size:0.95rem;line-height:1.15;white-space:nowrap;justify-content:center;text-align:center}
 .a5-hintrow{flex-shrink:0;padding:8px 16px;text-align:center;font-size:1.15rem;font-weight:600;color:var(--text);background:var(--bg)}
 body.app5 .a5-tree .tree-area{flex:1;min-height:0;position:relative;overflow:hidden;cursor:default}
 .tree-scroll{position:absolute;inset:0;overflow:auto;cursor:grab}
