@@ -408,7 +408,11 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
 // ── Idea Tree panel (app4): every idea's tree, side by side ────
 // New ideas get a new tree to the right; selecting an idea focuses its tree.
 // Refined = continuing a version; explored = branching into a different direction.
+// Exploration / fixation nudge (shown above the current tree) is switched off for now. To bring it back,
+// delete the 'return' line below and un-comment the block.
 function treeNudge(real){
+  return '';
+  /*
   let refined=0,dirs=0;
   real.forEach(n=>{ if(!n.parentId) return;
     const first=real.filter(k=>k.parentId===n.parentId).sort((a,b)=>a.ts-b.ts)[0];
@@ -418,6 +422,7 @@ function treeNudge(real){
   if(dirs===0) return refined>=2?`You've refined this idea ${pl(refined,'time')}. Want to try a different direction?`:`You've refined this idea once. Keep refining, or try a different direction?`;
   if(refined<dirs) return `You've explored ${pl(dirs,'new direction')}. Want to refine one further?`;
   return `${pl(refined,'refinement')} and ${pl(dirs,'new direction')} so far. Keep exploring or refining!`;
+  */
 }
 // Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
 function nodeNotes(node){
