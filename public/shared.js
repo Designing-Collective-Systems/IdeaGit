@@ -478,7 +478,7 @@ function _renderAllTreesOnce(minH){
     const isCurT=!!(cur&&gid===cur.groupId);
     const gi0=gids.length-1-gids.indexOf(gid), nudge0=(gid&&gi0>=1&&isCurT)?treeNudge(real):'';
     const raw=maxX-minX, width=Math.max(raw,240),
-      TOP=stack?(isCurT?(nudge0?104:40):0):(gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0));
+      TOP=stack?(isCurT?((nudge0?104:0)+((window.WORKING_BADGE&&cur&&!cur.parentId)?40:0)):0):(gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0));
     let height=Math.max(...list.map(x=>x.y))+H+TOP; const shiftX=cursor+PAD+(width-raw)/2-minX;
     if(stack&&minH&&gid&&minH[gid]) height=Math.max(height,minH[gid]-2*PAD);
     list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP+(stack?cursorY:0); });
