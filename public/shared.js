@@ -1612,7 +1612,10 @@ async function processMessage(msg,type){
   const parentId=_replyToNodeId||S.currentNodeId;
   const parent=S.nodes.find(n=>n.id===parentId)||S.nodes.find(n=>n.id===S.currentNodeId);
   clearReply();
-  appendToChat(makeMsgBubble('user',msg,parentId));
+  // Replying to an earlier version: show that version's own chat first, so the new messages follow it
+  // (and not the later versions that came after it)
+  if(parent.id!==S.currentNodeId){ S.currentNodeId=parent.id; S.currentGroupId=parent.groupId; rebuildChat(parent.id); refreshUI(); }
+  appendToChat(makeMsgBubble('user',msg,parent.id));
   setChatThinking(true);
   try{
     if(type==='modification'){
