@@ -728,3 +728,8 @@ body.app5 .tree-canvas{top:8px}
 .tree-scroll .tree-canvas{position:absolute;left:0}
 
 .top-nav .nav-export{margin-left:auto}
+
+/* ai-only: Reply button on every chat bubble; the replied-to idea version is outlined */
+.bubble-reply-btn{display:block !important;position:static !important;margin:8px 0 0 auto;font-size:0.8rem;padding:3px 9px}
+.chat-msg.user .bubble-reply-btn{background:rgba(255,255,255,.25);color:#fff}
+.idea-bubble.reply-target{outline:3px solid var(--blue);outline-offset:2px}

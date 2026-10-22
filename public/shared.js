@@ -1244,9 +1244,12 @@ function startIdeation(){
 }
 
 let _replyToNodeId=null;
+// The idea version the participant replied to (edit / clarify buttons act on it); otherwise the current idea
+function replyTarget(){ return S.nodes.find(n=>n.id===_replyToNodeId)||curNode(); }
 
 function selectIdea(nodeId){
   const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;
+  clearReply();
   S.currentNodeId=nodeId; S.currentGroupId=node.groupId;
   showChatActive(); updateChatHeader(); rebuildChat(nodeId); refreshUI();
 }
@@ -1258,7 +1261,7 @@ const DEFAULT_EDIT_PROMPT='Edit the current idea to provide more details';
 function showChatInitial(){
   document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none';
   setNewIdeaButtonsVisible(false);
-  _chatMode=null; chooseCreate(null);
+  _chatMode=null; clearReply(); chooseCreate(null);
 }
 function showChatActive(){
   document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex';
@@ -1291,14 +1294,15 @@ function renderChatActions(){
       mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self',bar2);
       mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai',bar2);
       mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify',bar2);
-      mk('Discard the current idea','btn-red',()=>discardNode(node.id));
-      mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
+      const tg=replyTarget()||node;     // finalize / discard follow the idea version you replied to
+      mk('Discard the current idea','btn-red',()=>discardNode(tg.id));
+      mk(tg.isFinalized?'Unfinalize the idea':'Finalize the idea',tg.isFinalized?'btn-outline':'btn-green',()=>finalizeCurrentIdea(tg));
     }
   }
   fitActionButtons(); requestAnimationFrame(()=>{ fitActionButtons(); fitPromptLabels(); }); fitPromptLabels();
   if(!node||!_chatMode||!wrap) return;
   const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
-  box.appendChild(buildChatComposer(_chatMode,node)); wrap.appendChild(box);
+  box.appendChild(buildChatComposer(_chatMode,replyTarget()||node)); wrap.appendChild(box);
 }
 // One line per button: shrink the shared font size until every label fits.
 // Prompt-box captions stay on one line: shrink the font only if needed.
@@ -1349,10 +1353,10 @@ function openChatComposer(mode){
 function setComposerError(msg){ const el=document.getElementById('chat-composer-error'); if(el){ el.textContent=msg; el.style.display=msg?'block':'none'; } }
 function submitSelfEdit(){
   const body=document.getElementById('chat-composer-text').value.trim();
-  const parent=curNode(); if(!parent) return;
+  const parent=replyTarget(); if(!parent) return;
   if(!body){ setComposerError('Please describe your idea.'); return; }
   if(body===parent.body){ setComposerError('No changes detected. Please edit the idea before saving.'); return; }
-  _chatMode=null;
+  _chatMode=null; clearReply();
   const node=mkNode({type:'modification',tag:'manual-modification',title:'',body,parentId:parent.id,userPrompt:'[Manual modification]'});
   addNode(node); updateChatHeader(); rebuildChat(node.id); refreshUI();
   toast('Idea updated');
@@ -1387,8 +1391,8 @@ function buildChatInto(wrap,nodeId){
 }
 function rebuildChat(nodeId){
   const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
-  buildChatInto(wrap,nodeId);
-  renderChatActions();
+  buildChatInto(wrap,nodeId); addReplyButtons(wrap);
+  renderChatActions(); markReplyTarget();
   const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
   if(target) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
 }
@@ -1424,16 +1428,44 @@ function appendToChat(el){
   const w=document.getElementById('chat-messages'); if(!w) return;
   const act=w.querySelector('#chat-actions');
   if(act) w.insertBefore(el,act); else w.appendChild(el);
+  addReplyButtons(el);
   w.scrollTop=w.scrollHeight;
 }
 
+function markReplyTarget(){
+  document.querySelectorAll('#chat-messages .reply-target').forEach(e=>e.classList.remove('reply-target'));
+  if(_replyToNodeId){ const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${_replyToNodeId}"]`); if(b) b.classList.add('reply-target'); }
+}
 function setReplyTo(nodeId,extraIdx,preview){
   _replyToNodeId=nodeId;
   const ind=document.getElementById('reply-indicator'), txt=document.getElementById('reply-text');
   if(ind&&txt){ ind.style.display='flex'; txt.textContent=preview||'message'; }
-  document.getElementById('chat-input')?.focus();
+  markReplyTarget();
+  renderChatActions();      // buttons and the edit box now refer to the version replied to
+  const ta=document.getElementById('chat-composer-text')||document.getElementById('chat-input'); if(ta) ta.focus();
 }
-function clearReply(){ _replyToNodeId=null; const ind=document.getElementById('reply-indicator'); if(ind) ind.style.display='none'; }
+function clearReply(){
+  const had=!!_replyToNodeId; _replyToNodeId=null;
+  const ind=document.getElementById('reply-indicator'); if(ind) ind.style.display='none';
+  markReplyTarget();
+  if(had) renderChatActions();
+}
+// Every idea bubble in the live chat gets a "Reply" button; replying selects that idea version for the edit buttons
+function addReplyButtons(root){
+  if(!root||window.TREE_STACK) return;
+  const list=root.matches&&root.matches('.idea-bubble')?[root]:[...root.querySelectorAll('.idea-bubble')];
+  list.forEach(el=>{
+    const id=el.dataset.nodeId; if(!id||el.querySelector(':scope > .bubble-reply-btn')) return;
+    const b=document.createElement('button'); b.className='bubble-reply-btn'; b.type='button'; b.textContent='↩ Reply';
+    b.onclick=ev=>{
+      ev.stopPropagation();
+      const n=S.nodes.find(x=>x.id===id);
+      const txt=(n?n.body:el.textContent||'').replace(/\s+/g,' ').trim();
+      setReplyTo(id,null,(n?nodeTagLabel(n)+': ':'')+txt.slice(0,40)+(txt.length>40?'…':''));
+    };
+    el.appendChild(b);
+  });
+}
 
 // ── Create an idea (inline in the AI Chat panel, no popups) ────
 // Shows the "with AI" prompt box or the "without AI" writing box on demand.
@@ -1517,8 +1549,8 @@ async function confirmGenerateConfirm(){
 }
 
 // ── Finalize / new idea ───────────────────────────────────────
-function finalizeCurrentIdea(){
-  const node=curNode(); if(!node) return;
+function finalizeCurrentIdea(n){
+  const node=(n&&n.id&&n.body!==undefined)?n:curNode(); if(!node) return;
   _chatMode=null;
   if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
   updateChatHeader(); updateFinalizedCounter(); refreshUI();
