@@ -112,11 +112,11 @@ async function summarizeChange(node){
   if(!node.body||(!p&&!aiPrompt&&!wantIdea)) return;
   try{
     const ask=`${p?'Old version:\n'+p.body+'\n\n':''}New version:\n${node.body}\n\n${aiPrompt?'Prompt the user gave the AI: '+node.userPrompt+'\n\n':''}`+
-      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do","idea":"what the idea is"}. Each value has at most 10 words, plain text.'+
+      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do","idea":"what the idea is"}. Each value is ONE complete phrase of at most 14 words that ends naturally (never cut off mid-sentence), plain text, no trailing period.'+
       (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".')+(wantIdea?'':' Use an empty string for "idea".');
     const t=await callClaude([{role:'user',content:ask}],'You write very short summaries.');
     const j=parseAIJSON(t);
-    const cut=v=>String(v||'').trim().split(/\s+/).filter(Boolean).slice(0,10).join(' ');
+    const cut=v=>{ const w=String(v||'').trim().replace(/[.\s]+$/,'').split(/\s+/).filter(Boolean); return w.length>24?w.slice(0,24).join(' ')+'…':w.join(' '); };   // generous safety cap only
     node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):''; node.meta.ideaSummary=wantIdea?cut(j.idea):'';
     // Saved in the node's existing `extras` JSON column (no new column needed)
     node.extras=node.extras.filter(x=>x.type!=='change_summary');
@@ -127,8 +127,8 @@ async function summarizeChange(node){
 // One-line summary of a question / clarification asked about a node (shown beside the node).
 async function summarizeQuestion(node,ex){
   try{
-    const t=await callClaude([{role:'user',content:'Summarize this question in at most 10 words, plain text only:\n'+ex.userPrompt}],'You write very short summaries.');
-    ex.summary=t.trim().split(/\s+/).slice(0,10).join(' '); renderAllTrees(); queueSync();
+    const t=await callClaude([{role:'user',content:'Summarize this question as ONE complete phrase of at most 14 words that ends naturally (never cut off mid-sentence), plain text, no trailing period:\n'+ex.userPrompt}],'You write very short summaries.');
+    { const w=t.trim().replace(/[.\s]+$/,'').split(/\s+/); ex.summary=w.length>24?w.slice(0,24).join(' ')+'…':w.join(' '); } renderAllTrees(); queueSync();
   }catch(e){}
 }
 function curNode(){ return S.nodes.find(n=>n.id===S.currentNodeId); }
