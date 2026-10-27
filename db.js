@@ -124,14 +124,17 @@ async function listParticipants() {
        FROM ideagit_nodes GROUP BY study_condition, participant_id ORDER BY study_condition, participant_id`);
   return r.rows;
 }
-async function getParticipantNodes(condition, participantId) {
+async function getParticipantNodes(conditions, participantId) {
+  // conditions: array of raw study_condition values (null / '' = no condition recorded)
+  const vals = conditions.filter(c => c !== null && c !== '');
+  const wantNull = conditions.some(c => c === null || c === '');
   const r = await pool.query(
     `SELECT node_id, group_id, parent_id, type, tag, title, body, is_finalized, user_prompt, ai_response,
             extras, self_report_ai_use, (EXTRACT(EPOCH FROM created_at) * 1000)::double precision AS created_ms
        FROM ideagit_nodes
-      WHERE participant_id = $1 AND study_condition IS NOT DISTINCT FROM $2
+      WHERE participant_id = $1 AND (study_condition = ANY($2::text[]) OR ($3::boolean AND study_condition IS NULL))
       ORDER BY created_at NULLS LAST, node_id`,
-    [participantId, condition || null]);
+    [participantId, vals, wantNull]);
   return r.rows;
 }
 

@@ -106,9 +106,12 @@ app.get('/api/view/options', viewAuth, async (req, res) => {
 });
 app.get('/api/view/nodes', viewAuth, async (req, res) => {
   if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured (DATABASE_URL is missing).' });
-  const { condition, participant_id } = req.query;
+  const { participant_id } = req.query;
   if (typeof participant_id !== 'string' || !participant_id) return res.status(400).json({ error: 'participant_id is required.' });
-  try { res.json(await getParticipantNodes(typeof condition === 'string' ? condition : '', participant_id)); }
+  // one or more raw condition values (several raw names can belong to the same category); '__null__' = none recorded
+  const raw = [].concat(req.query.condition || []).map(String);
+  const conds = (raw.length ? raw : ['__null__']).map(c => (c === '__null__' ? null : c));
+  try { res.json(await getParticipantNodes(conds, participant_id)); }
   catch (err) { console.error('View nodes error:', err); res.status(500).json({ error: 'Database error' }); }
 });
 

@@ -2,8 +2,12 @@
 //  IdeaForest — read-only viewer: pick a condition + participant, see their idea trees,
 //  click a node to see its details in a panel on the right. Nothing here can change the data.
 // ============================================================
-const COND_LABEL = { 'AI_only': 'AI only', 'IdeaForest_TreeOnly': 'Idea Tree' };
-const condLabel = c => COND_LABEL[c] || (c ? c : '(no condition recorded)');
+// Raw study_condition values in the database are grouped into two categories; anything else stays as it is.
+const CAT_LABEL = { 'ai-only': 'AI only', 'idea-tree': 'Idea Tree' };
+const CAT_OF = { 'ai_only': 'ai-only', 'ai-assisted ideation': 'ai-only',
+                 'ideaforest_treeonly': 'idea-tree', 'ai-assisted structured ideation': 'idea-tree', 'ideagit': 'idea-tree' };
+const catOf = raw => { const k = String(raw || '').trim().toLowerCase(); return k ? (CAT_OF[k] || 'other:' + raw) : 'none'; };
+const condLabel = cat => CAT_LABEL[cat] || (cat === 'none' ? '(no condition recorded)' : cat.replace(/^other:/, ''));
 let OPTS = [];            // [{condition, participant_id, n}]
 let _viewReady = false;
 
@@ -27,14 +31,14 @@ async function loadOptions() {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
     OPTS = await r.json();
   } catch (e) { sel.innerHTML = '<option value="">Could not load</option>'; setSelectError('Could not load the dataset: ' + e.message); return; }
-  const conds = [...new Set(OPTS.map(o => o.condition || ''))]
-    .sort((a, b) => (a in COND_LABEL ? Object.keys(COND_LABEL).indexOf(a) : 99) - (b in COND_LABEL ? Object.keys(COND_LABEL).indexOf(b) : 99) || a.localeCompare(b));
+  const order = c => (c in CAT_LABEL ? Object.keys(CAT_LABEL).indexOf(c) : 99);
+  const conds = [...new Set(OPTS.map(o => catOf(o.condition)))].sort((a, b) => order(a) - order(b) || a.localeCompare(b));
   sel.innerHTML = '<option value="">Select a condition…</option>' + conds.map(c => `<option value="${esc(c)}">${esc(condLabel(c))}</option>`).join('');
   if (!conds.length) setSelectError('The dataset is empty.');
 }
 function onConditionChange() {
   const c = document.getElementById('sel-condition').value, ps = document.getElementById('sel-pid');
-  const ids = OPTS.filter(o => (o.condition || '') === c).map(o => o.participant_id).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const ids = [...new Set(OPTS.filter(o => catOf(o.condition) === c).map(o => o.participant_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   ps.innerHTML = c ? '<option value="">Select a participant…</option>' + ids.map(i => `<option value="${esc(i)}">${esc(i)}</option>`).join('')
                    : '<option value="">Select a condition first</option>';
   ps.disabled = !c; onPidChange();
@@ -57,7 +61,8 @@ async function submitView() {
   const cond = document.getElementById('sel-condition').value, pid = document.getElementById('sel-pid').value;
   const btn = document.getElementById('btn-view'); btn.disabled = true; btn.textContent = 'Loading…'; setSelectError('');
   try {
-    const r = await fetch('/api/view/nodes?condition=' + encodeURIComponent(cond) + '&participant_id=' + encodeURIComponent(pid));
+    const raws = [...new Set(OPTS.filter(o => catOf(o.condition) === cond && o.participant_id === pid).map(o => o.condition || '__null__'))];
+    const r = await fetch('/api/view/nodes?' + raws.map(c => 'condition=' + encodeURIComponent(c)).join('&') + '&participant_id=' + encodeURIComponent(pid));
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
     const rows = await r.json();
     S.nodes = rows.map(toNode); S.currentNodeId = null; S.currentGroupId = null;
