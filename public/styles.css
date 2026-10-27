@@ -754,3 +754,6 @@ body.app5 .tree-canvas{top:8px}
 .v-text{font-size:1rem}
 .v-q{margin-bottom:6px}
 .v-prev{margin-top:14px}.v-prev summary{cursor:pointer;color:var(--text2);margin-bottom:6px}
+
+.v-source{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 8px;font-size:0.95rem;color:var(--text2)}
+.v-upload{cursor:pointer}

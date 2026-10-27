@@ -10,6 +10,10 @@ const catOf = raw => { const k = String(raw || '').trim().toLowerCase(); return 
 const condLabel = cat => CAT_LABEL[cat] || (cat === 'none' ? '(no condition recorded)' : cat.replace(/^other:/, ''));
 let OPTS = [];            // [{condition, participant_id, n}]
 let _viewReady = false;
+let SRC = 'db';          // 'db' or 'csv'
+let CSV_ROWS = [];       // rows read from uploaded CSV file(s), already in the same shape as the database rows
+let CSV_RAW = [];        // [{file, rows:[objects]}] as uploaded
+let DB_OPTS = [];
 
 window.TREE_STACK = true;
 window.TREE_READONLY = true;         // no discard (×) button on nodes
@@ -29,8 +33,12 @@ async function loadOptions() {
   try {
     const r = await fetch('/api/view/options');
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
-    OPTS = await r.json();
-  } catch (e) { sel.innerHTML = '<option value="">Could not load</option>'; setSelectError('Could not load the dataset: ' + e.message); return; }
+    OPTS = await r.json(); DB_OPTS = OPTS;
+  } catch (e) { sel.innerHTML = '<option value="">Could not load</option>'; setSelectError('Could not load the database: ' + e.message + '. You can still upload a CSV file.'); return; }
+  fillConditions();
+}
+function fillConditions() {
+  const sel = document.getElementById('sel-condition'); setSelectError('');
   const order = c => (c in CAT_LABEL ? Object.keys(CAT_LABEL).indexOf(c) : 99);
   const conds = [...new Set(OPTS.map(o => catOf(o.condition)))].sort((a, b) => order(a) - order(b) || a.localeCompare(b));
   sel.innerHTML = '<option value="">Select a condition…</option>' + conds.map(c => `<option value="${esc(c)}">${esc(condLabel(c))}</option>`).join('');
@@ -61,10 +69,14 @@ async function submitView() {
   const cond = document.getElementById('sel-condition').value, pid = document.getElementById('sel-pid').value;
   const btn = document.getElementById('btn-view'); btn.disabled = true; btn.textContent = 'Loading…'; setSelectError('');
   try {
-    const raws = [...new Set(OPTS.filter(o => catOf(o.condition) === cond && o.participant_id === pid).map(o => o.condition || '__null__'))];
-    const r = await fetch('/api/view/nodes?' + raws.map(c => 'condition=' + encodeURIComponent(c)).join('&') + '&participant_id=' + encodeURIComponent(pid));
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
-    const rows = await r.json();
+    let rows;
+    if (SRC === 'csv') rows = CSV_ROWS.filter(x => catOf(x.condition) === cond && x.participant_id === pid);
+    else {
+      const raws = [...new Set(OPTS.filter(o => catOf(o.condition) === cond && o.participant_id === pid).map(o => o.condition || '__null__'))];
+      const r = await fetch('/api/view/nodes?' + raws.map(c => 'condition=' + encodeURIComponent(c)).join('&') + '&participant_id=' + encodeURIComponent(pid));
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
+      rows = await r.json();
+    }
     S.nodes = rows.map(toNode); S.currentNodeId = null; S.currentGroupId = null;
     document.getElementById('v-info').textContent = condLabel(cond) + ' · Participant ' + pid;
     document.getElementById('page-select').style.display = 'none';
@@ -122,6 +134,60 @@ function openDetails(id) {
   document.getElementById('v-side-body').innerHTML = h;
   document.getElementById('v-side').style.display = 'flex';
   document.getElementById('v-side-body').scrollTop = 0;
+}
+
+// ── Upload a CSV instead of using the database ────────────────
+// Same columns as the node exports: participant_id, node_id, group_id, parent_id, type, tag, title, body, is_finalized,
+// user_prompt, ai_response, extras (or extras_json), self_report_ai_use, timestamp (or created_at), and optionally
+// study_condition (or condition). Without participant_id the file name is used as the participant ID.
+function parseCSV(text) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  const head = (rows.shift() || []).map(h => h.trim().replace(/^\uFEFF/, ''));
+  return rows.filter(r => r.some(x => x !== '')).map(r => Object.fromEntries(head.map((h, i) => [h, r[i] === undefined ? '' : r[i]])));
+}
+async function onCsvFiles(fileList) {
+  const files = [...fileList]; if (!files.length) return;
+  CSV_RAW = [];
+  for (const f of files) CSV_RAW.push({ file: f.name.replace(/\.csv$/i, ''), rows: parseCSV(await f.text()) });
+  document.getElementById('csv-input').value = '';
+  applyCsv();
+}
+function applyCsv() {
+  const dflt = document.getElementById('sel-csv-cond').value;
+  let missing = false; CSV_ROWS = [];
+  CSV_RAW.forEach(({ file, rows }) => rows.forEach(o => {
+    const cond = (o.study_condition ?? o.condition ?? '').trim(); if (!cond) missing = true;
+    const tsv = o.timestamp || o.created_at || '', ms = Date.parse(tsv);
+    if (!o.node_id) return;
+    CSV_ROWS.push({ participant_id: String(o.participant_id || '').trim() || file, condition: cond || dflt || '',
+      node_id: o.node_id, group_id: o.group_id || o.node_id, parent_id: o.parent_id || null, type: o.type, tag: o.tag,
+      title: o.title, body: o.body, is_finalized: ['1', 'true', 't', 'yes'].includes(String(o.is_finalized).trim().toLowerCase()),
+      user_prompt: o.user_prompt, ai_response: o.ai_response, extras: o.extras_json || o.extras || '[]',
+      self_report_ai_use: o.self_report_ai_use, created_ms: Number.isFinite(ms) ? ms : (Number(tsv) || 0) });
+  }));
+  document.getElementById('csv-cond-row').style.display = missing ? '' : 'none';
+  const g = {}; CSV_ROWS.forEach(x => { const k = x.condition + '\u0000' + x.participant_id; g[k] = (g[k] || 0) + 1; });
+  OPTS = Object.keys(g).map(k => { const [condition, participant_id] = k.split('\u0000'); return { condition, participant_id, n: g[k] }; });
+  SRC = 'csv';
+  document.getElementById('src-label').textContent = 'CSV file' + (CSV_RAW.length > 1 ? 's' : '') + ' (' + CSV_ROWS.length + ' nodes)';
+  document.getElementById('btn-use-db').style.display = '';
+  fillConditions(); onConditionChange();
+  if (!CSV_ROWS.length) setSelectError('No usable rows found. The file needs at least a node_id column.');
+}
+function useDatabase() {
+  SRC = 'db'; OPTS = DB_OPTS; CSV_RAW = []; CSV_ROWS = [];
+  document.getElementById('src-label').textContent = 'Database'; document.getElementById('btn-use-db').style.display = 'none';
+  document.getElementById('csv-cond-row').style.display = 'none';
+  fillConditions(); onConditionChange();
 }
 
 document.addEventListener('DOMContentLoaded', loadOptions);

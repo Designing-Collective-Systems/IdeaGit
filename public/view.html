@@ -11,6 +11,17 @@
   <div class="landing-card">
     <h1 class="landing-title">IdeaForest<img class="brand-icon brand-icon-lg" src="icon.svg" alt=""></h1>
     <p class="landing-tagline">View a participant's idea trees (read-only)</p>
+    <div class="v-source">
+      <span>Data: <b id="src-label">Database</b></span>
+      <label class="btn btn-outline btn-sm v-upload">Upload CSV file(s)<input type="file" id="csv-input" accept=".csv,text/csv" multiple hidden onchange="onCsvFiles(this.files)"/></label>
+      <button class="btn btn-outline btn-sm" id="btn-use-db" style="display:none" onclick="useDatabase()">Use database</button>
+    </div>
+    <div id="csv-cond-row" style="display:none">
+      <label class="landing-label" for="sel-csv-cond">Condition for rows without a condition column</label>
+      <select id="sel-csv-cond" class="field-input" onchange="applyCsv()">
+        <option value="">(not specified)</option><option value="AI_only">AI only</option><option value="IdeaForest_TreeOnly">Idea Tree</option>
+      </select>
+    </div>
     <label class="landing-label" for="sel-condition">Condition</label>
     <select id="sel-condition" class="field-input" onchange="onConditionChange()"><option value="">Loading…</option></select>
     <label class="landing-label" for="sel-pid">Participant ID</label>
