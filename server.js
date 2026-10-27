@@ -6,7 +6,7 @@
 
 const express = require('express');
 const path    = require('path');
-const { initDb, saveNodes, dbConfigured } = require('./db');
+const { initDb, saveNodes, dbConfigured, listParticipants, getParticipantNodes } = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -84,6 +84,33 @@ app.get('/idea-tree', (req, res) => { res.sendFile(path.join(__dirname, 'public'
 app.get('/app', (req, res) => { res.redirect('/idea-tree'); });
 app.get('/app3', (req, res) => { res.redirect('/ai-only'); });
 app.get('/app5', (req, res) => { res.redirect('/idea-tree'); });
+
+// ── Read-only viewer (/view) ──────────────────────────────────
+// Set VIEW_PASSWORD in the environment to protect it with a browser login prompt (any user name, that password).
+// Without it, anyone who knows the URL can read participants' ideas.
+function viewAuth(req, res, next) {
+  const pw = process.env.VIEW_PASSWORD;
+  if (!pw) return next();
+  const h = req.headers.authorization || '';
+  if (h.startsWith('Basic ')) {
+    const dec = Buffer.from(h.slice(6), 'base64').toString();
+    if (dec.slice(dec.indexOf(':') + 1) === pw) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="IdeaForest view"').status(401).send('Authentication required');
+}
+app.get('/view', viewAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'view.html')); });
+app.get('/api/view/options', viewAuth, async (req, res) => {
+  if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured (DATABASE_URL is missing).' });
+  try { res.json(await listParticipants()); }
+  catch (err) { console.error('View options error:', err); res.status(500).json({ error: 'Database error' }); }
+});
+app.get('/api/view/nodes', viewAuth, async (req, res) => {
+  if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured (DATABASE_URL is missing).' });
+  const { condition, participant_id } = req.query;
+  if (typeof participant_id !== 'string' || !participant_id) return res.status(400).json({ error: 'participant_id is required.' });
+  try { res.json(await getParticipantNodes(typeof condition === 'string' ? condition : '', participant_id)); }
+  catch (err) { console.error('View nodes error:', err); res.status(500).json({ error: 'Database error' }); }
+});
 
 // Fallback — redirect everything else to landing
 app.get('*', (req, res) => {

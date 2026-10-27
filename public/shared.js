@@ -469,7 +469,7 @@ function _renderAllTreesOnce(minH){
   const stack=!!window.TREE_STACK; const flat=[], frames=[]; let cursor=4, cursorY=0, maxH=0, maxW=0;
   (gids.length?gids:[null]).forEach(gid=>{
     const real=gid?S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification'):[];
-    const t={children:[{children:[]},{children:[{children:[]}]}]}; // the skeleton
+    const t=window.TREE_NO_SKELETON?{children:[]}:{children:[{children:[]},{children:[{children:[]}]}]}; // the skeleton (hidden in the read-only viewer)
     const root=real.find(n=>!n.parentId||!real.find(p=>p.id===n.parentId));
     if(root) merge(root,t,real);
     place(t,getW(t)/2,0);
@@ -525,9 +525,9 @@ function _renderAllTreesOnce(minH){
     el.innerHTML=(window.WORKING_BADGE&&node.id===S.currentNodeId?'<div class="work-badge">Working on this idea \u2193</div>':'')+
       `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div>`+
-      `<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button></div>`+
+      (window.TREE_READONLY?'':`<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button>`)+'</div>'+
       (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
-    el.querySelector('.tree-node-discard').addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
+    const _dx=el.querySelector('.tree-node-discard'); if(_dx) _dx.addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
     el.dataset.nodeId=node.id; _pan.pos[node.id]={x:x.x,y:x.y+H/2};
     el.addEventListener('click',()=>{ if(window.onTreeNodeClick) window.onTreeNodeClick(node.id); else selectIdea(node.id); });
     nodesEl.appendChild(el);
