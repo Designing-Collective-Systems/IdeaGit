@@ -52,7 +52,10 @@ function onConditionChange() {
   ps.disabled = !c; onPidChange();
 }
 function onPidChange() {
-  document.getElementById('btn-view').disabled = !(document.getElementById('sel-condition').value !== '' && document.getElementById('sel-pid').value);
+  const ok = SRC === 'csv'
+    ? !!document.getElementById('sel-csv-cond').value && (document.getElementById('csv-pid-row').style.display === 'none' || !!document.getElementById('sel-csv-pid').value)
+    : document.getElementById('sel-condition').value !== '' && !!document.getElementById('sel-pid').value;
+  document.getElementById('btn-view').disabled = !ok;
 }
 
 const parseExtras = v => { try { const a = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(a) ? a : []; } catch (e) { return []; } };
@@ -66,11 +69,12 @@ function toNode(r) {
 }
 
 async function submitView() {
-  const cond = document.getElementById('sel-condition').value, pid = document.getElementById('sel-pid').value;
+  let cond = document.getElementById('sel-condition').value, pid = document.getElementById('sel-pid').value;
+  if (SRC === 'csv') { cond = catOf(document.getElementById('sel-csv-cond').value); pid = document.getElementById('csv-pid-row').style.display === 'none' ? '' : document.getElementById('sel-csv-pid').value; }
   const btn = document.getElementById('btn-view'); btn.disabled = true; btn.textContent = 'Loading…'; setSelectError('');
   try {
     let rows;
-    if (SRC === 'csv') rows = CSV_ROWS.filter(x => catOf(x.condition) === cond && x.participant_id === pid);
+    if (SRC === 'csv') rows = CSV_ROWS.filter(x => !pid || x.participant_id === pid);       // the condition you picked applies to the whole file
     else {
       const raws = [...new Set(OPTS.filter(o => catOf(o.condition) === cond && o.participant_id === pid).map(o => o.condition || '__null__'))];
       const r = await fetch('/api/view/nodes?' + raws.map(c => 'condition=' + encodeURIComponent(c)).join('&') + '&participant_id=' + encodeURIComponent(pid));
@@ -78,7 +82,7 @@ async function submitView() {
       rows = await r.json();
     }
     S.nodes = rows.map(toNode); S.currentNodeId = null; S.currentGroupId = null;
-    document.getElementById('v-info').textContent = condLabel(cond) + ' · Participant ' + pid;
+    document.getElementById('v-info').textContent = condLabel(cond) + ' · ' + (pid ? 'Participant ' + pid : (CSV_RAW.map(f => f.file).join(', ')));
     document.getElementById('page-select').style.display = 'none';
     document.getElementById('page-view').style.display = 'block';
     document.body.classList.add('app5');
@@ -162,31 +166,32 @@ async function onCsvFiles(fileList) {
   applyCsv();
 }
 function applyCsv() {
-  const dflt = document.getElementById('sel-csv-cond').value;
-  let missing = false; CSV_ROWS = [];
+  CSV_ROWS = [];
   CSV_RAW.forEach(({ file, rows }) => rows.forEach(o => {
-    const cond = (o.study_condition ?? o.condition ?? '').trim(); if (!cond) missing = true;
-    const tsv = o.timestamp || o.created_at || '', ms = Date.parse(tsv);
     if (!o.node_id) return;
-    CSV_ROWS.push({ participant_id: String(o.participant_id || '').trim() || file, condition: cond || dflt || '',
+    const tsv = o.timestamp || o.created_at || '', ms = Date.parse(tsv);
+    CSV_ROWS.push({ participant_id: String(o.participant_id || '').trim() || file, condition: '',
       node_id: o.node_id, group_id: o.group_id || o.node_id, parent_id: o.parent_id || null, type: o.type, tag: o.tag,
       title: o.title, body: o.body, is_finalized: ['1', 'true', 't', 'yes'].includes(String(o.is_finalized).trim().toLowerCase()),
       user_prompt: o.user_prompt, ai_response: o.ai_response, extras: o.extras_json || o.extras || '[]',
       self_report_ai_use: o.self_report_ai_use, created_ms: Number.isFinite(ms) ? ms : (Number(tsv) || 0) });
   }));
-  document.getElementById('csv-cond-row').style.display = missing ? '' : 'none';
-  const g = {}; CSV_ROWS.forEach(x => { const k = x.condition + '\u0000' + x.participant_id; g[k] = (g[k] || 0) + 1; });
-  OPTS = Object.keys(g).map(k => { const [condition, participant_id] = k.split('\u0000'); return { condition, participant_id, n: g[k] }; });
-  SRC = 'csv';
+  SRC = 'csv'; setSelectError('');
   document.getElementById('src-label').textContent = 'CSV file' + (CSV_RAW.length > 1 ? 's' : '') + ' (' + CSV_ROWS.length + ' nodes)';
   document.getElementById('btn-use-db').style.display = '';
-  fillConditions(); onConditionChange();
+  document.getElementById('db-fields').style.display = 'none'; document.getElementById('csv-fields').style.display = '';
+  // Only ask for a participant if the file(s) hold more than one
+  const pids = [...new Set(CSV_ROWS.map(x => x.participant_id))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const row = document.getElementById('csv-pid-row'), sp = document.getElementById('sel-csv-pid');
+  row.style.display = pids.length > 1 ? '' : 'none';
+  sp.innerHTML = '<option value="">Select a participant…</option>' + pids.map(i => `<option value="${esc(i)}">${esc(i)}</option>`).join('');
+  onPidChange();
   if (!CSV_ROWS.length) setSelectError('No usable rows found. The file needs at least a node_id column.');
 }
 function useDatabase() {
   SRC = 'db'; OPTS = DB_OPTS; CSV_RAW = []; CSV_ROWS = [];
   document.getElementById('src-label').textContent = 'Database'; document.getElementById('btn-use-db').style.display = 'none';
-  document.getElementById('csv-cond-row').style.display = 'none';
+  document.getElementById('db-fields').style.display = ''; document.getElementById('csv-fields').style.display = 'none';
   fillConditions(); onConditionChange();
 }
 

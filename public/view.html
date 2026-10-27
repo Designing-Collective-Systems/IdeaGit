@@ -16,16 +16,22 @@
       <label class="btn btn-outline btn-sm v-upload">Upload CSV file(s)<input type="file" id="csv-input" accept=".csv,text/csv" multiple hidden onchange="onCsvFiles(this.files)"/></label>
       <button class="btn btn-outline btn-sm" id="btn-use-db" style="display:none" onclick="useDatabase()">Use database</button>
     </div>
-    <div id="csv-cond-row" style="display:none">
-      <label class="landing-label" for="sel-csv-cond">Condition for rows without a condition column</label>
-      <select id="sel-csv-cond" class="field-input" onchange="applyCsv()">
-        <option value="">(not specified)</option><option value="AI_only">AI only</option><option value="IdeaForest_TreeOnly">Idea Tree</option>
-      </select>
+    <div id="db-fields">
+      <label class="landing-label" for="sel-condition">Condition</label>
+      <select id="sel-condition" class="field-input" onchange="onConditionChange()"><option value="">Loading…</option></select>
+      <label class="landing-label" for="sel-pid">Participant ID</label>
+      <select id="sel-pid" class="field-input" onchange="onPidChange()" disabled><option value="">Select a condition first</option></select>
     </div>
-    <label class="landing-label" for="sel-condition">Condition</label>
-    <select id="sel-condition" class="field-input" onchange="onConditionChange()"><option value="">Loading…</option></select>
-    <label class="landing-label" for="sel-pid">Participant ID</label>
-    <select id="sel-pid" class="field-input" onchange="onPidChange()" disabled><option value="">Select a condition first</option></select>
+    <div id="csv-fields" style="display:none">
+      <label class="landing-label" for="sel-csv-cond">Condition</label>
+      <select id="sel-csv-cond" class="field-input" onchange="onPidChange()">
+        <option value="">Select a condition…</option><option value="AI_only">AI only</option><option value="IdeaForest_TreeOnly">Idea Tree</option>
+      </select>
+      <div id="csv-pid-row" style="display:none">
+        <label class="landing-label" for="sel-csv-pid">Participant ID (the file has several)</label>
+        <select id="sel-csv-pid" class="field-input" onchange="onPidChange()"></select>
+      </div>
+    </div>
     <p class="field-error" id="select-error" style="display:none"></p>
     <button class="btn btn-primary" id="btn-view" disabled onclick="submitView()">View idea trees</button>
   </div>
