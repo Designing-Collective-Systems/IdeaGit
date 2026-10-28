@@ -10,6 +10,7 @@ const catOf = raw => { const k = String(raw || '').trim().toLowerCase(); return 
 const condLabel = cat => CAT_LABEL[cat] || (cat === 'none' ? '(no condition recorded)' : cat.replace(/^other:/, ''));
 let OPTS = [];            // [{condition, participant_id, n}]
 let _viewReady = false;
+let VIEW_PID = '', VIEW_COND = '';
 let SRC = 'db';          // 'db' or 'csv'
 let CSV_ROWS = [];       // rows read from uploaded CSV file(s), already in the same shape as the database rows
 let CSV_RAW = [];        // [{file, rows:[objects]}] as uploaded
@@ -82,6 +83,7 @@ async function submitView() {
       rows = await r.json();
     }
     S.nodes = rows.map(toNode); S.currentNodeId = null; S.currentGroupId = null;
+    VIEW_COND = cond; VIEW_PID = pid || CSV_RAW.map(f => f.file).join('+');
     document.getElementById('v-info').textContent = condLabel(cond) + ' · ' + (pid ? 'Participant ' + pid : (CSV_RAW.map(f => f.file).join(', ')));
     document.getElementById('page-select').style.display = 'none';
     document.getElementById('page-view').style.display = 'block';
@@ -193,6 +195,43 @@ function useDatabase() {
   document.getElementById('src-label').textContent = 'Database'; document.getElementById('btn-use-db').style.display = 'none';
   document.getElementById('db-fields').style.display = ''; document.getElementById('csv-fields').style.display = 'none';
   fillConditions(); onConditionChange();
+}
+
+// ── Download every idea tree as a PDF: one page per tree, each page sized to its tree ──
+// The page is exactly the size of the tree (plus a small margin and a title line), and the tree is drawn at 3-4x
+// resolution as a lossless image, so nothing is scaled down, cropped or blurred.
+async function downloadTreesPdf() {
+  const btn = document.getElementById('btn-pdf'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Preparing PDF…';
+  try {
+    const frames = (_pan.frames || []).filter(f => f.gid).slice().reverse();      // oldest idea first
+    const canvasEl = document.getElementById('tree-canvas');
+    if (!frames.length || !canvasEl) { toast('There are no idea trees to download.'); return; }
+    await _loadPdfLibs();
+    const { jsPDF } = window.jspdf, PT = 0.75, M = 18, HEAD = 30;            // css px -> pt; page margin; title strip
+    let doc = null;
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i], host = _exportHost();
+      const box = document.createElement('div');
+      box.style.cssText = 'position:relative;overflow:hidden;background:#fff;width:' + f.width + 'px;height:' + f.height + 'px';
+      const clone = canvasEl.cloneNode(true); clone.removeAttribute('id'); clone.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+      clone.style.cssText += ';position:absolute;transform:none;left:' + (-f.left) + 'px;top:' + (-f.top) + 'px';
+      clone.querySelectorAll('.tree-group-frame,.tree-nudge,.work-badge,.tree-ghost,.edge-ghost,.tree-node-discard').forEach(e => e.remove());
+      clone.querySelectorAll('.tree-node.current').forEach(e => e.classList.remove('current'));
+      box.appendChild(clone); host.appendChild(box);
+      const scale = Math.max(1, Math.min(4, 12000 / Math.max(f.width, f.height)));
+      const cv = await html2canvas(box, { scale, backgroundColor: '#ffffff', logging: false, useCORS: true });
+      const w = f.width * PT, h = f.height * PT, pw = Math.max(w + 2 * M, 440), ph = h + 2 * M + HEAD, orient = pw > ph ? 'l' : 'p';   // 440pt minimum keeps the title line inside the page
+      if (!doc) doc = new jsPDF({ unit: 'pt', format: [pw, ph], orientation: orient, compress: true }); else doc.addPage([pw, ph], orient);
+      const nodes = S.nodes.filter(n => n.groupId === f.gid), fin = nodes.some(n => n.isFinalized);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 41, 59);
+      doc.text(_ascii('Idea ' + (i + 1) + ' of ' + frames.length + ' - ' + (fin ? 'finalized' : 'in progress') + '   |   ' + condLabel(VIEW_COND) + ' - Participant ' + VIEW_PID), M, M + 12);
+      doc.addImage(cv.toDataURL('image/png'), 'PNG', (pw - w) / 2, M + HEAD, w, h, undefined, 'FAST');
+      host.innerHTML = '';
+    }
+    doc.save('IdeaForest_' + _ascii(VIEW_PID).replace(/[^\w.-]+/g, '_') + '_' + condLabel(VIEW_COND).replace(/\s+/g, '') + '_idea_trees.pdf');
+  } catch (e) { console.error(e); toast('Could not create the PDF: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = label; }
 }
 
 document.addEventListener('DOMContentLoaded', loadOptions);
