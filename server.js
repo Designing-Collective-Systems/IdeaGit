@@ -6,7 +6,7 @@
 
 const express = require('express');
 const path    = require('path');
-const { initDb, saveNodes, dbConfigured, listParticipants, getParticipantNodes } = require('./db');
+const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes } = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +49,20 @@ app.post('/api/claude', async (req, res) => {
 });
 
 // ── Save ideas + self-reports to Postgres ─────────────────────
+app.post('/api/save-selfreport', async (req, res) => {
+  if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured.' });
+  const { participant_id, condition, round, reports } = req.body || {};
+  if (typeof participant_id !== 'string' || !participant_id.trim() || participant_id.length > 100)
+    return res.status(400).json({ error: 'participant_id is required.' });
+  if (![1, 2].includes(round) || !Array.isArray(reports) || !reports.length || reports.length > 200
+      || reports.some(r => !r || typeof r.node_id !== 'string' || !r.node_id))
+    return res.status(400).json({ error: 'Invalid self-report payload.' });
+  try {
+    await saveSelfReports(participant_id.trim(), condition, round, reports);
+    res.json({ ok: true });
+  } catch (err) { console.error('Database error:', err); res.status(500).json({ error: 'Database error' }); }
+});
+
 app.post('/api/save-nodes', async (req, res) => {
   if (!dbConfigured()) {
     return res.status(503).json({ error: 'Database is not configured (DATABASE_URL is missing).' });

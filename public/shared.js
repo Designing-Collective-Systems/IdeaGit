@@ -876,99 +876,178 @@ function confirmDone(){
   else{ exportCSV(); toast('Session exported. You may now close the page.','var(--green)'); }
 }
 
-// ── Self-report (C3/C4 only) ──────────────────────────────────
-let _srPage=0,_srCurrentIdea=0,_srSubTab='chat';
+// ── Self-report: round 1 → reflect-aloud → round 2 → reflect on changes ──
+const SR_SCALES={
+  own:['Entirely to the AI','Mostly to the AI','Slightly more to the AI','Equally to both','Slightly more to me','Mostly to me','Entirely to me'],
+  dep:['Entirely on the AI','Mostly on the AI','Slightly more on the AI','Equally on both','Slightly more on myself','Mostly on myself','Entirely on myself'],
+  effort:['Very, very low','Very low','Low','Neither low nor high','High','Very high','Very, very high']
+};
+let SR=null;
+const srTree=()=>!!window.SR_TREE_ONLY;
+function srQs(){
+  const u=srTree()?'nodes':'chat messages', ai=srTree()?'AI edit nodes':'AI chat messages';
+  return [
+    {k:'own',type:'scale',text:'To what extent do you feel this idea belongs to you or to the AI?'},
+    {k:'ownSel',type:'sel',mode:'all',text:`Please select the ${u} which contributed to your ownership of the idea. If none, press submit.`},
+    {k:'dep',type:'scale',text:'To what extent did you depend on yourself or on the AI to develop this idea?'},
+    {k:'noAI',type:'sel',mode:'ai',text:`Please select the ${ai} that you feel you could have done without AI. If none, press submit.`},
+    {k:'skip',type:'sel',mode:'ai',text:`Please select the ${ai} that you feel you could have skipped. If none, press submit.`},
+    {k:'effort',type:'scale',text:'How much effort did you invest in developing this idea?'}
+  ];
+}
+function srScaleOf(k){ return k==='own'?SR_SCALES.own:k==='dep'?SR_SCALES.dep:SR_SCALES.effort; }
 function openSelfReport(){
-  const finalized=S.nodes.filter(n=>n.isFinalized);
-  if(!finalized.length) return;
-  _srPage=0; _srCurrentIdea=0;
-  _srSubTab=(isCondition4()||window.SR_TREE_ONLY)?'tree':'chat';
-
-  // ── Left panel: idea tabs ────────────────────────────────────
-  const tabs=document.getElementById('sr-idea-tabs'); if(!tabs) return;
-  tabs.innerHTML='';
-  finalized.forEach((n,i)=>{
-    const btn=document.createElement('button');
-    btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
-    btn.textContent=`Idea ${i+1}`;
-    btn.onclick=()=>{ if(!srCanGoTo(i)){ toast(`Please fill in the self-report for Idea ${srFirstEmpty()+1} first.`); return; } srSelectIdea(i,finalized); srShowPage(i,1); };
-    tabs.appendChild(btn);
-  });
-  const subTabs=document.getElementById('sr-sub-tabs');
-  if(subTabs) subTabs.style.display='none';
-  const treeTab=document.getElementById('sr-tab-tree');
-  if(treeTab) treeTab.style.display=isCondition4()?'':'none';
-  const srLeft=document.getElementById('sr-left');
-  if(srLeft) srLeft.style.display=isAICondition()?'flex':'none';
-
-  // ── Right panel: generate one page per idea ──────────────────
-  const srRight=document.querySelector('.sr-right');
-  if(srRight){
-    srRight.innerHTML='<div class="sr-right-header"><div class="sr-step-indicator" id="sr-step-indicator"></div><button class="btn btn-outline btn-sm" onclick="closeSelfReport()">Close ✕</button></div>';
-    finalized.forEach((node,i)=>{
-      const isLast=i===finalized.length-1;
-      const page=document.createElement('div');
-      page.className='sr-page'; page.id=`sr-page-${i}`;
-      page.style.display=i===0?'flex':'none';
-      const opts=['AI created the idea','AI made major changes','AI made minor changes','AI provided feedback','AI clarified questions','No AI was used'];
-      page.innerHTML=`
-        <div class="sr-question" id="sr-q1-${i}">
-          <p class="sr-q-label">Please select how AI was used for the generation of this idea.<br><span class="sr-q-sub">You can select more than one</span></p>
-          ${opts.map(o=>`<label class="sr-opt"><input type="checkbox" class="sr-pick-${i}" value="${o}" onchange="srRefreshLocks()"> ${o}</label>`).join('')}
-        </div>
-        <div class="sr-question" id="sr-q2-${i}" style="display:none">
-          <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
-          <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}" oninput="srRefreshLocks()"
-            placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
-            rows="6"></textarea>
-        </div>
-        <div class="sr-foot">
-          <button class="btn btn-outline" id="sr-back-${i}" onclick="srPrev()">← Back</button>
-          <button class="btn btn-primary" id="sr-next-${i}" onclick="srNext()">Next →</button>
-          <button class="btn btn-green" id="sr-sub-${i}" onclick="srSubmit()" style="display:none">Submit Self-Reports</button>
-        </div>`;
-      srRight.appendChild(page);
-    });
-
-    if(S.selfReportData&&S.selfReportData.picks){
-      const D=S.selfReportData;
-      finalized.forEach((node,i)=>{ const k=D.finalized.findIndex(n=>n.id===node.id); if(k<0) return;
-        document.querySelectorAll(`.sr-pick-${i}`).forEach(c=>{ c.checked=(D.picks[k]||[]).includes(c.value); });
-        const ta=document.getElementById(`sr-ai-use-${i}`); if(ta) ta.value=D.descs[k]||''; });
+  const ideas=S.nodes.filter(n=>n.isFinalized);
+  if(!ideas.length) return;
+  const QS=srQs();
+  const qSteps=()=>{ const a=[]; ideas.forEach((n,i)=>QS.forEach((q,j)=>a.push({t:'q',i,j}))); return a; };
+  SR={ideas,QS,round:1,phase:'r1',p:0,steps:qSteps(),qSteps,a1:{},a2:{},busy:false};
+  ideas.forEach(n=>{ SR.a1[n.id]={}; SR.a2[n.id]={}; });
+  const m=document.getElementById('self-report-modal'); m.style.display='flex';
+  document.getElementById('sr-sub-tabs').style.display='none';
+  document.getElementById('sr-left').style.display='flex';
+  srRender();
+}
+function srAns(){ return SR.round===1?SR.a1:SR.a2; }
+function srRender(){
+  const st=SR.steps[SR.p], node=SR.ideas[st.i], QS=SR.QS, right=document.querySelector('.sr-right');
+  document.getElementById('sr-idea-tabs').innerHTML=SR.ideas.map((n,i)=>`<div class="sr-idea-tab${i===st.i?' sr-idea-active':''}" style="cursor:default">Idea ${i+1}</div>`).join('');
+  let head='',body='',foot='',selMode=null;
+  const unit=srTree()?'nodes':'chat messages';
+  if(st.t==='q'){
+    const q=QS[st.j], a=srAns()[node.id];
+    selMode=q.type==='sel'?q.mode:null;
+    head=`Self-report ${SR.round} of 2 · Idea ${st.i+1} of ${SR.ideas.length} · Question ${st.j+1} of ${QS.length}`;
+    if(q.type==='scale'){
+      body=`<p class="sr-q-label">${q.text}</p>`+srScaleOf(q.k).map((l,x)=>`<label class="sr-opt"><input type="radio" name="sr-r" value="${x+1}" ${a[q.k]===x+1?'checked':''} onchange="srPick('${q.k}',${x+1})"> ${x+1} = ${l}</label>`).join('');
+    } else {
+      body=`<p class="sr-q-label">${q.text}</p><p class="sr-q-sub">Click ${unit} on the left to select or unselect them. <span id="sr-selcount"></span></p>`;
     }
+    const isSel=q.type==='sel', first=SR.p===0||SR.steps[SR.p-1].t!=='q';
+    foot=`${first?'':'<button class="btn btn-outline" onclick="srBack()">← Back</button>'}<button class="btn btn-primary" id="sr-go" onclick="srNext()" ${(!isSel&&!a[q.k])?'disabled':''}>${isSel?'Submit':(SR.p===SR.steps.length-1||SR.steps[SR.p+1].i!==st.i&&false?'Next →':'Next →')}</button>`;
+  } else if(st.t==='reflect'){
+    head=`Reflection · Idea ${st.i+1} of ${SR.ideas.length}`;
+    body=`<p class="sr-q-label">While looking at the ${srTree()?'idea tree':'chat history'}, can you please reflect out loud how the idea developed, from the start to the final version?</p>`;
+    foot=`<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
+  } else {
+    head=`Reflection on changed answers · ${st.n} of ${SR.chg.length}`;
+    body=`<p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p><p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>`;
+    foot=`<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
   }
-
-  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0,1); srRefreshLocks();
-  document.getElementById('self-report-modal').style.display='flex';
+  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">${head}</div></div><div class="sr-page" style="display:flex">${body}<div class="sr-foot">${foot}</div></div>`;
+  srShowLeft(node,selMode,st.t==='q'&&selMode?st.j:null);
+  srUpdateCount();
 }
-function srSelectIdea(idx,finalizedArg){
-  _srCurrentIdea=idx;
-  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized);
-  document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-idea-active',i===idx));
-  srRenderContent(finalized[idx]);
+function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=false; }
+function srSelSet(){ const st=SR.steps[SR.p]; if(st.t!=='q') return null; const q=SR.QS[st.j]; if(q.type!=='sel') return null;
+  const a=srAns()[SR.ideas[st.i].id]; return (a[q.k]=a[q.k]||[]); }
+function srToggle(id,text,el){
+  const arr=srSelSet(); if(!arr) return;
+  const x=arr.findIndex(o=>o.id===id);
+  if(x>=0) arr.splice(x,1); else arr.push({id,text:(text||'').slice(0,120)});
+  el.classList.toggle('sr-selected',x<0); srUpdateCount();
 }
-function srRenderContent(node){
-  if(!node) return;
-  const disp=document.getElementById('sr-idea-display'); if(!disp) return;
-  if(_srSubTab==='chat'){
-    disp.innerHTML='';
-    const wrap=document.createElement('div'); wrap.className='sr-chat-history';
-    buildChatInto(wrap,node.id);
-    disp.appendChild(wrap);
+function srUpdateCount(){ const e=document.getElementById('sr-selcount'), a=srSelSet(); if(e&&a) e.textContent=`${a.length} selected.`; }
+function srShowLeft(node,selMode,j){
+  hideTreeTooltip();
+  const st=SR.steps[SR.p], left=document.getElementById('sr-left');
+  if(st.t==='chg'&&SR.QS[st.j].type==='sel'){ left.style.display='none'; srShowCompare(st,node); return; }
+  left.style.display='flex';
+  const sel=selMode?new Set((srSelSet()||[]).map(o=>o.id)):null;
+  srDraw(document.getElementById('sr-idea-display'),node,selMode,sel);
+}
+function srDraw(disp,node,selMode,sel){
+  if(!srTree()){
+    disp.innerHTML=''; const wrap=document.createElement('div'); wrap.className='sr-chat-history'; buildChatInto(wrap,node.id); disp.appendChild(wrap);
+    if(selMode) [...wrap.children].forEach((el,i)=>{
+      const id=`${el.dataset.nodeId}#${i}`;
+      if(selMode==='ro'){ if(sel.has(id)) el.classList.add('sr-selected'); return; }
+      const ai=el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
+      if(selMode==='ai'&&!ai){ el.classList.add('sr-dim'); return; }
+      el.classList.add('sr-selectable');
+      if(sel.has(id)) el.classList.add('sr-selected');
+      el.onclick=()=>srToggle(id,el.innerText.replace(/\s+/g,' ').trim(),el);
+    });
   } else {
     disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
-    renderSrTree(node.groupId, node.id);
-    const sc=disp.firstElementChild; let d=null;
-    sc.style.cursor='grab';
-    sc.addEventListener('mousedown',e=>{ d={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop}; sc.style.cursor='grabbing'; e.preventDefault(); });
-    window.addEventListener('mousemove',e=>{ if(d){ sc.scrollLeft=d.l-(e.clientX-d.x); sc.scrollTop=d.t-(e.clientY-d.y); } });
-    window.addEventListener('mouseup',()=>{ d=null; sc.style.cursor='grab'; });
+    renderSrTree(node.groupId,node.id,selMode,sel);
   }
 }
+// Change-reflection for selection questions: earlier vs now, side by side, prompt on top.
+function srShowCompare(st,node){
+  const q=SR.QS[st.j], right=document.querySelector('.sr-right');
+  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Reflection on changed answers · ${st.n} of ${SR.chg.length}</div></div>
+    <div class="sr-page" style="display:flex">
+      <p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p>
+      <p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;height:calc(80vh - 250px);min-height:260px">
+        <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Earlier</div><div id="sr-cmp-a" style="flex:1;min-height:0;overflow:auto"></div></div>
+        <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Now</div><div id="sr-cmp-b" style="flex:1;min-height:0;overflow:auto"></div></div>
+      </div>
+      <div class="sr-foot"><button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button></div>
+    </div>`;
+  const ids=r=>new Set((r[node.id][q.k]||[]).map(o=>o.id));
+  const A=document.getElementById('sr-cmp-a'), B=document.getElementById('sr-cmp-b');
+  srDraw(A,node,'ro',ids(SR.a1));
+  A.querySelectorAll('[id]').forEach(e=>{ if(!e.id.startsWith('arr')) e.id='a-'+e.id; });
+  srDraw(B,node,'ro',ids(SR.a2));
+}
+function srFmt(q,v){
+  if(q.type==='scale') return v?`${v} = ${srScaleOf(q.k)[v-1]}`:'(no answer)';
+  const n=(v||[]).length; return n?`${n} ${srTree()?'node':'chat message'}${n>1?'s':''} selected`:'none selected';
+}
+function srChanged(q,x,y){
+  if(q.type==='scale') return x!==y;
+  const a=new Set((x||[]).map(o=>o.id)), b=new Set((y||[]).map(o=>o.id));
+  return a.size!==b.size||[...a].some(i=>!b.has(i));
+}
+function srBack(){ if(SR.p>0&&SR.steps[SR.p-1].t==='q'){ SR.p--; srRender(); } }
+async function srPostRound(round,reports){
+  try{
+    const r=await fetch('/api/save-selfreport',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,round,reports})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+async function srNext(){
+  if(SR.busy) return;
+  const st=SR.steps[SR.p], last=SR.p===SR.steps.length-1;
+  if(!last){ SR.p++; srRender(); return; }
+  // end of a phase
+  if(SR.phase==='r1'){
+    SR.busy=true;
+    const ok=await srPostRound(1,SR.ideas.map(n=>({node_id:n.id,answers:SR.a1[n.id]})));
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    SR.phase='reflect'; SR.p=0; SR.steps=SR.ideas.map((n,i)=>({t:'reflect',i})); srRender();
+  } else if(SR.phase==='reflect'){
+    SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps(); srRender();
+  } else if(SR.phase==='r2'){
+    const chg=[];
+    SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{
+      const x=SR.a1[n.id][q.k], y=SR.a2[n.id][q.k];
+      if(srChanged(q,x,y)) chg.push({t:'chg',i,j,n:chg.length+1,qtext:q.text.replace(/ If none, press submit\./,''),old:srFmt(q,x),nw:srFmt(q,y)});
+    }));
+    SR.busy=true;
+    const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:chg.filter(c=>c.i===i).map(c=>SR.QS[c.j].k)})})));
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    S.selfReportRounds={round1:SR.a1,round2:SR.a2};
+    if(!chg.length){ srFinish(); return; }
+    SR.chg=chg; SR.phase='chg'; SR.p=0; SR.steps=chg; srRender();
+  } else srFinish();
+}
+function srFinish(){
+  document.getElementById('self-report-modal').style.display='none';
+  hideTreeTooltip();
+  toast('Your responses have been saved. Thank you!','var(--green)');
+}
+function closeSelfReport(){ document.getElementById('self-report-modal').style.display='none'; hideTreeTooltip(); }
+
 // Mirrors the main Idea Tree's compact node style exactly (same tags, same
 // font size, same hover tooltip with diff highlighting) so the two never
 // show conflicting information for the same idea.
-function renderSrTree(gid, currentNodeId){
+function renderSrTree(gid, currentNodeId, selMode, selSet){
   const nodesEl=document.getElementById('sr-tree-nodes');
   const svg=document.getElementById('sr-tree-svg');
   if(!nodesEl||!svg) return;
@@ -1007,93 +1086,16 @@ function renderSrTree(gid, currentNodeId){
       (isCurrent?'<div class="sr-current-ring"></div>':'')+
       `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`+
       (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
+    if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
+    else if(selMode){
+      const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
+      if(selMode==='ai'&&!ai) el.classList.add('sr-dim');
+      else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
+        el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
+    }
     nodesEl.appendChild(el);
     addSideNote(nodesEl,node,p.x+W/2+8,p.y);
   });
-}
-function srSubTab(tab){
-  _srSubTab=tab;
-  hideTreeTooltip();
-  document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',tab==='chat');
-  document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',tab==='tree');
-  const finalized=S.nodes.filter(n=>n.isFinalized);
-  srRenderContent(finalized[_srCurrentIdea]);
-}
-function srToggleB(show){ const el=document.getElementById('sr-q-b'); if(el) el.style.display=show?'block':'none'; }
-function toggleOtherBox(cb){ const ta=document.getElementById('ai-for-other'); if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); } }
-function srUpdateStep(){
-  const tot=S.nodes.filter(n=>n.isFinalized).length;
-  const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Idea ${_srPage+1} of ${tot}`;
-}
-let _srStage=1;
-const srTot=()=>S.nodes.filter(n=>n.isFinalized).length;
-function srPicked(i){ return [...document.querySelectorAll(`.sr-pick-${i}:checked`)].map(c=>c.value); }
-function srShowPage(n,stage){
-  _srPage=n; _srStage=stage||1;
-  const tot=srTot();
-  for(let i=0;i<tot;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display=i===n?'flex':'none'; }
-  document.getElementById(`sr-q1-${n}`).style.display=_srStage===1?'':'none';
-  document.getElementById(`sr-q2-${n}`).style.display=_srStage===2?'':'none';
-  // Left side: chat history first; then the process tree (app4) or the same chat history (app3)
-  _srSubTab=window.SR_TREE_ONLY?'tree':(_srStage===2&&isCondition4())?'tree':'chat';   // both views are always available (app4); Q1 opens on chat, Q2 on the tree
-  const st=document.getElementById('sr-sub-tabs'); if(st) st.style.display=(isCondition4()&&!window.SR_TREE_ONLY)?'flex':'none';
-  document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',_srSubTab==='chat');
-  document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',_srSubTab==='tree');
-  srSelectIdea(n,S.nodes.filter(nd=>nd.isFinalized));
-  srUpdateStep(); srRefreshLocks();
-}
-function srFilled(i){ const ta=document.getElementById(`sr-ai-use-${i}`); return srPicked(i).length>0&&!!(ta&&ta.value.trim()); }
-function srFirstEmpty(){ const tot=srTot(); for(let i=0;i<tot;i++) if(!srFilled(i)) return i; return tot; }
-function srCanGoTo(i){ return i<=srFirstEmpty(); }
-function srRefreshLocks(){
-  document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-locked',!srCanGoTo(i)));
-  const tot=srTot(), i=_srPage, ta=document.getElementById(`sr-ai-use-${i}`);
-  const ok=_srStage===1?srPicked(i).length>0:!!(ta&&ta.value.trim());
-  const last=i===tot-1;
-  const set=(id,show,dis)=>{ const e=document.getElementById(id+i); if(e){ e.style.display=show?'':'none'; if(dis!==undefined) e.disabled=dis; } };
-  set('sr-back-',i>0||_srStage===2);
-  set('sr-next-',_srStage===1||!last,!ok);
-  set('sr-sub-',_srStage===2&&last,!ok);
-}
-function srNext(){
-  if(_srStage===1){ if(!srPicked(_srPage).length){ toast('Please select at least one option.'); return; } srShowPage(_srPage,2); return; }
-  const ta=document.getElementById(`sr-ai-use-${_srPage}`);
-  if(!ta||!ta.value.trim()){ toast('Please answer before continuing.'); return; }
-  if(_srPage<srTot()-1) srShowPage(_srPage+1,1);
-}
-function srPrev(){
-  if(_srStage===2) srShowPage(_srPage,1);
-  else if(_srPage>0) srShowPage(_srPage-1,2);
-}
-async function srSubmit(){
-  const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
-  // Validate all fields are filled before allowing submission
-  if(finalized.some((_,i)=>!srFilled(i))){ toast('Please fill in all fields before submitting.'); return; }
-  const picks=finalized.map((_,i)=>srPicked(i));
-  const descs=finalized.map((_,i)=>document.getElementById(`sr-ai-use-${i}`).value.trim());
-  // Both answers are stored together in the existing self_report_ai_use column
-  const aiUses=finalized.map((_,i)=>`AI use: ${picks[i].join('; ')}\nDescription: ${descs[i]}`);
-
-  const btn=document.getElementById(`sr-sub-${finalized.length-1}`);
-  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
-
-  // Attach each answer to its idea, and clear any answer left on an idea that is no longer finalized
-  S.nodes.forEach(n=>{ n.selfReportAiUse=''; });
-  finalized.forEach((n,i)=>{ n.selfReportAiUse=aiUses[i]; });
-  S.selfReportData={ finalized, aiUses, picks, descs }; // kept so the form is prefilled if reopened
-
-  const ok=await syncNow();
-  if(!ok){
-    if(btn){ btn.disabled=false; btn.textContent='Submit Self-Reports'; }
-    toast('Could not save your responses. Check your connection and try again.','var(--red)');
-    return;
-  }
-  document.getElementById('self-report-modal').style.display='none';
-  toast('Your responses have been saved. Thank you!','var(--green)');
-}
-function closeSelfReport(){
-  document.getElementById('self-report-modal').style.display='none';
-  hideTreeTooltip();
 }
 
 // Called when a node is unfinalized — marks it so it stays visible in the list

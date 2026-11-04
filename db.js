@@ -44,6 +44,18 @@ const CREATE_TABLE_SQL = `
   CREATE INDEX IF NOT EXISTS ideagit_nodes_participant_idx ON ideagit_nodes (participant_id);
 `;
 
+const CREATE_SR_SQL = `
+  CREATE TABLE IF NOT EXISTS ideagit_selfreports (
+    participant_id  TEXT        NOT NULL,
+    round           INTEGER     NOT NULL,
+    node_id         TEXT        NOT NULL,
+    study_condition TEXT,
+    answers         JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (participant_id, round, node_id)
+  );
+`;
+
 const UPSERT_SQL = `
   INSERT INTO ideagit_nodes (
     participant_id, node_id, study_condition, group_id, parent_id, type, tag,
@@ -81,6 +93,7 @@ async function initDb() {
     return;
   }
   await pool.query(CREATE_TABLE_SQL);
+  await pool.query(CREATE_SR_SQL);
   console.log('Postgres ready (table ideagit_nodes).');
 }
 
@@ -117,6 +130,24 @@ async function saveNodes(participantId, condition, nodes) {
   }
 }
 
+// Structured self-reports: round 1 = original, round 2 = repeat. One row per (participant, round, idea).
+async function saveSelfReports(participantId, condition, round, reports) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const r of reports) {
+      await client.query(
+        `INSERT INTO ideagit_selfreports (participant_id, round, node_id, study_condition, answers, updated_at)
+         VALUES ($1,$2,$3,$4,$5::jsonb,NOW())
+         ON CONFLICT (participant_id, round, node_id) DO UPDATE SET
+           study_condition = EXCLUDED.study_condition, answers = EXCLUDED.answers, updated_at = NOW()`,
+        [participantId, round, String(r.node_id), condition == null ? null : String(condition), JSON.stringify(r.answers || {})]);
+    }
+    await client.query('COMMIT');
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+  finally { client.release(); }
+}
+
 // Read-only helpers for the /view page: which (condition, participant) pairs exist, and one participant's nodes.
 async function listParticipants() {
   const r = await pool.query(
@@ -138,4 +169,4 @@ async function getParticipantNodes(conditions, participantId) {
   return r.rows;
 }
 
-module.exports = { initDb, saveNodes, dbConfigured, listParticipants, getParticipantNodes };
+module.exports = { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };

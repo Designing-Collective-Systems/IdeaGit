@@ -757,3 +757,8 @@ body.app5 .tree-canvas{top:8px}
 
 .v-source{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 8px;font-size:0.95rem;color:var(--text2)}
 .v-upload{cursor:pointer}
+.sr-selectable{cursor:pointer}
+.sr-selected{outline:3px solid #16a34a !important;outline-offset:2px}
+.sr-dim{opacity:.35;pointer-events:none}
+.tree-node.sr-selected .tree-node-inner{outline:3px solid #16a34a;outline-offset:2px}
+.tree-node.sr-selected{outline:none !important}
