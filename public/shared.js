@@ -975,6 +975,7 @@ function srDraw(disp,node,selMode,sel){
 }
 // Change-reflection for selection questions: earlier vs now, side by side, prompt on top.
 function srShowCompare(st,node){
+  document.getElementById('sr-idea-display').innerHTML=''; // its tree ids would clash with the two panels below
   const q=SR.QS[st.j], right=document.querySelector('.sr-right');
   right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Reflection on changed answer</div></div>
     <div class="sr-page" style="display:flex">
