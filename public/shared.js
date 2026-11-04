@@ -358,7 +358,6 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   const vals=Object.values(pos); if(!vals.length){ if(emptyEl) emptyEl.style.display='flex'; return; }
   const maxX=Math.max(...vals.map(p=>p.x))+110+190, maxY=Math.max(...vals.map(p=>p.y))+80;
   const W=165,H=62;
-  const lineage=new Set(getPath(currentNodeId).map(n=>n.id));
   const canvas=document.getElementById(canvasId);
   if(canvas){ canvas.style.width=maxX+'px'; canvas.style.height=maxY+'px'; }
   svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
@@ -1069,6 +1068,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet){
   S.currentGroupId=savedGid;
   const vals=Object.values(pos); if(!vals.length) return;
   const W=165,H=62;
+  const lineage=new Set(getPath(currentNodeId).map(n=>n.id));
   const maxX=Math.max(...vals.map(p=>p.x))+110, maxY=Math.max(...vals.map(p=>p.y))+90;
   const inner=document.getElementById('sr-tree-inner');
   if(inner){ inner.style.width=maxX+'px'; inner.style.height=maxY+'px'; }
