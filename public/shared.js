@@ -358,6 +358,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   const vals=Object.values(pos); if(!vals.length){ if(emptyEl) emptyEl.style.display='flex'; return; }
   const maxX=Math.max(...vals.map(p=>p.x))+110+190, maxY=Math.max(...vals.map(p=>p.y))+80;
   const W=165,H=62;
+  const lineage=new Set(getPath(currentNodeId).map(n=>n.id));
   const canvas=document.getElementById(canvasId);
   if(canvas){ canvas.style.width=maxX+'px'; canvas.style.height=maxY+'px'; }
   svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
@@ -917,20 +918,20 @@ function srRender(){
   if(st.t==='q'){
     const q=QS[st.j], a=srAns()[node.id];
     selMode=q.type==='sel'?q.mode:null;
-    head=`Self-report ${SR.round} of 2 · Idea ${st.i+1} of ${SR.ideas.length} · Question ${st.j+1} of ${QS.length}`;
+    head=`Question ${st.j+1} of ${QS.length}`;
     if(q.type==='scale'){
       body=`<p class="sr-q-label">${q.text}</p>`+srScaleOf(q.k).map((l,x)=>`<label class="sr-opt"><input type="radio" name="sr-r" value="${x+1}" ${a[q.k]===x+1?'checked':''} onchange="srPick('${q.k}',${x+1})"> ${x+1} = ${l}</label>`).join('');
     } else {
       body=`<p class="sr-q-label">${q.text}</p><p class="sr-q-sub">Click ${unit} on the left to select or unselect them. <span id="sr-selcount"></span></p>`;
     }
-    const isSel=q.type==='sel', first=SR.p===0||SR.steps[SR.p-1].t!=='q';
+    const isSel=q.type==='sel', first=!SR.steps.slice(0,SR.p).some(x=>x.t==='q');
     foot=`${first?'':'<button class="btn btn-outline" onclick="srBack()">← Back</button>'}<button class="btn btn-primary" id="sr-go" onclick="srNext()" ${(!isSel&&!a[q.k])?'disabled':''}>${isSel?'Submit':(SR.p===SR.steps.length-1||SR.steps[SR.p+1].i!==st.i&&false?'Next →':'Next →')}</button>`;
   } else if(st.t==='reflect'){
     head=`Reflection · Idea ${st.i+1} of ${SR.ideas.length}`;
     body=`<p class="sr-q-label">While looking at the ${srTree()?'idea tree':'chat history'}, can you please reflect out loud how the idea developed, from the start to the final version?</p>`;
     foot=`<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
   } else {
-    head=`Reflection on changed answers · ${st.n} of ${SR.chg.length}`;
+    head=`Reflection on changed answer`;
     body=`<p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p><p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>`;
     foot=`<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
   }
@@ -976,7 +977,7 @@ function srDraw(disp,node,selMode,sel){
 // Change-reflection for selection questions: earlier vs now, side by side, prompt on top.
 function srShowCompare(st,node){
   const q=SR.QS[st.j], right=document.querySelector('.sr-right');
-  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Reflection on changed answers · ${st.n} of ${SR.chg.length}</div></div>
+  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Reflection on changed answer</div></div>
     <div class="sr-page" style="display:flex">
       <p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p>
       <p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>
@@ -988,9 +989,12 @@ function srShowCompare(st,node){
     </div>`;
   const ids=r=>new Set((r[node.id][q.k]||[]).map(o=>o.id));
   const A=document.getElementById('sr-cmp-a'), B=document.getElementById('sr-cmp-b');
+  [A,B].forEach(c=>c.style.position='relative');
   srDraw(A,node,'ro',ids(SR.a1));
+  if(srTree()) A.firstElementChild.style.cssText+=';position:absolute;inset:0;height:auto';
   A.querySelectorAll('[id]').forEach(e=>{ if(!e.id.startsWith('arr')) e.id='a-'+e.id; });
   srDraw(B,node,'ro',ids(SR.a2));
+  if(srTree()) B.firstElementChild.style.cssText+=';position:absolute;inset:0;height:auto';
 }
 function srFmt(q,v){
   if(q.type==='scale') return v?`${v} = ${srScaleOf(q.k)[v-1]}`:'(no answer)';
@@ -1001,7 +1005,7 @@ function srChanged(q,x,y){
   const a=new Set((x||[]).map(o=>o.id)), b=new Set((y||[]).map(o=>o.id));
   return a.size!==b.size||[...a].some(i=>!b.has(i));
 }
-function srBack(){ if(SR.p>0&&SR.steps[SR.p-1].t==='q'){ SR.p--; srRender(); } }
+function srBack(){ let t=SR.p-1; while(t>=0&&SR.steps[t].t!=='q') t--; if(t>=0){ SR.p=t; srRender(); } }
 async function srPostRound(round,reports){
   try{
     const r=await fetch('/api/save-selfreport',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1009,10 +1013,21 @@ async function srPostRound(round,reports){
     return r.ok;
   }catch(e){ return false; }
 }
+function srChgStep(i,j){
+  const n=SR.ideas[i], q=SR.QS[j], x=SR.a1[n.id][q.k], y=SR.a2[n.id][q.k];
+  return srChanged(q,x,y)?{t:'chg',i,j,qtext:q.text.replace(/ If none, press submit\./,''),old:srFmt(q,x),nw:srFmt(q,y)}:null;
+}
 async function srNext(){
   if(SR.busy) return;
-  const st=SR.steps[SR.p], last=SR.p===SR.steps.length-1;
-  if(!last){ SR.p++; srRender(); return; }
+  const st=SR.steps[SR.p];
+  if(SR.phase==='r2'&&st.t==='q'){
+    // a changed answer is questioned right away
+    const nx=SR.steps[SR.p+1];
+    if(nx&&nx.t==='chg'&&nx.i===st.i&&nx.j===st.j) SR.steps.splice(SR.p+1,1);
+    const c=srChgStep(st.i,st.j);
+    if(c) SR.steps.splice(SR.p+1,0,c);
+  }
+  if(SR.p<SR.steps.length-1){ SR.p++; srRender(); return; }
   // end of a phase
   if(SR.phase==='r1'){
     SR.busy=true;
@@ -1022,20 +1037,14 @@ async function srNext(){
     SR.phase='reflect'; SR.p=0; SR.steps=SR.ideas.map((n,i)=>({t:'reflect',i})); srRender();
   } else if(SR.phase==='reflect'){
     SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps(); srRender();
-  } else if(SR.phase==='r2'){
-    const chg=[];
-    SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{
-      const x=SR.a1[n.id][q.k], y=SR.a2[n.id][q.k];
-      if(srChanged(q,x,y)) chg.push({t:'chg',i,j,n:chg.length+1,qtext:q.text.replace(/ If none, press submit\./,''),old:srFmt(q,x),nw:srFmt(q,y)});
-    }));
+  } else {
     SR.busy=true;
-    const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:chg.filter(c=>c.i===i).map(c=>SR.QS[c.j].k)})})));
+    const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:SR.QS.filter(q=>srChanged(q,SR.a1[n.id][q.k],SR.a2[n.id][q.k])).map(q=>q.k)})})));
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
     S.selfReportRounds={round1:SR.a1,round2:SR.a2};
-    if(!chg.length){ srFinish(); return; }
-    SR.chg=chg; SR.phase='chg'; SR.p=0; SR.steps=chg; srRender();
-  } else srFinish();
+    srFinish();
+  }
 }
 function srFinish(){
   document.getElementById('self-report-modal').style.display='none';
@@ -1089,7 +1098,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet){
     if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
     else if(selMode){
       const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
-      if(selMode==='ai'&&!ai) el.classList.add('sr-dim');
+      if(!lineage.has(node.id)||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
       else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
         el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
     }
