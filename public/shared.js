@@ -954,9 +954,12 @@ function srShowLeft(node,selMode,j){
   srDraw(document.getElementById('sr-idea-display'),node,selMode,sel);
 }
 function srDraw(disp,node,selMode,sel){
-  if(!srTree()){
-    disp.innerHTML=''; const wrap=document.createElement('div'); wrap.className='sr-chat-history'; buildChatInto(wrap,node.id); disp.appendChild(wrap);
-    if(selMode) [...wrap.children].forEach((el,i)=>{
+  const tree=srTree();
+  disp.innerHTML=`<div style="position:absolute;inset:0"><div class="srz-scroll" style="position:absolute;inset:0;overflow:auto;background:var(--bg);cursor:grab;box-sizing:border-box;padding:${tree?'1.8rem 0 0':'14px'}"></div><div class="tree-zoom"><button type="button" title="Zoom in">+</button><button type="button" title="Zoom out">\u2212</button></div></div>`;
+  const sc=disp.querySelector('.srz-scroll'); let content;
+  if(!tree){
+    content=document.createElement('div'); content.className='sr-chat-history'; sc.appendChild(content); buildChatInto(content,node.id);
+    if(selMode) [...content.children].forEach((el,i)=>{
       const id=`${el.dataset.nodeId}#${i}`;
       if(selMode==='ro'){ if(sel.has(id)) el.classList.add('sr-selected'); return; }
       const ai=el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
@@ -966,9 +969,21 @@ function srDraw(disp,node,selMode,sel){
       el.onclick=()=>srToggle(id,el.innerText.replace(/\s+/g,' ').trim(),el);
     });
   } else {
-    disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
+    sc.innerHTML='<div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div>';
+    content=sc.firstElementChild;
     renderSrTree(node.groupId,node.id,selMode,sel);
   }
+  // zoom (buttons + ctrl/pinch wheel) and drag-to-pan, like the main Idea Tree panel
+  let k=1; const zoom=f=>{ k=Math.max(0.3,Math.min(2,k*f)); content.style.zoom=k; };
+  const [zi,zo]=disp.querySelectorAll('.tree-zoom button'); zi.onclick=()=>zoom(1.25); zo.onclick=()=>zoom(0.8);
+  sc.addEventListener('wheel',e=>{ if(!e.ctrlKey) return; e.preventDefault(); zoom(Math.exp(-e.deltaY*0.01)); },{passive:false});
+  sc.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.target.closest('.tree-node,.sr-selectable')) return;
+    const d={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+    const mv=ev=>{ sc.scrollLeft=d.l-(ev.clientX-d.x); sc.scrollTop=d.t-(ev.clientY-d.y); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+  });
 }
 // Change-reflection for selection questions: earlier vs now, side by side, prompt on top.
 function srShowCompare(st,node){
@@ -978,7 +993,7 @@ function srShowCompare(st,node){
     <div class="sr-page" style="display:flex">
       <p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p>
       <p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;height:calc(80vh - 250px);min-height:260px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;height:calc(100vh - 230px);min-height:300px">
         <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Earlier</div><div id="sr-cmp-a" style="flex:1;min-height:0;overflow:auto"></div></div>
         <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Now</div><div id="sr-cmp-b" style="flex:1;min-height:0;overflow:auto"></div></div>
       </div>
@@ -988,10 +1003,8 @@ function srShowCompare(st,node){
   const A=document.getElementById('sr-cmp-a'), B=document.getElementById('sr-cmp-b');
   [A,B].forEach(c=>c.style.position='relative');
   srDraw(A,node,'ro',ids(SR.a1));
-  if(srTree()) A.firstElementChild.style.cssText+=';position:absolute;inset:0;height:auto';
   A.querySelectorAll('[id]').forEach(e=>{ if(!e.id.startsWith('arr')) e.id='a-'+e.id; });
   srDraw(B,node,'ro',ids(SR.a2));
-  if(srTree()) B.firstElementChild.style.cssText+=';position:absolute;inset:0;height:auto';
 }
 function srFmt(q,v){
   if(q.type==='scale') return v?`${v} = ${srScaleOf(q.k)[v-1]}`:'(no answer)';

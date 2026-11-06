@@ -762,3 +762,9 @@ body.app5 .tree-canvas{top:8px}
 .sr-dim{opacity:.35;pointer-events:none}
 .tree-node.sr-selected .tree-node-inner{outline:3px solid #16a34a;outline-offset:2px}
 .tree-node.sr-selected{outline:none !important}
+/* self-report: full-screen page, left panel = same size as the main Idea Tree panel */
+#self-report-modal{background:var(--bg);align-items:stretch;justify-content:stretch}
+#self-report-modal .self-report-modal{width:100vw;height:100vh;border-radius:0;box-shadow:none}
+#self-report-modal .sr-left{width:66.6667%}
+#sr-idea-display{position:relative;padding:0;overflow:hidden}
+#self-report-modal .sr-page{padding:20px 32px}
