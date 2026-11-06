@@ -877,19 +877,16 @@ function confirmDone(){
 }
 
 // ── Self-report: round 1 → reflect-aloud → round 2 → reflect on changes ──
-const SR_SCALES={
-  own:['Entirely to the AI','Mostly to the AI','Slightly more to the AI','Equally to both','Slightly more to me','Mostly to me','Entirely to me'],
-  dep:['Entirely on the AI','Mostly on the AI','Slightly more on the AI','Equally on both','Slightly more on myself','Mostly on myself','Entirely on myself'],
-  effort:['Very, very low','Very low','Low','Neither low nor high','High','Very high','Very, very high']
-};
+const SR_LVL=['Not at all','Slightly','Moderately','Mostly','Completely'];
+const SR_SCALES={own:SR_LVL,dep:SR_LVL,effort:['Very low','Low','Moderate','High','Very high']};
 let SR=null;
 const srTree=()=>!!window.SR_TREE_ONLY;
 function srQs(){
   const u=srTree()?'nodes':'chat messages', ai=srTree()?'AI edit nodes':'AI chat messages';
   return [
-    {k:'own',type:'scale',text:'To what extent do you feel this idea belongs to you or to the AI?'},
+    {k:'own',type:'scale',text:'To what extent do you feel this idea belongs to you?'},
     {k:'ownSel',type:'sel',mode:'all',text:`Please select the ${u} which contributed to your ownership of the idea. If none, press submit.`},
-    {k:'dep',type:'scale',text:'To what extent did you depend on yourself or on the AI to develop this idea?'},
+    {k:'dep',type:'scale',text:'To what extent did you depend on the AI to develop this idea?'},
     {k:'noAI',type:'sel',mode:'ai',text:`Please select the ${ai} that you feel you could have done without AI. If none, press submit.`},
     {k:'skip',type:'sel',mode:'ai',text:`Please select the ${ai} that you feel you could have skipped. If none, press submit.`},
     {k:'effort',type:'scale',text:'How much effort did you invest in developing this idea?'}
@@ -1020,13 +1017,6 @@ function srChgStep(i,j){
 async function srNext(){
   if(SR.busy) return;
   const st=SR.steps[SR.p];
-  if(SR.phase==='r2'&&st.t==='q'){
-    // a changed answer is questioned right away
-    const nx=SR.steps[SR.p+1];
-    if(nx&&nx.t==='chg'&&nx.i===st.i&&nx.j===st.j) SR.steps.splice(SR.p+1,1);
-    const c=srChgStep(st.i,st.j);
-    if(c) SR.steps.splice(SR.p+1,0,c);
-  }
   if(SR.p<SR.steps.length-1){ SR.p++; srRender(); return; }
   // end of a phase
   if(SR.phase==='r1'){
@@ -1037,14 +1027,17 @@ async function srNext(){
     SR.phase='reflect'; SR.p=0; SR.steps=SR.ideas.map((n,i)=>({t:'reflect',i})); srRender();
   } else if(SR.phase==='reflect'){
     SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps(); srRender();
-  } else {
+  } else if(SR.phase==='r2'){
     SR.busy=true;
     const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:SR.QS.filter(q=>srChanged(q,SR.a1[n.id][q.k],SR.a2[n.id][q.k])).map(q=>q.k)})})));
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
     S.selfReportRounds={round1:SR.a1,round2:SR.a2};
-    srFinish();
-  }
+    // reflection on every changed answer, after the whole second round
+    const chg=[]; SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{ const c=srChgStep(i,j); if(c) chg.push(c); }));
+    if(!chg.length){ srFinish(); return; }
+    SR.phase='chg'; SR.p=0; SR.steps=chg; srRender();
+  } else srFinish();
 }
 function srFinish(){
   document.getElementById('self-report-modal').style.display='none';
