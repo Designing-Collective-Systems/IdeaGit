@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaForest Admin</title><link rel="stylesheet" href="styles.css"/>
+<style>
+body{background:var(--bg);margin:0}.wrap{max-width:900px;margin:0 auto;padding:28px 20px}
+h1{font-size:1.5rem;margin:0 0 4px}.sub{color:var(--text3);margin:0 0 18px}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border)}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)}th{background:var(--surface2);font-size:.85rem}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.msg{color:var(--text3);font-size:.9rem}
+.grp td{background:var(--blue-lt);font-weight:600}
+</style></head><body><div class="wrap">
+<h1>IdeaForest — Admin</h1>
+<p class="sub">Select the participants whose ideas raters will rate. Raters only see ideas from the participants ticked here.</p>
+<div class="bar">
+  <button class="btn btn-primary" id="save" onclick="save()">Save selection</button>
+  <a class="btn btn-outline" href="/dashboard">Dashboard</a><a class="btn btn-outline" href="/rate" target="_blank">Rater page</a>
+  <button class="btn btn-outline" id="dist" onclick="dist()">Compute semantic distances</button>
+  <span class="msg" id="msg"></span>
+</div>
+<table id="tbl"><tr><td>Loading…</td></tr></table>
+</div>
+<script src="measures.js"></script>
+<script>
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LBL={'ai-only':'AI only','idea-tree':'Idea Tree','other':'Other / not recorded'};
+let ROWS=[];
+const say=t=>document.getElementById('msg').textContent=t;
+async function load(){
+  const r=await fetch('/api/admin/participants'); if(!r.ok){ document.getElementById('tbl').innerHTML='<tr><td>Could not load: '+esc((await r.json().catch(()=>({}))).error||r.status)+'</td></tr>'; return; }
+  const {participants,selected}=await r.json(), sel=new Set(selected);
+  ROWS=participants.map(p=>({...p,cat:Measures.condCat(p.condition)}));
+  let h='<tr><th style="width:40px"></th><th>Participant</th><th>Condition</th><th>Nodes</th></tr>';
+  ['ai-only','idea-tree','other'].forEach(c=>{
+    const rs=ROWS.filter(x=>x.cat===c).sort((a,b)=>a.participant_id.localeCompare(b.participant_id,undefined,{numeric:true})); if(!rs.length) return;
+    h+=`<tr class="grp"><td><input type="checkbox" onchange="all_('${c}',this.checked)"></td><td colspan="3">${LBL[c]} (${rs.length})</td></tr>`;
+    rs.forEach(x=>{ h+=`<tr><td><input type="checkbox" class="pc" data-cat="${c}" value="${esc(x.participant_id)}" ${sel.has(x.participant_id)?'checked':''}></td><td>${esc(x.participant_id)}</td><td>${esc(x.condition||'—')}</td><td>${x.n}</td></tr>`; });
+  });
+  document.getElementById('tbl').innerHTML=h;
+}
+function all_(c,on){ document.querySelectorAll('.pc[data-cat="'+c+'"]').forEach(b=>b.checked=on); }
+async function save(){
+  const ids=[...new Set([...document.querySelectorAll('.pc:checked')].map(b=>b.value))];
+  const r=await fetch('/api/admin/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_ids:ids})});
+  say(r.ok?`Saved: ${ids.length} participant(s) selected.`:'Could not save.');
+}
+async function dist(){
+  const b=document.getElementById('dist'); b.disabled=true; say('Computing (the first run downloads the embedding model, this can take a few minutes)…');
+  try{ const r=await fetch('/api/admin/compute-distances',{method:'POST'}); const j=await r.json(); say(r.ok?`Done: ${j.computed} distances computed for the saved selection.`:('Failed: '+(j.error||r.status))); }
+  catch(e){ say('Failed: '+e.message); } b.disabled=false;
+}
+load();
+</script></body></html>
