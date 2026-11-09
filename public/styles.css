@@ -758,13 +758,13 @@ body.app5 .tree-canvas{top:8px}
 .v-source{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 8px;font-size:0.95rem;color:var(--text2)}
 .v-upload{cursor:pointer}
 .sr-selectable{cursor:pointer}
-.sr-selected{outline:3px solid #16a34a !important;outline-offset:2px}
 .sr-dim{opacity:.35;pointer-events:none}
-.tree-node.sr-selected .tree-node-inner{outline:3px solid #16a34a;outline-offset:2px}
-.tree-node.sr-selected{outline:none !important}
 /* self-report: full-screen page, left panel = same size as the main Idea Tree panel */
 #self-report-modal{background:var(--bg);align-items:stretch;justify-content:stretch}
 #self-report-modal .self-report-modal{width:100vw;height:100vh;border-radius:0;box-shadow:none}
 #self-report-modal .sr-left{width:66.6667%}
 #sr-idea-display{position:relative;padding:0;overflow:hidden}
 #self-report-modal .sr-page{padding:20px 32px}
+/* self-report selection mark: green circle with a white tick, top right */
+.sr-selected:not(.tree-node){position:relative}
+.sr-selected::after{content:"\2713";position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;background:#16a34a;color:#fff;font-size:15px;font-weight:700;line-height:24px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35);z-index:6;pointer-events:none}
