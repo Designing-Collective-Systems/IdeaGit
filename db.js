@@ -169,4 +169,10 @@ async function getParticipantNodes(conditions, participantId) {
   return r.rows;
 }
 
-module.exports = { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };
+async function getSelfReports(participantId) {
+  const r = await pool.query(
+    `SELECT round, node_id, answers FROM ideagit_selfreports WHERE participant_id = $1`, [participantId]);
+  return r.rows;
+}
+
+module.exports = { getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };

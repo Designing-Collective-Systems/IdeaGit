@@ -6,7 +6,7 @@
 
 const express = require('express');
 const path    = require('path');
-const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes } = require('./db');
+const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes, getSelfReports } = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -127,6 +127,13 @@ app.get('/api/view/nodes', viewAuth, async (req, res) => {
   const conds = (raw.length ? raw : ['__null__']).map(c => (c === '__null__' ? null : c));
   try { res.json(await getParticipantNodes(conds, participant_id)); }
   catch (err) { console.error('View nodes error:', err); res.status(500).json({ error: 'Database error' }); }
+});
+app.get('/api/view/selfreports', viewAuth, async (req, res) => {
+  if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured.' });
+  const { participant_id } = req.query;
+  if (typeof participant_id !== 'string' || !participant_id) return res.status(400).json({ error: 'participant_id is required.' });
+  try { res.json(await getSelfReports(participant_id)); }
+  catch (err) { console.error('View self-reports error:', err); res.status(500).json({ error: 'Database error' }); }
 });
 
 // Fallback — redirect everything else to landing

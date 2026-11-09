@@ -69,6 +69,7 @@ function toNode(r) {
     meta: cs ? { changeSummary: cs.summary || '', promptSummary: cs.prompt_summary || '', ideaSummary: cs.idea_summary || '' } : {} };
 }
 
+let SR_DATA = {};   // node_id -> { 1: round-1 answers, 2: round-2 answers }
 async function submitView() {
   let cond = document.getElementById('sel-condition').value, pid = document.getElementById('sel-pid').value;
   if (SRC === 'csv') { cond = catOf(document.getElementById('sel-csv-cond').value); pid = document.getElementById('csv-pid-row').style.display === 'none' ? '' : document.getElementById('sel-csv-pid').value; }
@@ -81,7 +82,13 @@ async function submitView() {
       const r = await fetch('/api/view/nodes?' + raws.map(c => 'condition=' + encodeURIComponent(c)).join('&') + '&participant_id=' + encodeURIComponent(pid));
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('status ' + r.status));
       rows = await r.json();
+      SR_DATA = {};
+      try {   // structured self-reports (before = round 1, after = round 2)
+        const sr = await fetch('/api/view/selfreports?participant_id=' + encodeURIComponent(pid));
+        if (sr.ok) (await sr.json()).forEach(x => { (SR_DATA[x.node_id] = SR_DATA[x.node_id] || {})[x.round] = x.answers || {}; });
+      } catch (e) { /* the viewer still works without them */ }
     }
+    if (SRC === 'csv') SR_DATA = {};
     S.nodes = rows.map(toNode); S.currentNodeId = null; S.currentGroupId = null;
     VIEW_COND = cond; VIEW_PID = pid || CSV_RAW.map(f => f.file).join('+');
     document.getElementById('v-info').textContent = condLabel(cond) + ' · ' + (pid ? 'Participant ' + pid : (CSV_RAW.map(f => f.file).join(', ')));
@@ -136,6 +143,16 @@ function openDetails(id) {
       `<div class="v-box"><div class="v-q"><b>${x.type === 'feedback' ? 'Asked for feedback' : 'Asked'}:</b> ${esc(x.userPrompt)}</div><div class="v-a"><b>AI:</b> ${esc(x.aiResponse || '')}</div></div>`).join('');
   }
   if (parent) h += `<details class="v-prev"><summary>Previous version</summary><div class="v-box v-text">${esc(parent.body)}</div></details>`;
+  if (n.isFinalized && SR_DATA[n.id]) {
+    const L = { own: ['Not at all', 'Slightly', 'Moderately', 'Mostly', 'Completely'], dep: ['Not at all', 'Slightly', 'Moderately', 'Mostly', 'Completely'],
+                effort: ['Very low', 'Low', 'Moderate', 'High', 'Very high'] };
+    const cell = (a, k) => (a && a[k]) ? `${a[k]} – ${L[k][a[k] - 1]}` : '—';
+    const a1 = SR_DATA[n.id][1], a2 = SR_DATA[n.id][2];
+    h += '<h4 class="v-h">Self-report scores</h4><table class="v-sr"><tr><th></th><th>Before</th><th>After</th></tr>'
+       + [['Ownership', 'own'], ['AI reliance', 'dep'], ['Effort', 'effort']].map(([lab, k]) =>
+           `<tr><td>${lab}</td><td>${cell(a1, k)}</td><td${a1 && a2 && a1[k] !== a2[k] ? ' class="v-sr-diff"' : ''}>${cell(a2, k)}</td></tr>`).join('')
+       + '</table>';
+  }
   if (n.selfReport && n.selfReport.trim()) h += `<h4 class="v-h">Self-report on AI use</h4><div class="v-box">${esc(n.selfReport)}</div>`;
   document.getElementById('v-side-body').innerHTML = h;
   document.getElementById('v-side').style.display = 'flex';

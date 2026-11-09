@@ -772,3 +772,7 @@ body.app5 .tree-canvas{top:8px}
 .two-col.ideation-grid.ai-two-col{grid-template-columns:2fr 1fr}
 .chat-actions-bar{grid-template-columns:repeat(4,1fr)}
 .chat-actions-bar .chat-action-btn{white-space:nowrap;padding-left:4px;padding-right:4px}
+.v-sr{width:100%;border-collapse:collapse;font-size:0.95rem}
+.v-sr th,.v-sr td{border:1px solid var(--border);padding:6px 10px;text-align:left}
+.v-sr th{background:var(--surface2);font-weight:600}
+.v-sr-diff{font-weight:700}
