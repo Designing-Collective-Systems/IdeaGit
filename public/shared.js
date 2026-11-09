@@ -1319,12 +1319,12 @@ function renderChatActions(){
         const b=document.createElement('button');
         b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; (target||bar).appendChild(b);
       };
-      mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self',bar2);
-      mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai',bar2);
-      // mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify',bar2);   // hidden for now
+      mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self');
+      mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai');
+      // mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify');   // hidden for now
       const tg=replyTarget()||node;     // finalize / discard follow the idea version you replied to
-      mk('Discard the current idea','btn-red',()=>discardNode(tg.id));
       mk(tg.isFinalized?'Unfinalize the idea':'Finalize the idea',tg.isFinalized?'btn-outline':'btn-green',()=>finalizeCurrentIdea(tg));
+      mk('Discard the current idea','btn-red',()=>discardNode(tg.id));
     }
   }
   fitActionButtons(); requestAnimationFrame(()=>{ fitActionButtons(); fitPromptLabels(); }); fitPromptLabels();
