@@ -48,7 +48,7 @@ async function loadItems(){
   const r=await fetch('/api/rate/items?rater='+encodeURIComponent(RATER)); const j=await r.json();
   if(!r.ok){ app.innerHTML='<div class="card">'+esc(j.error||'Error')+'</div>'; return; }
   ITEMS=j.items; RT=j.ratings;
-  const f=ITEMS.findIndex(complete); I=f<0?Math.max(0,ITEMS.length-1):f; show();
+  const f=ITEMS.findIndex(it=>!complete(it)); I=f<0?0:f; show();   // first item not yet rated
 }
 const done=(it,m)=>RT[m+'::'+it.id];
 function complete(it){ return it.measure==='quality'?(done(it,'originality')&&done(it,'effectiveness')):!!done(it,it.measure); }
