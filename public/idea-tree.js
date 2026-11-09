@@ -9,6 +9,7 @@ S.studyCondition = "IdeaForest_TreeOnly"; // value stored in the database's stud
 window.TREE_EMPTY_TEXT = 'Click “+ New Idea” to create your first idea. The idea tree will be populated as you work.';
 window.TREE_HINT_TEXT = 'Click on any node to work on it';
 window.SR_TREE_ONLY = true;
+window.TREE_NO_SKELETON = true;   // no grey placeholder nodes in the idea tree
 window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
 document.body.classList.add('app5');   // self-reports show only the idea tree
 
@@ -20,7 +21,7 @@ window.CONDITION_INSTRUCTIONS = `
   </div>`;
 
 document.addEventListener('DOMContentLoaded', initLanding);
-function onStudyBegin(){ startIdeation(); _detailsAfterSummary=true; openInstructions(); }
+function onStudyBegin(){ startIdeation(); _instrAfterDetails=true; openDetailsModal(); }
 
 // ── No chat / ideas panels: neutralise the old chat plumbing ──
 window.showChatInitial = function(){ _chatMode=null; showStart(); };
@@ -81,7 +82,7 @@ function renderActions(){
   const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn a5-tb-btn '+cls; b.textContent=label; b.onclick=fn; box.appendChild(b); };
   mk('Edit the idea yourself','btn-outline',()=>openNodeModal('edit-self'));
   mk('Edit the idea using AI','btn-outline',()=>openNodeModal('edit-ai'));
-  mk('Ask AI to clarify the idea','btn-outline',openAsk);
+  // mk('Ask AI to clarify the idea','btn-outline',openAsk);   // hidden for now; may come back later
   mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
   mk('Discard the current idea','btn-red',()=>discardNode(node.id));
   box.style.display='flex';

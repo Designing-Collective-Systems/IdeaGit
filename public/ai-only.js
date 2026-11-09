@@ -14,4 +14,4 @@ window.CONDITION_INSTRUCTIONS = `
 // The landing page collects the participant ID first; the ideation screen starts once they begin.
 document.addEventListener('DOMContentLoaded', initLanding);
 // Summary opens first; the design-challenge Details open when it is closed (this one time only).
-function onStudyBegin(){ startIdeation(); _detailsAfterSummary=true; openInstructions(); }
+function onStudyBegin(){ startIdeation(); _instrAfterDetails=true; openDetailsModal(); }

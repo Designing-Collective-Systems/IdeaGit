@@ -7,7 +7,7 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
 const FIXED_CHALLENGE = [
-  "Setup: You are a designer at a technology company. Your task is to design a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
+  "Setup: You are a designer at a technology company. Your task is to brainstorm ideas for a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
   "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.",
   "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail about what the feature does and when/how it is triggered that they wouldn’t need to ask follow-up questions."
 ].join("\n\n");
@@ -818,7 +818,7 @@ function goHome(){
 }
 
 // ── Instructions ───────────────────────────────────────────────
-let _detailsAfterSummary=false; // true only at session start: Summary closes -> Details opens
+let _instrAfterDetails=false; // true only at session start: Design challenge closes -> IdeaForest instructions open
 function openInstructions(){
   document.getElementById('instructions-head').textContent=window.CONDITION_INSTRUCTIONS_TITLE||'IdeaForest';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
@@ -834,11 +834,13 @@ function fitInstructionText(){
 }
 function closeInstructions(){
   document.getElementById('instructions-modal').style.display='none';
-  if(_detailsAfterSummary){ _detailsAfterSummary=false; openDetailsModal(); }
 }
 
 function openDetailsModal(){ document.getElementById('details-modal').style.display='flex'; }
-function closeDetailsModal(){ document.getElementById('details-modal').style.display='none'; }
+function closeDetailsModal(){
+  document.getElementById('details-modal').style.display='none';
+  if(_instrAfterDetails){ _instrAfterDetails=false; openInstructions(); }
+}
 
 // ── Setup page ─────────────────────────────────────────────────
 function onChallengeInput(){
@@ -925,11 +927,11 @@ function srRender(){
   } else if(st.t==='reflect'){
     head=`Reflection · Idea ${st.i+1} of ${SR.ideas.length}`;
     body=`<p class="sr-q-label">While looking at the ${srTree()?'idea tree':'chat history'}, can you please reflect out loud how the idea developed, from the start to the final version?</p>`;
-    foot=`<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
+    foot=`${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
   } else {
-    head=`Reflection on changed answer`;
-    body=`<p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p><p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>`;
-    foot=`<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
+    head=`Idea ${st.i+1} · Reflection on changed answer`;
+    body=`<p class="sr-q-label">${esc(st.qtext)}</p><p style="font-size:0.95rem">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}."</p><p class="sr-q-label">Reflect out loud what led you to change your answer.</p>`;
+    foot=`${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
   }
   right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">${head}</div></div><div class="sr-page" style="display:flex">${body}<div class="sr-foot">${foot}</div></div>`;
   srShowLeft(node,selMode,st.t==='q'&&selMode?st.j:null);
@@ -949,8 +951,12 @@ function srShowLeft(node,selMode,j){
   hideTreeTooltip();
   const st=SR.steps[SR.p], left=document.getElementById('sr-left');
   if(st.t==='chg'&&SR.QS[st.j].type==='sel'){ left.style.display='none'; srShowCompare(st,node); return; }
+  const fb0=document.getElementById('sr-final-banner'); if(fb0) fb0.style.display='none';
   left.style.display='flex';
   const sel=selMode?new Set((srSelSet()||[]).map(o=>o.id)):null;
+  let fb=document.getElementById('sr-final-banner');
+  if(!fb){ fb=document.createElement('div'); fb.id='sr-final-banner'; fb.style.cssText='flex-shrink:0;max-height:28%;overflow:auto;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:0.95rem;line-height:1.5'; const d=document.getElementById('sr-idea-display'); d.parentNode.insertBefore(fb,d); }
+  fb.style.display=srTree()?'':'none'; fb.innerHTML=`<strong>Final idea:</strong> ${esc(node.body||'')}`;
   srDraw(document.getElementById('sr-idea-display'),node,selMode,sel);
 }
 function srDraw(disp,node,selMode,sel){
@@ -989,15 +995,14 @@ function srDraw(disp,node,selMode,sel){
 function srShowCompare(st,node){
   document.getElementById('sr-idea-display').innerHTML=''; // its tree ids would clash with the two panels below
   const q=SR.QS[st.j], right=document.querySelector('.sr-right');
-  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Reflection on changed answer</div></div>
+  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} · Reflection on changed answer</div></div>
     <div class="sr-page" style="display:flex">
-      <p class="sr-q-label">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}." Reflect out loud what led you to change your answer.</p>
-      <p class="sr-q-sub">Idea ${st.i+1}: ${esc(st.qtext)}</p>
+      <p class="sr-q-label">${esc(st.qtext)}</p><p style="font-size:0.95rem">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}."</p><p class="sr-q-label">Reflect out loud what led you to change your answer.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;height:calc(100vh - 230px);min-height:300px">
         <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Earlier</div><div id="sr-cmp-a" style="flex:1;min-height:0;overflow:auto"></div></div>
         <div style="display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"><div class="sr-q-label" style="padding:6px 10px;background:var(--surface2)">Now</div><div id="sr-cmp-b" style="flex:1;min-height:0;overflow:auto"></div></div>
       </div>
-      <div class="sr-foot"><button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button></div>
+      <div class="sr-foot">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button></div>
     </div>`;
   const ids=r=>new Set((r[node.id][q.k]||[]).map(o=>o.id));
   const A=document.getElementById('sr-cmp-a'), B=document.getElementById('sr-cmp-b');
@@ -1015,6 +1020,7 @@ function srChanged(q,x,y){
   const a=new Set((x||[]).map(o=>o.id)), b=new Set((y||[]).map(o=>o.id));
   return a.size!==b.size||[...a].some(i=>!b.has(i));
 }
+function srPrevStep(){ if(SR.p>0){ SR.p--; srRender(); } }
 function srBack(){ let t=SR.p-1; while(t>=0&&SR.steps[t].t!=='q') t--; if(t>=0){ SR.p=t; srRender(); } }
 async function srPostRound(round,reports){
   try{
@@ -1316,7 +1322,7 @@ function renderChatActions(){
       };
       mk('Edit the idea yourself','btn-outline',()=>openChatComposer('edit-self'),'edit-self',bar2);
       mk('Edit the idea using AI','btn-outline',()=>openChatComposer('edit-ai'),'edit-ai',bar2);
-      mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify',bar2);
+      // mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify',bar2);   // hidden for now
       const tg=replyTarget()||node;     // finalize / discard follow the idea version you replied to
       mk('Discard the current idea','btn-red',()=>discardNode(tg.id));
       mk(tg.isFinalized?'Unfinalize the idea':'Finalize the idea',tg.isFinalized?'btn-outline':'btn-green',()=>finalizeCurrentIdea(tg));
@@ -1574,6 +1580,15 @@ async function confirmGenerateConfirm(){
 // ── Finalize / new idea ───────────────────────────────────────
 function finalizeCurrentIdea(n){
   const node=(n&&n.id&&n.body!==undefined)?n:curNode(); if(!node) return;
+  const hasNewer=!node.isFinalized&&S.nodes.some(k=>k.parentId===node.id&&k.type!=='feedback'&&k.type!=='clarification');
+  if(hasNewer){
+    askConfirm({title:'Finalize this version?',message:'This is not the latest version of the idea. Are you sure you want to finalize it?',
+      buttons:[{label:'Cancel',cls:'btn-outline',onClick:()=>{}},{label:'Yes, finalize',cls:'btn-green',onClick:()=>doFinalizeIdea(node)}]});
+    return;
+  }
+  doFinalizeIdea(node);
+}
+function doFinalizeIdea(node){
   _chatMode=null;
   if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
   updateChatHeader(); updateFinalizedCounter(); refreshUI();
