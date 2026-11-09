@@ -8,8 +8,7 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 const FIXED_CHALLENGE = [
   "Setup: You are a designer at a technology company. Your task is to brainstorm ideas for a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
-  "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.",
-  "Scenario: Imagine you are pitching these ideas to a software engineering team that will implement these ideas. Describe each idea with enough detail about what the feature does and when/how it is triggered that they wouldn’t need to ask follow-up questions."
+  "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone."
 ].join("\n\n");
 
 const TASK_PREAMBLE_TEXT = 'For the following design challenge, please brainstorm and write down at least three ideas within 15 minutes (after you read the instructions). The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly. Please let the research team member know once you are done brainstorming ideas.';
