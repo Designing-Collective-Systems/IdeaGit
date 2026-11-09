@@ -56,6 +56,19 @@ const CREATE_SR_SQL = `
   );
 `;
 
+// Admin selection (which participants raters see), raters, ratings, and cached semantic distances.
+const CREATE_ADMIN_SQL = `
+  CREATE TABLE IF NOT EXISTS ideagit_selection (
+    participant_id TEXT PRIMARY KEY, selected_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  CREATE TABLE IF NOT EXISTS ideagit_raters (
+    name TEXT PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_active TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  CREATE TABLE IF NOT EXISTS ideagit_ratings (
+    rater TEXT NOT NULL, measure TEXT NOT NULL, item_key TEXT NOT NULL, value TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (rater, measure, item_key));
+  CREATE TABLE IF NOT EXISTS ideagit_distances (
+    kind TEXT NOT NULL, item_key TEXT NOT NULL, distance DOUBLE PRECISION NOT NULL, PRIMARY KEY (kind, item_key));
+`;
+
 const UPSERT_SQL = `
   INSERT INTO ideagit_nodes (
     participant_id, node_id, study_condition, group_id, parent_id, type, tag,
@@ -94,6 +107,7 @@ async function initDb() {
   }
   await pool.query(CREATE_TABLE_SQL);
   await pool.query(CREATE_SR_SQL);
+  await pool.query(CREATE_ADMIN_SQL);
   console.log('Postgres ready (table ideagit_nodes).');
 }
 
@@ -175,4 +189,42 @@ async function getSelfReports(participantId) {
   return r.rows;
 }
 
-module.exports = { getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };
+async function getSelection() { return (await pool.query('SELECT participant_id FROM ideagit_selection ORDER BY participant_id')).rows.map(r => r.participant_id); }
+async function setSelection(pids) {
+  const c = await pool.connect();
+  try { await c.query('BEGIN'); await c.query('DELETE FROM ideagit_selection');
+    for (const p of pids) await c.query('INSERT INTO ideagit_selection (participant_id) VALUES ($1)', [String(p)]);
+    await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+}
+async function getNodesFor(pids) {
+  return (await pool.query(
+    `SELECT participant_id, study_condition, node_id, group_id, parent_id, type, tag, title, body, is_finalized, extras,
+            (EXTRACT(EPOCH FROM created_at) * 1000)::double precision AS created_ms
+       FROM ideagit_nodes WHERE participant_id = ANY($1::text[]) ORDER BY participant_id, created_at NULLS LAST, node_id`, [pids])).rows;
+}
+async function getSelfReportsFor(pids) {
+  return (await pool.query(`SELECT participant_id, round, node_id, answers FROM ideagit_selfreports WHERE participant_id = ANY($1::text[])`, [pids])).rows;
+}
+async function listRaters() { return (await pool.query('SELECT name FROM ideagit_raters ORDER BY last_active DESC')).rows.map(r => r.name); }
+async function touchRater(name) {
+  await pool.query(`INSERT INTO ideagit_raters (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET last_active = NOW()`, [name]);
+}
+async function getRatings(rater) {
+  return (await pool.query(rater ? 'SELECT rater, measure, item_key, value FROM ideagit_ratings WHERE rater = $1' : 'SELECT rater, measure, item_key, value FROM ideagit_ratings',
+    rater ? [rater] : [])).rows;
+}
+async function saveRating(rater, measure, key, value) {
+  await pool.query(`INSERT INTO ideagit_ratings (rater, measure, item_key, value) VALUES ($1,$2,$3,$4)
+    ON CONFLICT (rater, measure, item_key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [rater, measure, key, value]);
+  await touchRater(rater);
+}
+async function getDistances() { return (await pool.query('SELECT kind, item_key, distance FROM ideagit_distances')).rows; }
+async function saveDistances(rows) {
+  const c = await pool.connect();
+  try { await c.query('BEGIN');
+    for (const r of rows) await c.query(`INSERT INTO ideagit_distances (kind, item_key, distance) VALUES ($1,$2,$3)
+      ON CONFLICT (kind, item_key) DO UPDATE SET distance = EXCLUDED.distance`, [r.kind, r.key, r.distance]);
+    await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+}
+
+module.exports = { getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances, getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaForest Rating</title><link rel="stylesheet" href="styles.css"/>
+<style>
+body{background:var(--bg);margin:0}.wrap{max-width:1000px;margin:0 auto;padding:24px 20px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+h1{font-size:1.4rem;margin:0}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap}
+.prog{color:var(--text3);font-size:.9rem}.stage{font-weight:700;color:var(--blue)}
+.txt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:1.02rem;line-height:1.55;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.lbl{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin:12px 0 5px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.opts{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;background:#fff}
+.opt:hover{background:var(--blue-lt)}.opt.on{border-color:var(--blue);background:var(--blue-lt)}.opt input{margin-top:3px}
+.q{font-weight:600;margin:14px 0 4px}.nav{display:flex;justify-content:space-between;margin-top:14px}
+.yn{display:flex;gap:10px}.yn .opt{flex:1;justify-content:center;font-weight:600}
+details summary{cursor:pointer;font-weight:600}
+</style></head><body><div class="wrap" id="app"></div>
+<script>
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CHALLENGE=`Setup: You are a designer at a technology company. Your task is to brainstorm ideas for a smartphone feature to reduce the amount of time users spend “compulsive scrolling”. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.
+
+Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.`;
+const ORIG=['Common, mundane, boring','Interesting','Unusual, interesting; shows some imagination','Not expressed before (rare, unusual) and ingenious, imaginative or surprising; may be humorous'];
+const EFF=['Solves an unrelated problem (it would not work, even if you could do it)','Unreasonable or unlikely to solve the problem (it probably will not work)','Reasonable and will contribute to the solution of the problem (it helps, but it is only a partial solution)','Reasonable and will solve the stated problem without regard for workability (if you could do it, it would solve the main problem)'];
+const STAGE={quality:'Quality of ideas',branch_div:'Branch divergence',edit_sig:'Edit significance',final_sig:'Final significance'};
+let RATER='',ITEMS=[],RT={},I=0;
+const app=document.getElementById('app');
+async function login(){
+  let names=[]; try{ names=await (await fetch('/api/rate/raters')).json(); }catch(e){}
+  app.innerHTML=`<div class="card" style="max-width:520px;margin:60px auto"><h1>IdeaForest Rating</h1>
+    <p class="prog">Enter your name to start, or pick your name from the list to continue where you left off.</p>
+    ${names.length?`<div class="lbl">Continue as</div><select id="pick" class="field-input"><option value="">Select your name…</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select><div class="lbl">Or new rater</div>`:''}
+    <input id="nm" class="field-input" placeholder="Your name" maxlength="60" autocomplete="off"/>
+    <p id="err" class="field-error" style="display:none"></p>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="start()">Start</button></div>`;
+  const pk=document.getElementById('pick'); if(pk) pk.onchange=()=>{ if(pk.value) document.getElementById('nm').value=''; };
+}
+async function start(){
+  const pk=document.getElementById('pick'), nm=document.getElementById('nm').value.trim(), name=nm||(pk&&pk.value)||'';
+  const err=document.getElementById('err'); if(!name){ err.textContent='Please enter or pick a name.'; err.style.display='block'; return; }
+  const r=await fetch('/api/rate/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  if(!r.ok){ err.textContent='Could not sign in.'; err.style.display='block'; return; }
+  RATER=name; await loadItems();
+}
+async function loadItems(){
+  const r=await fetch('/api/rate/items?rater='+encodeURIComponent(RATER)); const j=await r.json();
+  if(!r.ok){ app.innerHTML='<div class="card">'+esc(j.error||'Error')+'</div>'; return; }
+  ITEMS=j.items; RT=j.ratings;
+  const f=ITEMS.findIndex(complete); I=f<0?Math.max(0,ITEMS.length-1):f; show();
+}
+const done=(it,m)=>RT[m+'::'+it.id];
+function complete(it){ return it.measure==='quality'?(done(it,'originality')&&done(it,'effectiveness')):!!done(it,it.measure); }
+function scale(measure,it,labels,title){
+  return `<div class="q">${title}</div><div class="opts">${labels.map((l,i)=>`<label class="opt ${done(it,measure)==i+1?'on':''}"><input type="radio" name="${measure}" ${done(it,measure)==i+1?'checked':''} onchange="rate('${measure}','${it.id}','${i+1}')"><span><b>${i+1}</b> – ${esc(l)}</span></label>`).join('')}</div>`;
+}
+function yn(measure,it,q){
+  return `<div class="q">${q}</div><div class="yn">${['yes','maybe','no'].map(v=>`<label class="opt ${done(it,measure)===v?'on':''}"><input type="radio" name="${measure}" ${done(it,measure)===v?'checked':''} onchange="rate('${measure}','${it.id}','${v}')">${v[0].toUpperCase()+v.slice(1)}</label>`).join('')}</div>`;
+}
+function show(){
+  if(!ITEMS.length){ app.innerHTML='<div class="card" style="max-width:520px;margin:60px auto"><h1>Nothing to rate yet</h1><p class="prog">The researcher has not selected any participants with finalized ideas.</p></div>'; return; }
+  const it=ITEMS[I], doneN=ITEMS.filter(complete).length;
+  let body='';
+  if(it.measure==='quality') body=`<div class="lbl">Idea</div><div class="txt">${esc(it.text)}</div>`
+    +scale('originality',it,ORIG,'Originality: the degree to which the idea is not only rare but is also ingenious, imaginative, or surprising')
+    +scale('effectiveness',it,EFF,'Effectiveness: the degree to which the idea will solve the problem');
+  else if(it.measure==='branch_div') body=`<div class="lbl">Original version</div><div class="txt">${esc(it.parent)}</div><div class="lbl">Versions developed from it</div>`
+    +`<div class="cols">${it.kids.map((k,i)=>`<div><div class="lbl">Version ${String.fromCharCode(65+i)}</div><div class="txt">${esc(k)}</div></div>`).join('')}</div>`
+    +yn('branch_div',it,'Are these versions substantially different from each other?');
+  else if(it.measure==='edit_sig') body=`<div class="cols"><div><div class="lbl">Previous version</div><div class="txt">${esc(it.prev)}</div></div><div><div class="lbl">New version (after the edit)</div><div class="txt">${esc(it.cur)}</div></div></div>`
+    +yn('edit_sig',it,'Did this edit substantially change the idea compared with its previous version?');
+  else body=`<div class="cols"><div><div class="lbl">Original idea</div><div class="txt">${esc(it.root)}</div></div><div><div class="lbl">Finalized idea</div><div class="txt">${esc(it.final)}</div></div></div>`
+    +yn('final_sig',it,'Is the finalized idea substantially different from the original idea it was developed from?');
+  app.innerHTML=`<div class="top"><h1>IdeaForest Rating</h1><div class="prog">Rater: <b>${esc(RATER)}</b> · ${doneN} of ${ITEMS.length} done · <a href="#" onclick="login();return false">switch rater</a></div></div>
+    <div class="card"><details><summary>Design challenge</summary><div class="txt" style="margin-top:8px">${esc(CHALLENGE)}</div></details></div>
+    <div class="card"><div class="top" style="margin-bottom:0"><span class="stage">${STAGE[it.measure]}</span><span class="prog">Item ${I+1} of ${ITEMS.length}</span></div>${body}
+    <div class="nav"><button class="btn btn-outline" ${I?'':'disabled'} onclick="go(-1)">← Back</button>
+    <button class="btn btn-primary" ${complete(it)?'':'disabled'} onclick="go(1)">${I===ITEMS.length-1?'Finish':'Next →'}</button></div></div>`;
+}
+async function rate(measure,id,value){
+  RT[measure+'::'+id]=value;
+  const r=await fetch('/api/rate/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rater:RATER,measure,id,value})});
+  if(!r.ok){ delete RT[measure+'::'+id]; alert('Could not save this rating. Please check your connection and try again.'); }
+  const y=window.scrollY; show(); window.scrollTo(0,y);
+}
+function go(d){
+  if(d>0&&I===ITEMS.length-1){ app.innerHTML='<div class="card" style="max-width:520px;margin:60px auto"><h1>All done — thank you!</h1><p class="prog">Your ratings are saved. You can close this page, or <a href="#" onclick="I=0;show();return false">review your ratings</a>.</p></div>'; return; }
+  I=Math.max(0,Math.min(ITEMS.length-1,I+d)); show(); window.scrollTo(0,0);
+}
+login();
+</script></body></html>

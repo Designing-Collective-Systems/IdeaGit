@@ -901,10 +901,18 @@ function openSelfReport(){
   const qSteps=()=>{ const a=[]; ideas.forEach((n,i)=>QS.forEach((q,j)=>a.push({t:'q',i,j}))); return a; };
   SR={ideas,QS,round:1,phase:'r1',p:0,steps:qSteps(),qSteps,a1:{},a2:{},busy:false};
   ideas.forEach(n=>{ SR.a1[n.id]={}; SR.a2[n.id]={}; });
+  SR.counts={}; ideas.forEach(n=>{ SR.counts[n.id]=srCounts(n); });
   const m=document.getElementById('self-report-modal'); m.style.display='flex';
   document.getElementById('sr-sub-tabs').style.display='none';
   document.getElementById('sr-left').style.display='flex';
   srRender();
+}
+const srIsAiEl=el=>el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
+// how many nodes / chat messages the participant could choose from (the denominators of the proportion measures)
+function srCounts(node){
+  if(srTree()){ const p=getPath(node.id); return {total_items:p.length,ai_items:p.filter(x=>x.tag==='ai-generated'||x.tag==='ai-modification').length}; }
+  const d=document.createElement('div'); buildChatInto(d,node.id); const c=[...d.children];
+  return {total_items:c.length,ai_items:c.filter(srIsAiEl).length};
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
 function srRender(){
@@ -1024,7 +1032,8 @@ function srBack(){ let t=SR.p-1; while(t>=0&&SR.steps[t].t!=='q') t--; if(t>=0){
 async function srPostRound(round,reports){
   try{
     const r=await fetch('/api/save-selfreport',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,round,reports})});
+      body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,round,
+        reports:reports.map(r=>({node_id:r.node_id,answers:Object.assign({},r.answers,SR.counts[r.node_id])}))})});
     return r.ok;
   }catch(e){ return false; }
 }

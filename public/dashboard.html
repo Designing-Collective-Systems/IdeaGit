@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaForest Dashboard</title><link rel="stylesheet" href="styles.css"/>
+<style>
+body{background:var(--bg);margin:0}.wrap{max-width:1250px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.5rem;margin:0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}th{background:var(--surface2);font-size:.82rem}
+tr.g td{background:var(--blue-lt);font-weight:700;text-align:left}.dim{color:var(--text3)}.note{color:var(--text3);font-size:.85rem;margin:6px 0 0}
+h2{font-size:1.05rem;margin:0 0 8px}.idea{white-space:normal!important;max-width:380px;text-align:left!important}
+</style></head><body><div class="wrap">
+<div class="top"><h1>IdeaForest — Dashboard</h1>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><select id="view" class="field-input" style="width:auto" onchange="render()"></select>
+  <a class="btn btn-outline" href="/admin">Admin</a></div></div>
+<div id="out">Loading…</div>
+<p class="note">Only participants selected on the Admin page are included. Rated measures appear as “—” until raters have rated those items.</p>
+</div>
+<script src="measures.js"></script>
+<script>
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LBL={'ai-only':'AI only','idea-tree':'Idea Tree','other':'Other'};
+const f2=v=>v==null?'—':v.toFixed(2), f1=v=>v==null?'—':v.toFixed(1), n0=v=>v==null?'—':String(Math.round(v)), pc=v=>v==null?'—':(v*100).toFixed(0)+'%';
+const sg=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2), sgp=v=>v==null?'—':(v>0?'+':'')+(v*100).toFixed(0)+' pp';
+const ROWS=[
+ ['Quality of ideas'],['nFinal','Finalized ideas',n0],['orig','Originality (1–4, mean of raters)',f2],['eff','Effectiveness (1–4, mean of raters)',f2],
+ ['Exploration'],['branches','Branches (nodes with ≥ 2 children)',n0],['magnitude','Branch magnitude (mean number of children)',f2],
+ ['bdYes','Branch divergence (rated): % Yes',pc],['bdMaybe','Branch divergence (rated): % Maybe',pc],['bdNo','Branch divergence (rated): % No',pc],
+ ['bdCalc','Branch divergence (calculated): cosine distance',f2],['btN','Backtracking events',n0],['btMean','Backtracking distance (mean steps back)',f2],
+ ['finBranch','Finalized branches (proportion of branches containing a finalized node)',pc],
+ ['Refinement'],['depth','Depth (edits from root to finalized idea)',f2],
+ ['esYes','Edit significance (rated): % Yes',pc],['esMaybe','Edit significance (rated): % Maybe',pc],['esNo','Edit significance (rated): % No',pc],['esCalc','Edit significance (calculated): cosine distance',f2],
+ ['fsYes','Final significance (rated): % Yes',pc],['fsMaybe','Final significance (rated): % Maybe',pc],['fsNo','Final significance (rated): % No',pc],['fsCalc','Final significance (calculated): cosine distance',f2],
+ ['aiProp','Proportion of AI nodes (AI-created or AI-edited, in the finalized branch)',pc],
+ ['Perceptions (T1 = first self-report, T2 = after the think-aloud)'],
+ ['own1','Ownership T1 (1–5)',f2],['own2','Ownership T2 (1–5)',f2],['ownDelta','Ownership change (T2 − T1)',sg],['ownUp','Ownership: % ideas increased',pc],['ownSame','Ownership: % ideas same',pc],['ownDown','Ownership: % ideas decreased',pc],
+ ['dep1','AI reliance T1 (1–5)',f2],['dep2','AI reliance T2 (1–5)',f2],['depDelta','AI reliance change (T2 − T1)',sg],['depUp','AI reliance: % ideas increased',pc],['depSame','AI reliance: % ideas same',pc],['depDown','AI reliance: % ideas decreased',pc],
+ ['effort1','Effort T1 (1–5)',f2],['effort2','Effort T2 (1–5)',f2],['effortDelta','Effort change (T2 − T1)',sg],['effortUp','Effort: % ideas increased',pc],['effortSame','Effort: % ideas same',pc],['effortDown','Effort: % ideas decreased',pc],
+ ['ownP1','Nodes contributing to ownership T1 (proportion)',pc],['ownP2','Nodes contributing to ownership T2',pc],['ownPDelta','Extent of revision (T2 − T1)',sgp],
+ ['noAIP1','“Could have done without AI” T1 (proportion of AI nodes)',pc],['noAIP2','“Could have done without AI” T2',pc],['noAIPDelta','Extent of revision (T2 − T1)',sgp],
+ ['skipP1','“Could have skipped” T1 (proportion of AI nodes)',pc],['skipP2','“Could have skipped” T2',pc],['skipPDelta','Extent of revision (T2 − T1)',sgp]
+];
+let P={},DATA=null;     // P[pid] = {cat, m, ideas}
+async function load(){
+  const r=await fetch('/api/admin/data'); if(!r.ok){ document.getElementById('out').textContent='Could not load data: '+((await r.json().catch(()=>({}))).error||r.status); return; }
+  DATA=await r.json();
+  const R={}, D={};
+  DATA.ratings.forEach(x=>{ ((R[x.measure]=R[x.measure]||{})[x.item_key]=(R[x.measure][x.item_key]||[])).push(x.value); });
+  DATA.distances.forEach(x=>{ D[x.kind+'|'+x.item_key]=x.distance; });
+  const by=(rows)=>rows.reduce((o,x)=>((o[x.participant_id]=o[x.participant_id]||[]).push(x),o),{});
+  const nb=by(DATA.nodes), sb=by(DATA.selfreports);
+  P={}; DATA.selected.forEach(pid=>{
+    const rows=nb[pid]||[]; if(!rows.length) return;
+    P[pid]={cat:Measures.condCat(rows[0].study_condition),...Measures.metrics(pid,rows,sb[pid]||[],R,D)};
+  });
+  const v=document.getElementById('view'), pids=Object.keys(P).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  v.innerHTML='<option value="all">Overview — AI only vs Idea Tree</option><option value="ai-only">Overview — AI only (all participants)</option><option value="idea-tree">Overview — Idea Tree (all participants)</option>'
+    +pids.map(p=>`<option value="p:${esc(p)}">Participant ${esc(p)} (${LBL[P[p].cat]})</option>`).join('');
+  render();
+}
+const cell=(vals,fmt)=>{ const a=vals.filter(x=>x!=null&&!isNaN(x)); return a.length?`${fmt(Measures.mean(a))}${a.length>1?` <span class="dim">(${fmt(Measures.sd(a))})</span>`:''}`:'—'; };
+function table(cols,fmtCell){ // cols: [{head, ms:[m...]}]
+  let h='<table><tr><th></th>'+cols.map(c=>`<th>${c.head}</th>`).join('')+'</tr>';
+  ROWS.forEach(r=>{ if(r.length===1){ h+=`<tr class="g"><td colspan="${cols.length+1}">${r[0]}</td></tr>`; return; }
+    h+=`<tr><td>${r[1]}</td>`+cols.map(c=>`<td>${fmtCell(c,r)}</td>`).join('')+'</tr>'; });
+  return h+'</table>';
+}
+function ratingProgress(){
+  const per={}; let tot={quality:0,branch_div:0,edit_sig:0,final_sig:0};
+  const by=DATA.nodes.reduce((o,x)=>((o[x.participant_id]=o[x.participant_id]||[]).push(x),o),{}), keys={quality:new Set(),branch_div:new Set(),edit_sig:new Set(),final_sig:new Set()};
+  DATA.selected.forEach(pid=>{ if(!by[pid]) return; const it=Measures.items(pid,Measures.prep(by[pid]));
+    it.quality.forEach(i=>keys.quality.add(i.key)); it.branch.forEach(i=>keys.branch_div.add(i.key)); it.edit.forEach(i=>keys.edit_sig.add(i.key)); it.final.forEach(i=>keys.final_sig.add(i.key)); });
+  Object.keys(tot).forEach(k=>tot[k]=keys[k].size);
+  DATA.ratings.forEach(x=>{ const m=x.measure==='originality'||x.measure==='effectiveness'?'quality':x.measure; if(!keys[m].has(x.item_key)) return;
+    const p=per[x.rater]=per[x.rater]||{quality:{},branch_div:0,edit_sig:0,final_sig:0}; if(m==='quality'){ (p.quality[x.item_key]=p.quality[x.item_key]||new Set()).add(x.measure); } else p[m]++; });
+  const names=Object.keys(per).sort(); if(!names.length) return '<div class="card"><h2>Rating progress</h2><span class="dim">No ratings yet.</span></div>';
+  const q=p=>Object.values(p.quality).filter(s=>s.size===2).length;
+  return `<div class="card"><h2>Rating progress</h2><table><tr><th>Rater</th><th>Quality</th><th>Branch divergence</th><th>Edit significance</th><th>Final significance</th></tr>`
+    +names.map(n=>`<tr><td>${esc(n)}</td><td>${q(per[n])} / ${tot.quality}</td><td>${per[n].branch_div} / ${tot.branch_div}</td><td>${per[n].edit_sig} / ${tot.edit_sig}</td><td>${per[n].final_sig} / ${tot.final_sig}</td></tr>`).join('')+'</table></div>';
+}
+function render(){
+  const v=document.getElementById('view').value, out=document.getElementById('out'), pids=Object.keys(P);
+  if(!pids.length){ out.innerHTML='<div class="card">No participants selected (or none have data yet). Use the Admin page to select participants.</div>'; return; }
+  const num=(c,r)=>{ const f=r[2]; if(c.ms.length===1) return f(c.ms[0][r[0]]); return cell(c.ms.map(m=>m[r[0]]),f); };
+  let h=ratingProgress();
+  if(v==='all'){
+    const cols=['ai-only','idea-tree'].map(c=>({head:`${LBL[c]}<br><span class="dim">n = ${pids.filter(p=>P[p].cat===c).length} participants · mean (SD)</span>`,ms:pids.filter(p=>P[p].cat===c).map(p=>P[p].m)}));
+    h+=`<div class="card"><h2>Overview</h2>${table(cols,num)}</div>`;
+  } else if(v==='ai-only'||v==='idea-tree'){
+    const ps=pids.filter(p=>P[p].cat===v).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const cols=ps.map(p=>({head:'P'+esc(p),ms:[P[p].m]})).concat([{head:'Mean (SD)',ms:ps.map(p=>P[p].m)}]);
+    h+=`<div class="card"><h2>${LBL[v]} — all participants (${ps.length})</h2>${ps.length?table(cols,num):'No participants'}</div>`;
+  } else {
+    const pid=v.slice(2), d=P[pid];
+    h+=`<div class="card"><h2>Participant ${esc(pid)} — ${LBL[d.cat]}</h2>${table([{head:'Value',ms:[d.m]}],num)}</div>`;
+    const ir=d.ideas.map((i,k)=>`<tr><td class="idea">${k+1}. ${esc(i.text.length>200?i.text.slice(0,200)+'…':i.text)}</td><td>${f2(i.orig)}</td><td>${f2(i.eff)}</td><td>${i.depth}</td><td>${i.fsVals.length?esc(i.fsVals.join(', ')):'—'}</td><td>${f2(i.fsCalc)}</td><td>${pc(i.aiProp)}</td>
+      <td>${n0(i.own1)} → ${n0(i.own2)}</td><td>${n0(i.dep1)} → ${n0(i.dep2)}</td><td>${n0(i.effort1)} → ${n0(i.effort2)}</td><td>${pc(i.ownP1)} → ${pc(i.ownP2)}</td><td>${pc(i.noAIP1)} → ${pc(i.noAIP2)}</td><td>${pc(i.skipP1)} → ${pc(i.skipP2)}</td></tr>`).join('');
+    h+=`<div class="card"><h2>Finalized ideas</h2><table><tr><th>Idea</th><th>Originality</th><th>Effectiveness</th><th>Depth</th><th>Final sig. (rated)</th><th>Final sig. (calc.)</th><th>AI nodes</th><th>Ownership</th><th>AI reliance</th><th>Effort</th><th>Own. nodes</th><th>Without AI</th><th>Skipped</th></tr>${ir||'<tr><td colspan="13">No finalized ideas</td></tr>'}</table><p class="note">Pairs show T1 → T2.</p></div>`;
+  }
+  out.innerHTML=h;
+}
+load();
+</script></body></html>
