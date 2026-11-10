@@ -611,11 +611,11 @@ async function doDiscard(ids,keepChildren){
 function fitHint(el){
   if(!el||!el.textContent) return;
   const lines=()=>{ const r=document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(x=>Math.round(x.top))).size; };
-  el.style.maxWidth=''; el.style.margin=''; el.style.textWrap='balance'; el.style.lineHeight='1.3'; el.style.fontWeight='500';
-  let fs=17; el.style.fontSize=fs+'px';
+  el.style.maxWidth=''; el.style.margin=''; el.style.textAlign='left'; el.style.textWrap='balance'; el.style.lineHeight='1.3'; el.style.fontWeight='500';
+  let fs=20; el.style.fontSize=fs+'px';
   while(lines()>2&&fs>8){ fs-=0.5; el.style.fontSize=fs+'px'; }
   if(!(window.CSS&&CSS.supports&&CSS.supports('text-wrap','balance'))&&lines()===2){   // older browsers: narrow the box until the text just still fits in two lines
-    let w=el.clientWidth; while(w>200){ w-=16; el.style.maxWidth=w+'px'; el.style.margin='0 auto'; if(lines()>2){ el.style.maxWidth=(w+16)+'px'; break; } }
+    let w=el.clientWidth; while(w>200){ w-=16; el.style.maxWidth=w+'px'; if(lines()>2){ el.style.maxWidth=(w+16)+'px'; break; } }
   }
 }
 window.addEventListener('resize',()=>fitHint(document.getElementById('tree-subheader')));
