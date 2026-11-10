@@ -451,7 +451,7 @@ function _renderAllTreesOnce(minH){
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML=''; _pan.pos={};
-  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on a node to see the detail on the right. You can edit the idea in the node with or without AI. When you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); fitHint(sub); }
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on a node to see the detail on the right. You can edit the idea yourself or using AI. When you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); fitHint(sub); }
   const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
