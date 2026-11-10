@@ -22,17 +22,14 @@ window.TREE_NO_SKELETON = true;      // no grey placeholder nodes: only what the
 window.TREE_HINT_TEXT = 'Click on any node to see its details · Dotted lines: nodes from other ideas that influenced a finalized idea';
 // dotted line from a finalized idea to each node (of another idea) the participant said influenced it
 window.drawExtraEdges = function (svg, pos) {
+  const pairs = [];
   S.nodes.forEach(n => {
     if (!n.isFinalized || !pos[n.id]) return;
     const targets = new Set();
     (n.influencedBy || []).forEach(e => (e.selected || []).forEach(s => targets.add(String(s.id).split('#')[0])));
-    targets.forEach(t => {
-      const a = pos[n.id], b = pos[t]; if (!b || t === n.id) return;
-      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('d', `M${a.x},${a.y} L${b.x},${b.y}`);
-      p.setAttribute('class', 'edge-infl'); svg.appendChild(p);
-    });
+    targets.forEach(t => { if (pos[t] && t !== n.id) pairs.push({ from: n.id, to: t }); });
   });
+  drawInfluenceLines(svg, document.getElementById('tree-nodes'), pairs, (typeof _pan !== 'undefined' && _pan.k) || 1);
 };
 window.TREE_EMPTY_TEXT = 'This participant has no ideas in this condition.';
 window.onTreeNodeClick = function (id) {

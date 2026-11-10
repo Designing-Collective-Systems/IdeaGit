@@ -958,18 +958,19 @@ function srRenderInfl(st){
   const num=x=>SR.ideas.indexOf(x)+1;
   const tabs=others.map((x,k)=>{ const c=SR.infl[node.id][x.id].sel.length;
     return `<button type="button" class="sr-idea-tab${k===(SR.tab||0)?' sr-idea-active':''}" onclick="srInflTab(${k})">Idea ${num(x)}${c?' ('+c+')':''}</button>`; }).join('');
+  const card='border:1px solid var(--border2,var(--border));border-radius:var(--r);background:#fff;min-height:0;display:flex;flex-direction:column;overflow:hidden';
   document.querySelector('.sr-right').innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} of ${SR.ideas.length}</div></div>
-    <div class="sr-page" style="display:flex;flex-direction:row;gap:28px;height:calc(100vh - 70px);box-sizing:border-box">
-      <div style="width:30%;flex-shrink:0;display:flex;flex-direction:column;min-height:0">
-        <p class="sr-q-label" style="margin-top:0">Please select the other ideas that influenced the origin of this idea. If none, press next.</p>
-        <div class="sr-q-sub" style="margin:6px 0 4px">Idea ${st.i+1}</div>
-        <div style="flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(node.body||'')}</div>
-        <div class="sr-foot">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+    <div class="sr-page" style="display:flex;flex-direction:row;gap:20px;height:calc(100vh - 70px);box-sizing:border-box">
+      <div style="width:30%;flex-shrink:0;${card}">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border2,var(--border));background:var(--surface)"><p class="sr-q-label" style="margin:0">Please select the other ideas that influenced the origin of this idea. If none, press next.</p></div>
+        <div class="sr-q-sub" style="margin:0;padding:10px 16px 6px;font-weight:600">Idea ${st.i+1}</div>
+        <div style="flex:1;min-height:0;overflow:auto;margin:0 16px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(node.body||'')}</div>
+        <div class="sr-foot" style="padding:12px 16px;border-top:1px solid var(--border2,var(--border));margin:0">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
       </div>
-      <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${tabs}</div>
-        <p class="sr-q-label" style="margin:0 0 8px">Select the ${srTree()?'nodes':'chat messages'} in the ${srTree()?'idea tree':'chat history'} below that influenced the idea on the left. If none, please go to the next tab.</p>
-        <div id="sr-infl-disp" style="position:relative;flex:1;min-height:260px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"></div>
+      <div style="flex:1;min-width:0;${card}">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border2,var(--border));background:var(--surface)">${tabs}</div>
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border2,var(--border))"><p class="sr-q-label" style="margin:0">Select the ${srTree()?'nodes':'chat messages'} in the ${srTree()?'idea tree':'chat history'} below that influenced the idea on the left. If none, please go to the next tab.</p></div>
+        <div id="sr-infl-disp" style="position:relative;flex:1;min-height:260px;overflow:hidden"></div>
       </div></div>`;
   srDraw(document.getElementById('sr-infl-disp'),o,'any',new Set(state.sel.map(x=>x.id)));
 }
@@ -995,9 +996,25 @@ function srShowLeft(node,selMode,j){
   let fb=document.getElementById('sr-final-banner');
   if(!fb){ fb=document.createElement('div'); fb.id='sr-final-banner'; fb.style.cssText='flex-shrink:0;max-height:28%;overflow:auto;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:0.95rem;line-height:1.5'; const d=document.getElementById('sr-idea-display'); d.parentNode.insertBefore(fb,d); }
   fb.style.display=srTree()?'':'none'; fb.innerHTML=`<strong>Final idea:</strong> ${esc(node.body||'')}`;
-  srDraw(document.getElementById('sr-idea-display'),node,selMode,sel);
+  const disp=document.getElementById('sr-idea-display'), subEl=document.getElementById('sr-sub-tabs'), insp=srInsp(st.i);
+  if(!srTree()&&insp.length){      // AI-only: one extra tab per idea that inspired this one
+    if(SR.subFor!==st.i){ SR.sub=0; SR.subFor=st.i; }
+    subEl.style.display='flex';
+    subEl.innerHTML=`<button class="sr-sub-tab${SR.sub===0?' sr-sub-active':''}" onclick="srSubTab(0)">Idea ${st.i+1} chat</button>`
+      +insp.map((x,k)=>`<button class="sr-sub-tab${SR.sub===k+1?' sr-sub-active':''}" onclick="srSubTab(${k+1})">Inspiration ${k+1} (Idea ${x.num})</button>`).join('');
+    if(SR.sub>0){ const x=insp[SR.sub-1]; srDraw(disp,x.node,'ro',new Set(x.sel.map(q=>q.id))); return; }
+  } else { subEl.style.display='none'; SR.sub=0; }
+  srDraw(disp,node,selMode,sel,srTree()?insp.map(x=>({gid:x.gid,ids:x.ids,label:'Idea '+x.num})):null);
 }
-function srDraw(disp,node,selMode,sel){
+// the other ideas this idea was inspired by (from the influence step)
+function srInsp(i){
+  const n=SR.ideas[i], out=[];
+  SR.ideas.forEach((o,k)=>{ if(o.id===n.id) return; const st=SR.infl[n.id]&&SR.infl[n.id][o.id], sel=st?st.sel:[];
+    if(sel.length) out.push({node:o,num:k+1,gid:o.groupId,sel,ids:new Set(sel.map(x=>String(x.id).split('#')[0]))}); });
+  return out;
+}
+function srSubTab(k){ SR.sub=k; srRender(); }
+function srDraw(disp,node,selMode,sel,infl){
   const tree=srTree();
   disp.innerHTML=`<div style="position:absolute;inset:0"><div class="srz-scroll" style="position:absolute;inset:0;overflow:auto;background:var(--bg);cursor:grab;box-sizing:border-box;padding:${tree?'1.8rem 0 0':'14px'}"></div><div class="tree-zoom"><button type="button" title="Zoom in">+</button><button type="button" title="Zoom out">\u2212</button></div></div>`;
   const sc=disp.querySelector('.srz-scroll'); let content;
@@ -1015,7 +1032,7 @@ function srDraw(disp,node,selMode,sel){
   } else {
     sc.innerHTML='<div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div>';
     content=sc.firstElementChild;
-    renderSrTree(node.groupId,node.id,selMode,sel);
+    renderSrTree(node.groupId,node.id,selMode,sel,infl);
   }
   // zoom (buttons + ctrl/pinch wheel) and drag-to-pan, like the main Idea Tree panel
   let k=1; const zoom=f=>{ k=Math.max(0.3,Math.min(2,k*f)); content.style.zoom=k; };
@@ -1111,59 +1128,126 @@ function srFinish(){
 }
 function closeSelfReport(){ document.getElementById('self-report-modal').style.display='none'; hideTreeTooltip(); }
 
-// Mirrors the main Idea Tree's compact node style exactly (same tags, same
-// font size, same hover tooltip with diff highlighting) so the two never
-// show conflicting information for the same idea.
-function renderSrTree(gid, currentNodeId, selMode, selSet){
+// ── Dotted "inspired by" lines: routed around nodes, notes and existing edges, drawn as smooth curves ──
+function _roundPath(pts,r){
+  let d=`M${pts[0].x},${pts[0].y}`;
+  for(let i=1;i<pts.length-1;i++){
+    const p=pts[i-1],c=pts[i],n=pts[i+1], l1=Math.hypot(c.x-p.x,c.y-p.y)||1, l2=Math.hypot(n.x-c.x,n.y-c.y)||1, rr=Math.min(r,l1/2,l2/2);
+    d+=` L${c.x+(p.x-c.x)*rr/l1},${c.y+(p.y-c.y)*rr/l1} Q${c.x},${c.y} ${c.x+(n.x-c.x)*rr/l2},${c.y+(n.y-c.y)*rr/l2}`;
+  }
+  const e=pts[pts.length-1]; return d+` L${e.x},${e.y}`;
+}
+// pairs: [{from:nodeId,to:nodeId}] — nodes are found by data-node-id inside nodesEl; k = current zoom scale of the drawing
+function drawInfluenceLines(svg,nodesEl,pairs,k){
+  k=k||1; if(!pairs.length||!svg||!nodesEl) return;
+  svg.style.overflow='visible';
+  const NS='http://www.w3.org/2000/svg', C=8, o=svg.getBoundingClientRect();
+  const rel=el=>{ const r=el.getBoundingClientRect(); return {l:(r.left-o.left)/k,t:(r.top-o.top)/k,r:(r.right-o.left)/k,b:(r.bottom-o.top)/k}; };
+  const obs=[...nodesEl.querySelectorAll('.tree-node,.node-note,.tree-node-final,.work-badge,.sr-current-badge,.sr-group-label')].map(rel);
+  if(!obs.length) return;
+  const cols=Math.ceil((Math.max(...obs.map(r=>r.r))+90)/C), rows=Math.ceil((Math.max(...obs.map(r=>r.b))+90)/C), N=cols*rows;
+  const pen=new Uint8Array(N), mark=(arr,x,y,rad)=>{ const cx=Math.floor(x/C), cy=Math.floor(y/C);
+    for(let a=-rad;a<=rad;a++) for(let b=-rad;b<=rad;b++){ const X=cx+a,Y=cy+b; if(X>=0&&Y>=0&&X<cols&&Y<rows) arr[Y*cols+X]=1; } };
+  svg.querySelectorAll('path.edge').forEach(p=>{ const L=p.getTotalLength(); for(let s=0;s<=L;s+=4){ const q=p.getPointAtLength(s); mark(pen,q.x,q.y,1); } });
+  const cellRange=(r,pad)=>({x0:Math.max(0,Math.floor((r.l-pad)/C)),x1:Math.min(cols-1,Math.floor((r.r+pad)/C)),y0:Math.max(0,Math.floor((r.t-pad)/C)),y1:Math.min(rows-1,Math.floor((r.b+pad)/C))});
+  const build=pad=>{ const blk=new Uint8Array(N); obs.forEach(r=>{ const c=cellRange(r,pad); for(let y=c.y0;y<=c.y1;y++) for(let x=c.x0;x<=c.x1;x++) blk[y*cols+x]=1; }); return blk; };
+  const ring=(r,pad,blk)=>{ const a=cellRange(r,pad+C), b=cellRange(r,pad), out=[];
+    for(let y=a.y0;y<=a.y1;y++) for(let x=a.x0;x<=a.x1;x++){ const inner=x>=b.x0&&x<=b.x1&&y>=b.y0&&y<=b.y1; if(!inner&&!blk[y*cols+x]) out.push(y*cols+x); } return out; };
+  const DX=[1,0,-1,0], DY=[0,1,0,-1];
+  const astar=(blk,src,tgt,tr)=>{
+    const g=new Float32Array(N*4).fill(Infinity), came=new Int32Array(N*4).fill(-1), isT=new Uint8Array(N); tgt.forEach(i=>{ isT[i]=1; });
+    const heap=[], push=(f,s)=>{ heap.push([f,s]); let i=heap.length-1; while(i>0){ const p=(i-1)>>1; if(heap[p][0]<=heap[i][0]) break; [heap[p],heap[i]]=[heap[i],heap[p]]; i=p; } };
+    const pop=()=>{ const top=heap[0], last=heap.pop(); if(heap.length){ heap[0]=last; let i=0; for(;;){ let l=2*i+1,r=l+1,m=i; if(l<heap.length&&heap[l][0]<heap[m][0]) m=l; if(r<heap.length&&heap[r][0]<heap[m][0]) m=r; if(m===i) break; [heap[m],heap[i]]=[heap[i],heap[m]]; i=m; } } return top; };
+    const h=i=>{ const x=i%cols, y=(i/cols)|0; return Math.max(tr.x0-x,0,x-tr.x1)+Math.max(tr.y0-y,0,y-tr.y1); };
+    src.forEach(i=>{ for(let d=0;d<4;d++){ g[i*4+d]=0; push(h(i),i*4+d); } });
+    let guard=0;
+    while(heap.length&&guard++<900000){
+      const [,s]=pop(), i=s>>2, d=s&3, gi=g[s];
+      if(isT[i]){ const path=[]; for(let c=s;c>=0;c=came[c]) path.push(c>>2); return path.reverse(); }
+      for(let nd=0;nd<4;nd++){
+        const x=(i%cols)+DX[nd], y=((i/cols)|0)+DY[nd]; if(x<0||y<0||x>=cols||y>=rows) continue;
+        const j=y*cols+x; if(blk[j]&&!isT[j]) continue;
+        const ng=gi+1+(pen[j]?7:0)+(nd!==d?1.5:0), t=j*4+nd; if(ng<g[t]){ g[t]=ng; came[t]=s; push(ng+h(j),t); }
+      }
+    }
+    return null;
+  };
+  const clampPt=(r,p)=>({x:Math.max(r.l,Math.min(r.r,p.x)),y:Math.max(r.t,Math.min(r.b,p.y))});
+  pairs.forEach(pr=>{
+    const ef=nodesEl.querySelector(`[data-node-id="${pr.from}"]`), et=nodesEl.querySelector(`[data-node-id="${pr.to}"]`); if(!ef||!et) return;
+    const rf=rel(ef), rt=rel(et); let pts=null;
+    for(const pad of [8,3]){
+      const blk=build(pad), src=ring(rf,pad,blk), tgt=ring(rt,pad,blk); if(!src.length||!tgt.length) continue;
+      const path=astar(blk,src,tgt,cellRange(rt,pad)); if(!path) continue;
+      const cp=path.map(i=>({x:((i%cols)+0.5)*C,y:(((i/cols)|0)+0.5)*C}));
+      const corner=[cp[0]]; for(let i=1;i<cp.length-1;i++){ const a=cp[i-1],b=cp[i],c=cp[i+1]; if((b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x)!==0) corner.push(b); } corner.push(cp[cp.length-1]);
+      pts=[clampPt(rf,corner[0]),...corner,clampPt(rt,corner[corner.length-1])];
+      cp.forEach(p=>mark(pen,p.x,p.y,1));   // later lines keep away from this one
+      break;
+    }
+    const a={x:(rf.l+rf.r)/2,y:(rf.t+rf.b)/2}, b={x:(rt.l+rt.r)/2,y:(rt.t+rt.b)/2};
+    const d=pts?_roundPath(pts,24):`M${a.x},${a.y} Q${(a.x+b.x)/2},${Math.min(a.y,b.y)-80} ${b.x},${b.y}`;
+    const p=document.createElementNS(NS,'path'); p.setAttribute('d',d); p.setAttribute('class','edge-infl'); svg.appendChild(p);
+    [pts?pts[0]:a, pts?pts[pts.length-1]:b].forEach(e=>{ const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',e.x); c.setAttribute('cy',e.y); c.setAttribute('r',4.5); c.setAttribute('class','infl-dot'); svg.appendChild(c); });
+  });
+}
+
+// Mirrors the main Idea Tree, for one idea (plus, optionally, the trees of the ideas that inspired it, shown to the right with dotted lines)
+function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
   const nodesEl=document.getElementById('sr-tree-nodes');
   const svg=document.getElementById('sr-tree-svg');
   if(!nodesEl||!svg) return;
   nodesEl.innerHTML=''; svg.innerHTML=''; hideTreeTooltip();
-  const gNodes=S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification');
-  if(!gNodes.length) return;
-  const savedGid=S.currentGroupId;
-  S.currentGroupId=gid;
-  const pos=computeLayout(gid,190);
-  S.currentGroupId=savedGid;
-  const vals=Object.values(pos); if(!vals.length) return;
-  const W=165,H=62;
-  const lineage=new Set(getPath(currentNodeId).map(n=>n.id));
-  const maxX=Math.max(...vals.map(p=>p.x))+110, maxY=Math.max(...vals.map(p=>p.y))+90;
-  const inner=document.getElementById('sr-tree-inner');
-  if(inner){ inner.style.width=maxX+'px'; inner.style.height=maxY+'px'; }
-  svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
+  const W=165,H=62, lineage=new Set(getPath(currentNodeId).map(n=>n.id));
+  const groups=[{gid,main:true}].concat((infl||[]).map(x=>({gid:x.gid,ids:x.ids,label:x.label})));
   svg.innerHTML=`<defs><marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
-  gNodes.forEach(node=>{
-    if(!node.parentId) return;
-    const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
-    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
-    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+66} ${tp.x},${tp.y-66} ${tp.x},${tp.y}`);
-    p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
+  let right=0, maxY=0; const pairs=[];
+  groups.forEach(g=>{
+    const gNodes=S.nodes.filter(n=>n.groupId===g.gid&&n.type!=='feedback'&&n.type!=='clarification'); if(!gNodes.length) return;
+    const savedGid=S.currentGroupId; S.currentGroupId=g.gid; const pos0=computeLayout(g.gid,190); S.currentGroupId=savedGid;
+    const vals=Object.values(pos0); if(!vals.length) return;
+    const dx=g.main?0:right+170-Math.min(...vals.map(p=>p.x));
+    const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
+    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+110); maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
+    if(!g.main){ const lb=document.createElement('div'); lb.className='sr-group-label'; lb.textContent=g.label+' (inspiration)';
+      lb.style.cssText=`left:${Math.min(...Object.values(pos).map(p=>p.x))-W/2}px;top:-22px`; nodesEl.appendChild(lb); }
+    gNodes.forEach(node=>{
+      if(!node.parentId) return;
+      const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+66} ${tp.x},${tp.y-66} ${tp.x},${tp.y}`);
+      p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
+    });
+    gNodes.forEach(node=>{
+      const p=pos[node.id]; if(!p) return;
+      const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
+                node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
+      const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                     node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+      const isCurrent=g.main&&node.id===currentNodeId;
+      const el=document.createElement('div'); el.dataset.nodeId=node.id;
+      el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
+      el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
+        `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+        (isCurrent?'<div class="sr-current-ring"></div>':'')+
+        `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`+
+        (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
+      if(!g.main){ el.style.pointerEvents='none'; if(g.ids.has(node.id)){ el.classList.add('sr-selected'); pairs.push({from:currentNodeId,to:node.id}); } }
+      else if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
+      else if(selMode){
+        const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
+        if((selMode!=='any'&&!lineage.has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
+        else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
+          el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
+      }
+      nodesEl.appendChild(el);
+      addSideNote(nodesEl,node,p.x+W/2+8,p.y);
+    });
   });
-  gNodes.forEach(node=>{
-    const p=pos[node.id]; if(!p) return;
-    const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
-              node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
-    const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
-                   node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
-    const isCurrent=node.id===currentNodeId;
-    const el=document.createElement('div');
-    el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
-      `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
-      (isCurrent?'<div class="sr-current-ring"></div>':'')+
-      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`+
-      (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
-    if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
-    else if(selMode){
-      const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
-      if((selMode!=='any'&&!lineage.has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
-      else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
-        el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
-    }
-    nodesEl.appendChild(el);
-    addSideNote(nodesEl,node,p.x+W/2+8,p.y);
-  });
+  const inner=document.getElementById('sr-tree-inner');
+  if(inner){ inner.style.width=right+'px'; inner.style.height=maxY+'px'; }
+  svg.style.width=right+'px'; svg.style.height=maxY+'px';
+  drawInfluenceLines(svg,nodesEl,pairs,1);
 }
 
 // Called when a node is unfinalized — marks it so it stays visible in the list

@@ -777,3 +777,5 @@ body.app5 .tree-canvas{top:8px}
 .v-sr th{background:var(--surface2);font-weight:600}
 .v-sr-diff{font-weight:700}
 .edge-infl{fill:none;stroke:#7c3aed;stroke-width:2.5;stroke-dasharray:1 6;stroke-linecap:round;pointer-events:none}
+.infl-dot{fill:#7c3aed;pointer-events:none}
+.sr-group-label{position:absolute;font-size:0.8rem;font-weight:700;color:#7c3aed;white-space:nowrap}
