@@ -1224,7 +1224,8 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
     const dx=g.main?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
     const lin=new Set(); if(!g.main) g.ids.forEach(id=>getPath(id).forEach(y=>lin.add(y.id)));
     const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
-    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
+    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes
+    maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
     if(!g.main){ const lb=document.createElement('div'); lb.className='sr-group-label'; lb.textContent=g.label+' (inspiration)';
       lb.style.cssText=`left:${Math.min(...Object.values(pos).map(p=>p.x))-W/2}px;top:-22px`; nodesEl.appendChild(lb); }
     gNodes.forEach(node=>{
@@ -1240,7 +1241,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
                 node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
       const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
                      node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
-      const isCurrent=g.main&&node.id===currentNodeId;
+      const isCurrent=g.main&&node.id===currentNodeId&&selMode!=='any';   // no 'reporting on this idea' badge while picking inspirations
       const el=document.createElement('div'); el.dataset.nodeId=node.id;
       el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
       el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
