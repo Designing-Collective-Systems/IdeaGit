@@ -7,7 +7,7 @@ S.condition = "AI-Assisted Structured Ideation";
 S.studyCondition = "IdeaForest_TreeOnly"; // value stored in the database's study_condition column
 
 window.TREE_EMPTY_TEXT = 'Click “+ New Idea” to create your first idea. The idea tree will be populated as you work.';
-window.TREE_HINT_TEXT = 'Click on any node to work on it';
+window.TREE_HINT_TEXT = 'Click on a node to see the detail on the right. You can edit the idea in the node with or without AI. When you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.';
 window.SR_TREE_ONLY = true;
 window.TREE_NO_SKELETON = true;   // no grey placeholder nodes in the idea tree
 window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
