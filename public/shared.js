@@ -550,6 +550,7 @@ function _renderAllTreesOnce(minH){
     canvas.style.height=tall+'px'; svg.style.height=tall+'px'; result={heights,grew};
   }
   _pan.frames=frames;
+  if(window.drawExtraEdges) window.drawExtraEdges(svg,_pan.pos);   // the viewer adds dotted 'influenced by' lines here
   // Focus the current idea's tree when all trees don't fit side by side
   let px=0;
   const f=cur&&frames.find(f=>f.gid===cur.groupId);
@@ -793,13 +794,14 @@ function buildCombinedCSV(){
 
   const hdr=['node_id','group_id','parent_id','type','tag','title','body',
              'is_finalized','user_prompt','ai_response','timestamp','extras_json',
-             'self_report_ai_use'];
+             'self_report_ai_use','influenced_by'];
   const rows=S.nodes.map(n=>[
     n.id,n.groupId,n.parentId||'',n.type,n.tag,
     csvC(n.title),csvC(n.body),n.isFinalized?'1':'0',
     csvC(n.userPrompt),csvC(n.aiResponse),
     new Date(n.ts).toISOString(), csvC(JSON.stringify(n.extras)),
-    csvC(srMap.get(n.id) || '')
+    csvC(srMap.get(n.id) || ''),
+    csvC(JSON.stringify(n.influencedBy || []))
   ].join(','));
   return [hdr.join(','),...rows].join('\n');
 }
@@ -899,7 +901,9 @@ function openSelfReport(){
   if(!ideas.length) return;
   const QS=srQs();
   const qSteps=()=>{ const a=[]; ideas.forEach((n,i)=>QS.forEach((q,j)=>a.push({t:'q',i,j}))); return a; };
-  SR={ideas,QS,round:1,phase:'r1',p:0,steps:qSteps(),qSteps,a1:{},a2:{},busy:false};
+  SR={ideas,QS,round:1,phase:'r1',p:0,steps:qSteps(),qSteps,a1:{},a2:{},busy:false,tab:0,infl:{}};
+  ideas.forEach(n=>{ SR.infl[n.id]={}; ideas.forEach(o=>{ if(o.id!==n.id) SR.infl[n.id][o.id]={on:false,sel:[]}; }); });
+  if(ideas.length>1){ SR.phase='infl'; SR.round=0; SR.steps=ideas.map((n,i)=>({t:'infl',i})); }
   ideas.forEach(n=>{ SR.a1[n.id]={}; SR.a2[n.id]={}; });
   SR.counts={}; ideas.forEach(n=>{ SR.counts[n.id]=srCounts(n); });
   const m=document.getElementById('self-report-modal'); m.style.display='flex';
@@ -916,6 +920,7 @@ function srCounts(node){
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
 function srRender(){
+  if(SR.steps[SR.p].t==='infl'){ srRenderInfl(SR.steps[SR.p]); return; }
   const st=SR.steps[SR.p], node=SR.ideas[st.i], QS=SR.QS, right=document.querySelector('.sr-right');
   document.getElementById('sr-idea-tabs').innerHTML=SR.ideas.map((n,i)=>`<div class="sr-idea-tab${i===st.i?' sr-idea-active':''}" style="cursor:default">Idea ${i+1}</div>`).join('');
   let head='',body='',foot='',selMode=null;
@@ -945,7 +950,34 @@ function srRender(){
   srUpdateCount();
 }
 function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=false; }
-function srSelSet(){ const st=SR.steps[SR.p]; if(st.t!=='q') return null; const q=SR.QS[st.j]; if(q.type!=='sel') return null;
+function srInflOther(st){ return SR.ideas.filter((_,k)=>k!==st.i)[SR.tab||0]; }
+// Step shown right after "Done with task": which OTHER ideas influenced this one (left: the idea, right: the other ideas' trees / chats in tabs)
+function srRenderInfl(st){
+  const node=SR.ideas[st.i], others=SR.ideas.filter((_,k)=>k!==st.i), o=others[SR.tab||0], state=SR.infl[node.id][o.id];
+  document.getElementById('sr-left').style.display='none'; document.getElementById('sr-idea-display').innerHTML='';   // its tree ids would clash
+  const num=x=>SR.ideas.indexOf(x)+1;
+  const tabs=others.map((x,k)=>{ const c=SR.infl[node.id][x.id].sel.length;
+    return `<button type="button" class="sr-idea-tab${k===(SR.tab||0)?' sr-idea-active':''}" onclick="srInflTab(${k})">Idea ${num(x)}${c?' ('+c+')':''}</button>`; }).join('');
+  document.querySelector('.sr-right').innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} of ${SR.ideas.length}</div></div>
+    <div class="sr-page" style="display:flex;flex-direction:row;gap:28px;height:calc(100vh - 70px);box-sizing:border-box">
+      <div style="width:30%;flex-shrink:0;display:flex;flex-direction:column;min-height:0">
+        <div class="sr-q-label">Idea ${st.i+1}</div>
+        <div style="flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(node.body||'')}</div>
+        <p class="sr-q-label" style="margin-top:14px">Please select the other ideas that influenced the origin of this idea. If none, press next.</p>
+        <div class="sr-foot">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${tabs}</div>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:8px;cursor:pointer"><input type="checkbox" ${state.on?'checked':''} onchange="srInflOn(this.checked)">Select the nodes in the idea below that influenced the idea on the left. If none, please check the next tab.</label>
+        <div id="sr-infl-disp" style="position:relative;flex:1;min-height:260px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"></div>
+      </div></div>`;
+  srDraw(document.getElementById('sr-infl-disp'),o,state.on?'any':'ro',new Set(state.sel.map(x=>x.id)));
+}
+function srInflTab(k){ SR.tab=k; srRender(); }
+function srInflOn(on){ const st=SR.steps[SR.p], s=SR.infl[SR.ideas[st.i].id][srInflOther(st).id]; s.on=on; if(!on) s.sel=[]; srRender(); }
+function srSelSet(){ const st=SR.steps[SR.p];
+  if(st.t==='infl'){ const o=srInflOther(st), s=o&&SR.infl[SR.ideas[st.i].id][o.id]; return s&&s.on?s.sel:null; }
+  if(st.t!=='q') return null; const q=SR.QS[st.j]; if(q.type!=='sel') return null;
   const a=srAns()[SR.ideas[st.i].id]; return (a[q.k]=a[q.k]||[]); }
 function srToggle(id,text,el){
   const arr=srSelSet(); if(!arr) return;
@@ -1027,7 +1059,7 @@ function srChanged(q,x,y){
   const a=new Set((x||[]).map(o=>o.id)), b=new Set((y||[]).map(o=>o.id));
   return a.size!==b.size||[...a].some(i=>!b.has(i));
 }
-function srPrevStep(){ if(SR.p>0){ SR.p--; srRender(); } }
+function srPrevStep(){ if(SR.p>0){ SR.p--; SR.tab=0; srRender(); } }
 function srBack(){ let t=SR.p-1; while(t>=0&&SR.steps[t].t!=='q') t--; if(t>=0){ SR.p=t; srRender(); } }
 async function srPostRound(round,reports){
   try{
@@ -1044,9 +1076,16 @@ function srChgStep(i,j){
 async function srNext(){
   if(SR.busy) return;
   const st=SR.steps[SR.p];
-  if(SR.p<SR.steps.length-1){ SR.p++; srRender(); return; }
+  if(SR.p<SR.steps.length-1){ SR.p++; SR.tab=0; srRender(); return; }
   // end of a phase
-  if(SR.phase==='r1'){
+  if(SR.phase==='infl'){
+    SR.busy=true;
+    SR.ideas.forEach(n=>{ n.influencedBy=Object.keys(SR.infl[n.id]).map(oid=>({from_idea_node_id:oid,from_idea_number:SR.ideas.findIndex(x=>x.id===oid)+1,checked:SR.infl[n.id][oid].on,selected:SR.infl[n.id][oid].sel})); });
+    const ok=await syncNow();   // stored with the node itself (ideagit_nodes.influenced_by)
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    SR.phase='r1'; SR.round=1; SR.p=0; SR.tab=0; SR.steps=SR.qSteps(); srRender();
+  } else if(SR.phase==='r1'){
     SR.busy=true;
     const ok=await srPostRound(1,SR.ideas.map(n=>({node_id:n.id,answers:SR.a1[n.id]})));
     SR.busy=false;
@@ -1119,7 +1158,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet){
     if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
     else if(selMode){
       const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
-      if(!lineage.has(node.id)||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
+      if((selMode!=='any'&&!lineage.has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
       else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
         el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
     }
@@ -1201,6 +1240,7 @@ function nodeToRow(n){
     type:n.type, tag:n.tag, title:n.title||'', body:n.body||'',
     is_finalized:!!n.isFinalized, user_prompt:n.userPrompt||'', ai_response:n.aiResponse||'',
     extras:n.extras||[], self_report_ai_use:n.selfReportAiUse||'', created_at_ms:n.ts,
+    influenced_by:n.influencedBy||null,
   };
 }
 async function _doSync(){

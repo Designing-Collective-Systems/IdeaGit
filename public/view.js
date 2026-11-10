@@ -19,7 +19,21 @@ let DB_OPTS = [];
 window.TREE_STACK = true;
 window.TREE_READONLY = true;         // no discard (×) button on nodes
 window.TREE_NO_SKELETON = true;      // no grey placeholder nodes: only what the participant actually created
-window.TREE_HINT_TEXT = 'Click on any node to see its details';
+window.TREE_HINT_TEXT = 'Click on any node to see its details · Dotted lines: nodes from other ideas that influenced a finalized idea';
+// dotted line from a finalized idea to each node (of another idea) the participant said influenced it
+window.drawExtraEdges = function (svg, pos) {
+  S.nodes.forEach(n => {
+    if (!n.isFinalized || !pos[n.id]) return;
+    const targets = new Set();
+    (n.influencedBy || []).forEach(e => (e.selected || []).forEach(s => targets.add(String(s.id).split('#')[0])));
+    targets.forEach(t => {
+      const a = pos[n.id], b = pos[t]; if (!b || t === n.id) return;
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', `M${a.x},${a.y} L${b.x},${b.y}`);
+      p.setAttribute('class', 'edge-infl'); svg.appendChild(p);
+    });
+  });
+};
 window.TREE_EMPTY_TEXT = 'This participant has no ideas in this condition.';
 window.onTreeNodeClick = function (id) {
   const n = S.nodes.find(x => x.id === id); if (!n) return;
@@ -65,7 +79,7 @@ function toNode(r) {
   return { id: String(r.node_id), parentId: r.parent_id ? String(r.parent_id) : null, groupId: String(r.group_id || r.node_id),
     type: r.type || 'creation', tag: r.tag || 'user-created', title: r.title || '', body: r.body || '',
     userPrompt: r.user_prompt || '', aiResponse: r.ai_response || '', extras, isFinalized: r.is_finalized === true,
-    ts: Number(r.created_ms) || 0, selfReport: r.self_report_ai_use || '',
+    ts: Number(r.created_ms) || 0, selfReport: r.self_report_ai_use || '', influencedBy: parseExtras(r.influenced_by),
     meta: cs ? { changeSummary: cs.summary || '', promptSummary: cs.prompt_summary || '', ideaSummary: cs.idea_summary || '' } : {} };
 }
 
@@ -141,6 +155,10 @@ function openDetails(id) {
   if (qa.length) {
     h += '<h4 class="v-h">Questions and AI feedback on this version</h4>' + qa.map(x =>
       `<div class="v-box"><div class="v-q"><b>${x.type === 'feedback' ? 'Asked for feedback' : 'Asked'}:</b> ${esc(x.userPrompt)}</div><div class="v-a"><b>AI:</b> ${esc(x.aiResponse || '')}</div></div>`).join('');
+  }
+  if (n.isFinalized && (n.influencedBy || []).some(e => (e.selected || []).length)) {
+    h += '<h4 class="v-h">Influenced by (other ideas)</h4><div class="v-box">' + n.influencedBy.filter(e => (e.selected || []).length).map(e =>
+      `Idea ${esc(e.from_idea_number)}: ${e.selected.length} selected`).join('<br>') + '</div>';
   }
   if (parent) h += `<details class="v-prev"><summary>Previous version</summary><div class="v-box v-text">${esc(parent.body)}</div></details>`;
   if (n.isFinalized && SR_DATA[n.id]) {

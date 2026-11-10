@@ -73,14 +73,15 @@ const UPSERT_SQL = `
   INSERT INTO ideagit_nodes (
     participant_id, node_id, study_condition, group_id, parent_id, type, tag,
     title, body, is_finalized, user_prompt, ai_response, extras,
-    self_report_ai_use, created_at, updated_at
+    self_report_ai_use, created_at, updated_at, influenced_by
   ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12, $13::jsonb,
     $14,
     CASE WHEN $15::double precision IS NULL THEN NULL
          ELSE to_timestamp($15::double precision / 1000.0) END,
-    NOW()
+    NOW(),
+    $16::jsonb
   )
   ON CONFLICT (participant_id, node_id) DO UPDATE SET
     study_condition    = EXCLUDED.study_condition,
@@ -95,6 +96,7 @@ const UPSERT_SQL = `
     ai_response        = EXCLUDED.ai_response,
     extras             = EXCLUDED.extras,
     self_report_ai_use = EXCLUDED.self_report_ai_use,
+    influenced_by      = EXCLUDED.influenced_by,
     updated_at         = NOW()
 `;
 
@@ -106,6 +108,7 @@ async function initDb() {
     return;
   }
   await pool.query(CREATE_TABLE_SQL);
+  await pool.query('ALTER TABLE ideagit_nodes ADD COLUMN IF NOT EXISTS influenced_by JSONB');   // other ideas that influenced a finalized idea
   await pool.query(CREATE_SR_SQL);
   await pool.query(CREATE_ADMIN_SQL);
   console.log('Postgres ready (table ideagit_nodes).');
@@ -133,6 +136,7 @@ async function saveNodes(participantId, condition, nodes) {
         JSON.stringify(Array.isArray(n.extras) ? n.extras : []),
         String(n.self_report_ai_use ?? ''),
         Number.isFinite(n.created_at_ms) ? n.created_at_ms : null,
+        Array.isArray(n.influenced_by) ? JSON.stringify(n.influenced_by) : null,
       ]);
     }
     await client.query('COMMIT');
@@ -175,7 +179,7 @@ async function getParticipantNodes(conditions, participantId) {
   const wantNull = conditions.some(c => c === null || c === '');
   const r = await pool.query(
     `SELECT node_id, group_id, parent_id, type, tag, title, body, is_finalized, user_prompt, ai_response,
-            extras, self_report_ai_use, (EXTRACT(EPOCH FROM created_at) * 1000)::double precision AS created_ms
+            extras, self_report_ai_use, influenced_by, (EXTRACT(EPOCH FROM created_at) * 1000)::double precision AS created_ms
        FROM ideagit_nodes
       WHERE participant_id = $1 AND (study_condition = ANY($2::text[]) OR ($3::boolean AND study_condition IS NULL))
       ORDER BY created_at NULLS LAST, node_id`,
