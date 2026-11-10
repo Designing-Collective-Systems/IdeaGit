@@ -961,22 +961,21 @@ function srRenderInfl(st){
   document.querySelector('.sr-right').innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} of ${SR.ideas.length}</div></div>
     <div class="sr-page" style="display:flex;flex-direction:row;gap:28px;height:calc(100vh - 70px);box-sizing:border-box">
       <div style="width:30%;flex-shrink:0;display:flex;flex-direction:column;min-height:0">
-        <div class="sr-q-label">Idea ${st.i+1}</div>
+        <p class="sr-q-label" style="margin-top:0">Please select the other ideas that influenced the origin of this idea. If none, press next.</p>
+        <div class="sr-q-sub" style="margin:6px 0 4px">Idea ${st.i+1}</div>
         <div style="flex:1;min-height:0;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(node.body||'')}</div>
-        <p class="sr-q-label" style="margin-top:14px">Please select the other ideas that influenced the origin of this idea. If none, press next.</p>
         <div class="sr-foot">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
       </div>
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${tabs}</div>
-        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:8px;cursor:pointer"><input type="checkbox" ${state.on?'checked':''} onchange="srInflOn(this.checked)">Select the nodes in the idea below that influenced the idea on the left. If none, please check the next tab.</label>
+        <p class="sr-q-label" style="margin:0 0 8px">Select the ${srTree()?'nodes':'chat messages'} in the ${srTree()?'idea tree':'chat history'} below that influenced the idea on the left. If none, please go to the next tab.</p>
         <div id="sr-infl-disp" style="position:relative;flex:1;min-height:260px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"></div>
       </div></div>`;
-  srDraw(document.getElementById('sr-infl-disp'),o,state.on?'any':'ro',new Set(state.sel.map(x=>x.id)));
+  srDraw(document.getElementById('sr-infl-disp'),o,'any',new Set(state.sel.map(x=>x.id)));
 }
 function srInflTab(k){ SR.tab=k; srRender(); }
-function srInflOn(on){ const st=SR.steps[SR.p], s=SR.infl[SR.ideas[st.i].id][srInflOther(st).id]; s.on=on; if(!on) s.sel=[]; srRender(); }
 function srSelSet(){ const st=SR.steps[SR.p];
-  if(st.t==='infl'){ const o=srInflOther(st), s=o&&SR.infl[SR.ideas[st.i].id][o.id]; return s&&s.on?s.sel:null; }
+  if(st.t==='infl'){ const o=srInflOther(st), s=o&&SR.infl[SR.ideas[st.i].id][o.id]; return s?s.sel:null; }
   if(st.t!=='q') return null; const q=SR.QS[st.j]; if(q.type!=='sel') return null;
   const a=srAns()[SR.ideas[st.i].id]; return (a[q.k]=a[q.k]||[]); }
 function srToggle(id,text,el){
@@ -1080,7 +1079,7 @@ async function srNext(){
   // end of a phase
   if(SR.phase==='infl'){
     SR.busy=true;
-    SR.ideas.forEach(n=>{ n.influencedBy=Object.keys(SR.infl[n.id]).map(oid=>({from_idea_node_id:oid,from_idea_number:SR.ideas.findIndex(x=>x.id===oid)+1,checked:SR.infl[n.id][oid].on,selected:SR.infl[n.id][oid].sel})); });
+    SR.ideas.forEach(n=>{ n.influencedBy=Object.keys(SR.infl[n.id]).map(oid=>({from_idea_node_id:oid,from_idea_number:SR.ideas.findIndex(x=>x.id===oid)+1,checked:SR.infl[n.id][oid].sel.length>0,selected:SR.infl[n.id][oid].sel})); });
     const ok=await syncNow();   // stored with the node itself (ideagit_nodes.influenced_by)
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
