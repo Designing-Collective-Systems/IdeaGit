@@ -913,10 +913,15 @@ function openSelfReport(){
 }
 const srIsAiEl=el=>el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
 // how many nodes / chat messages the participant could choose from (the denominators of the proportion measures)
-function srCounts(node){
-  if(srTree()){ const p=getPath(node.id); return {total_items:p.length,ai_items:p.filter(x=>x.tag==='ai-generated'||x.tag==='ai-modification').length}; }
-  const d=document.createElement('div'); buildChatInto(d,node.id); const c=[...d.children];
-  return {total_items:c.length,ai_items:c.filter(srIsAiEl).length};
+function srCounts(node,insp){
+  insp=insp||[];
+  if(srTree()){
+    const m=new Map(); getPath(node.id).forEach(x=>m.set(x.id,x));
+    insp.forEach(x=>x.ids.forEach(id=>getPath(id).forEach(y=>m.set(y.id,y))));   // lineage of each inspiring node
+    const a=[...m.values()]; return {total_items:a.length,ai_items:a.filter(x=>x.tag==='ai-generated'||x.tag==='ai-modification').length};
+  }
+  let tot=0,ai=0; [node].concat(insp.map(x=>x.node)).forEach(n=>{ const d=document.createElement('div'); buildChatInto(d,n.id); const c=[...d.children]; tot+=c.length; ai+=c.filter(srIsAiEl).length; });
+  return {total_items:tot,ai_items:ai};
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
 function srRender(){
@@ -965,7 +970,7 @@ function srRenderInfl(st){
         <div style="padding:14px 16px;border-bottom:1px solid var(--border2,var(--border));background:var(--surface)"><p class="sr-q-label" style="margin:0">Please select the other ideas that influenced the origin of this idea. If none, press next.</p></div>
         <div class="sr-q-sub" style="margin:0;padding:10px 16px 6px;font-weight:600">Idea ${st.i+1}</div>
         <div style="flex:1;min-height:0;overflow:auto;margin:0 16px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">${esc(node.body||'')}</div>
-        <div class="sr-foot" style="padding:12px 16px;border-top:1px solid var(--border2,var(--border));margin:0">${SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+        <div class="sr-foot" style="padding:12px 16px;border-top:1px solid var(--border2,var(--border));margin:0">${(SR.p>0||SR.tab>0)?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
       </div>
       <div style="flex:1;min-width:0;${card}">
         <div style="display:flex;gap:0;border-bottom:1px solid var(--border2,var(--border));background:var(--surface)">${tabs}</div>
@@ -1002,7 +1007,7 @@ function srShowLeft(node,selMode,j){
     subEl.style.display='flex';
     subEl.innerHTML=`<button class="sr-sub-tab${SR.sub===0?' sr-sub-active':''}" onclick="srSubTab(0)">Idea ${st.i+1} chat</button>`
       +insp.map((x,k)=>`<button class="sr-sub-tab${SR.sub===k+1?' sr-sub-active':''}" onclick="srSubTab(${k+1})">Inspiration ${k+1} (Idea ${x.num})</button>`).join('');
-    if(SR.sub>0){ const x=insp[SR.sub-1]; srDraw(disp,x.node,'ro',new Set(x.sel.map(q=>q.id))); return; }
+    if(SR.sub>0){ srDraw(disp,insp[SR.sub-1].node,selMode,sel); return; }
   } else { subEl.style.display='none'; SR.sub=0; }
   srDraw(disp,node,selMode,sel,srTree()?insp.map(x=>({gid:x.gid,ids:x.ids,label:'Idea '+x.num})):null);
 }
@@ -1019,16 +1024,20 @@ function srDraw(disp,node,selMode,sel,infl){
   disp.innerHTML=`<div style="position:absolute;inset:0"><div class="srz-scroll" style="position:absolute;inset:0;overflow:auto;background:var(--bg);cursor:grab;box-sizing:border-box;padding:${tree?'1.8rem 0 0':'14px'}"></div><div class="tree-zoom"><button type="button" title="Zoom in">+</button><button type="button" title="Zoom out">\u2212</button></div></div>`;
   const sc=disp.querySelector('.srz-scroll'); let content;
   if(!tree){
-    content=document.createElement('div'); content.className='sr-chat-history'; sc.appendChild(content); buildChatInto(content,node.id);
-    if(selMode) [...content.children].forEach((el,i)=>{
+    content=document.createElement('div'); content.className='sr-chat-history'; sc.appendChild(content);
+    const markChat=box=>{ if(selMode) [...box.children].forEach((el,i)=>{
       const id=`${el.dataset.nodeId}#${i}`;
       if(selMode==='ro'){ if(sel.has(id)) el.classList.add('sr-selected'); return; }
-      const ai=el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
+      const ai=srIsAiEl(el);
       if(selMode==='ai'&&!ai){ el.classList.add('sr-dim'); return; }
       el.classList.add('sr-selectable');
       if(sel.has(id)) el.classList.add('sr-selected');
       el.onclick=()=>srToggle(id,el.innerText.replace(/\s+/g,' ').trim(),el);
-    });
+    }); };
+    buildChatInto(content,node.id); markChat(content);
+    (infl||[]).forEach(x=>{ if(!x.node) return;
+      const h=document.createElement('div'); h.className='sr-group-label'; h.style.cssText='position:static;margin:18px 0 6px'; h.textContent=`Inspiration (Idea ${x.num})`; sc.appendChild(h);
+      const box=document.createElement('div'); box.className='sr-chat-history'; sc.appendChild(box); buildChatInto(box,x.node.id); markChat(box); });
   } else {
     sc.innerHTML='<div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div>';
     content=sc.firstElementChild;
@@ -1062,9 +1071,10 @@ function srShowCompare(st,node){
   const ids=r=>new Set((r[node.id][q.k]||[]).map(o=>o.id));
   const A=document.getElementById('sr-cmp-a'), B=document.getElementById('sr-cmp-b');
   [A,B].forEach(c=>c.style.position='relative');
-  srDraw(A,node,'ro',ids(SR.a1));
+  const insp=srInsp(st.i), inf=srTree()?insp.map(x=>({gid:x.gid,ids:x.ids,label:'Idea '+x.num})):insp;
+  srDraw(A,node,'ro',ids(SR.a1),inf);
   A.querySelectorAll('[id]').forEach(e=>{ if(!e.id.startsWith('arr')) e.id='a-'+e.id; });
-  srDraw(B,node,'ro',ids(SR.a2));
+  srDraw(B,node,'ro',ids(SR.a2),inf);
 }
 function srFmt(q,v){
   if(q.type==='scale') return v?`${v} = ${srScaleOf(q.k)[v-1]}`:'(no answer)';
@@ -1075,7 +1085,10 @@ function srChanged(q,x,y){
   const a=new Set((x||[]).map(o=>o.id)), b=new Set((y||[]).map(o=>o.id));
   return a.size!==b.size||[...a].some(i=>!b.has(i));
 }
-function srPrevStep(){ if(SR.p>0){ SR.p--; SR.tab=0; srRender(); } }
+function srPrevStep(){
+  const st=SR.steps[SR.p];
+  if(st.t==='infl'&&SR.tab>0){ SR.tab--; srRender(); return; }
+  if(SR.p>0){ SR.p--; SR.tab=SR.steps[SR.p].t==='infl'?SR.ideas.length-2:0; srRender(); } }
 function srBack(){ let t=SR.p-1; while(t>=0&&SR.steps[t].t!=='q') t--; if(t>=0){ SR.p=t; srRender(); } }
 async function srPostRound(round,reports){
   try{
@@ -1092,6 +1105,7 @@ function srChgStep(i,j){
 async function srNext(){
   if(SR.busy) return;
   const st=SR.steps[SR.p];
+  if(st.t==='infl'&&SR.tab<SR.ideas.length-2){ SR.tab++; srRender(); return; }   // next tab (other idea) before the next idea
   if(SR.p<SR.steps.length-1){ SR.p++; SR.tab=0; srRender(); return; }
   // end of a phase
   if(SR.phase==='infl'){
@@ -1100,6 +1114,7 @@ async function srNext(){
     const ok=await syncNow();   // stored with the node itself (ideagit_nodes.influenced_by)
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    SR.ideas.forEach((n,i)=>{ SR.counts[n.id]=srCounts(n,srInsp(i)); });   // what could be selected now includes the inspiration trees
     SR.phase='r1'; SR.round=1; SR.p=0; SR.tab=0; SR.steps=SR.qSteps(); srRender();
   } else if(SR.phase==='r1'){
     SR.busy=true;
@@ -1206,9 +1221,10 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
     const gNodes=S.nodes.filter(n=>n.groupId===g.gid&&n.type!=='feedback'&&n.type!=='clarification'); if(!gNodes.length) return;
     const savedGid=S.currentGroupId; S.currentGroupId=g.gid; const pos0=computeLayout(g.gid,190); S.currentGroupId=savedGid;
     const vals=Object.values(pos0); if(!vals.length) return;
-    const dx=g.main?0:right+170-Math.min(...vals.map(p=>p.x));
+    const dx=g.main?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
+    const lin=new Set(); if(!g.main) g.ids.forEach(id=>getPath(id).forEach(y=>lin.add(y.id)));
     const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
-    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+110); maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
+    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
     if(!g.main){ const lb=document.createElement('div'); lb.className='sr-group-label'; lb.textContent=g.label+' (inspiration)';
       lb.style.cssText=`left:${Math.min(...Object.values(pos).map(p=>p.x))-W/2}px;top:-22px`; nodesEl.appendChild(lb); }
     gNodes.forEach(node=>{
@@ -1232,11 +1248,12 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
         (isCurrent?'<div class="sr-current-ring"></div>':'')+
         `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`+
         (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
-      if(!g.main){ el.style.pointerEvents='none'; if(g.ids.has(node.id)){ el.classList.add('sr-selected'); pairs.push({from:currentNodeId,to:node.id}); } }
-      else if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
+      if(!g.main&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id});   // dotted line only, no tick
+      if(!g.main&&!selMode) el.style.pointerEvents='none';
+      if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
       else if(selMode){
         const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
-        if((selMode!=='any'&&!lineage.has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
+        if((selMode!=='any'&&!(g.main?lineage:lin).has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
         else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
           el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
       }
