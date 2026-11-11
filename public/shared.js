@@ -451,7 +451,7 @@ function _renderAllTreesOnce(minH){
   if(!nodesEl||!svg||!canvas) return;
   hideTreeTooltip();
   nodesEl.innerHTML=''; svg.innerHTML=''; _pan.pos={};
-  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on a node to see the detail on the right. You can edit the idea yourself or using AI. When you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); fitHint(sub); }
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on a node to see the detail on the right. You can edit the idea yourself or using AI.\nWhen you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); fitHint(sub); }
   const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
   const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
   gids.reverse(); // newest idea's tree on the left, older ones move right
@@ -610,13 +610,18 @@ async function doDiscard(ids,keepChildren){
 // Keeps the tree hint to at most two lines, balanced (no single word left hanging on the second line)
 function fitHint(el){
   if(!el||!el.textContent) return;
+  const raw=el.textContent;
+  if(raw.includes('\n')){   // fixed two-line text: one sentence group per line, font shrinks until each line fits
+    el.innerHTML=raw.split('\n').map(t=>'<span style="display:block;white-space:nowrap;overflow:hidden">'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span>').join('');
+    el.style.textAlign='left'; el.style.lineHeight='1.35'; el.style.fontWeight='500';
+    const spans=[...el.children]; let fs=20; el.style.fontSize=fs+'px';
+    while(fs>8&&spans.some(x=>x.scrollWidth>x.clientWidth+0.5)){ fs-=0.5; el.style.fontSize=fs+'px'; }
+    return;
+  }
   const lines=()=>{ const r=document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(x=>Math.round(x.top))).size; };
   el.style.maxWidth=''; el.style.margin=''; el.style.textAlign='left'; el.style.textWrap='balance'; el.style.lineHeight='1.3'; el.style.fontWeight='500';
   let fs=20; el.style.fontSize=fs+'px';
   while(lines()>2&&fs>8){ fs-=0.5; el.style.fontSize=fs+'px'; }
-  if(!(window.CSS&&CSS.supports&&CSS.supports('text-wrap','balance'))&&lines()===2){   // older browsers: narrow the box until the text just still fits in two lines
-    let w=el.clientWidth; while(w>200){ w-=16; el.style.maxWidth=w+'px'; if(lines()>2){ el.style.maxWidth=(w+16)+'px'; break; } }
-  }
 }
 window.addEventListener('resize',()=>fitHint(document.getElementById('tree-subheader')));
 // After editing a finalized idea: offer to move the "finalized" mark to the newly created version
