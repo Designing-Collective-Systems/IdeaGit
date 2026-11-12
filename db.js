@@ -202,7 +202,7 @@ async function setSelection(pids) {
 }
 async function getNodesFor(pids) {
   return (await pool.query(
-    `SELECT participant_id, study_condition, node_id, group_id, parent_id, type, tag, title, body, is_finalized, extras,
+    `SELECT participant_id, study_condition, node_id, group_id, parent_id, type, tag, title, body, is_finalized, extras, user_prompt, ai_response, influenced_by,
             (EXTRACT(EPOCH FROM created_at) * 1000)::double precision AS created_ms
        FROM ideagit_nodes WHERE participant_id = ANY($1::text[]) ORDER BY participant_id, created_at NULLS LAST, node_id`, [pids])).rows;
 }

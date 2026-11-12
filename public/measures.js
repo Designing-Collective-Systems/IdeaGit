@@ -111,6 +111,56 @@
     return { m, ideas };
   }
 
-  const api = { prep, items, metrics, condCat, mean, sd };
+  // ── CSV export: one row per node; self-report answers sit on the finalized node's row (t1 = first self-report, t2 = repeat) ──
+  const cell = v => { if (v == null) return ''; const s = String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const ids = a => JSON.stringify((a || []).map(x => x.id));
+  function dataCsv(data) {
+    const byP = {}; data.nodes.forEach(r => (byP[r.participant_id] = byP[r.participant_id] || []).push(r));
+    const sr = {}; data.selfreports.forEach(x => { sr[x.participant_id + '|' + x.node_id + '|' + x.round] = x.answers || {}; });
+    const head = ['participant_id', 'condition', 'condition_group', 'idea_number', 'node_id', 'group_id', 'parent_id', 'depth', 'n_children', 'type', 'tag', 'is_ai_node',
+      'is_finalized', 'is_discarded', 'on_finalized_path', 'created_at', 'created_ms', 'title', 'body', 'user_prompt', 'ai_response', 'influenced_by'];
+    ['t1', 't2'].forEach(t => head.push(t + '_ownership', t + '_ai_reliance', t + '_effort', t + '_ownership_nodes', t + '_without_ai_nodes', t + '_skip_nodes', t + '_total_items', t + '_ai_items'));
+    head.push('t2_changed_questions');
+    const out = [head.join(',')];
+    Object.keys(byP).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).forEach(pid => {
+      const rows = byP[pid], by = {}, kids = {};
+      rows.forEach(r => { by[String(r.node_id)] = r; });
+      rows.forEach(r => { const p = r.parent_id && by[String(r.parent_id)] ? String(r.parent_id) : null; if (p) kids[p] = (kids[p] || 0) + 1; });
+      const depth = r => { let d = 0, c = r; while (c && c.parent_id && by[String(c.parent_id)] && d < 500) { c = by[String(c.parent_id)]; d++; } return d; };
+      const onFin = new Set(); rows.filter(r => r.is_finalized === true).forEach(r => { let c = r, g = 0; while (c && g++ < 500) { onFin.add(String(c.node_id)); c = c.parent_id ? by[String(c.parent_id)] : null; } });
+      const groups = []; rows.forEach(r => { const g = String(r.group_id || r.node_id); if (!groups.includes(g)) groups.push(g); });
+      const cat = { 'ai-only': 'AI-only', 'idea-tree': 'IdeaTree', other: 'Other' }[condCat(rows[0].study_condition)];
+      rows.forEach(r => {
+        const id = String(r.node_id), ex = pe(r.extras), ms = Number(r.created_ms) || 0;
+        const line = [pid, r.study_condition, cat, groups.indexOf(String(r.group_id || r.node_id)) + 1, id, r.group_id, r.parent_id, depth(r), kids[id] || 0, r.type, r.tag,
+          AI(r.tag) ? 1 : 0, r.is_finalized === true ? 1 : 0, ex.some(x => x.type === 'discarded') ? 1 : 0, onFin.has(id) ? 1 : 0,
+          ms ? new Date(ms).toISOString() : '', ms || '', r.title, r.body, r.user_prompt, r.ai_response, r.influenced_by ? JSON.stringify(pe(r.influenced_by)) : ''];
+        ['1', '2'].forEach(t => { const a = sr[pid + '|' + id + '|' + t];
+          line.push(a ? a.own : '', a ? a.dep : '', a ? a.effort : '', a ? ids(a.ownSel) : '', a ? ids(a.noAI) : '', a ? ids(a.skip) : '', a ? a.total_items : '', a ? a.ai_items : ''); });
+        const a2 = sr[pid + '|' + id + '|2']; line.push(a2 && a2.changed_questions ? JSON.stringify(a2.changed_questions) : '');
+        out.push(line.map(cell).join(','));
+      });
+    });
+    return out.join('\n');
+  }
+
+  // Ratings: one row per rater x item. For pairs (branch divergence) node_id / node_id_b are the two child versions.
+  function ratingsCsv(data) {
+    const sel = new Set(data.selected), cond = {};
+    data.nodes.forEach(r => { cond[r.participant_id] = r.study_condition; });
+    const D = {}; data.distances.forEach(x => { D[x.kind + '|' + x.item_key] = x.distance; });
+    const kind = { edit_sig: 'edit', final_sig: 'final', branch_div: 'branch' };
+    const score = (m, v) => (m === 'originality' || m === 'effectiveness') ? Number(v) : v === 'yes' ? 1 : v === 'maybe' ? 0.5 : 0;
+    const out = [['rater', 'measure', 'participant_id', 'condition', 'condition_group', 'node_id', 'node_id_b', 'rating', 'score', 'calculated_cosine_distance'].join(',')];
+    data.ratings.slice().sort((a, b) => a.rater.localeCompare(b.rater) || a.measure.localeCompare(b.measure) || a.item_key.localeCompare(b.item_key)).forEach(r => {
+      const parts = r.item_key.split('|'), pid = parts[0]; if (!sel.has(pid)) return;
+      const cat = { 'ai-only': 'AI-only', 'idea-tree': 'IdeaTree', other: 'Other' }[condCat(cond[pid])];
+      const d = kind[r.measure] ? D[kind[r.measure] + '|' + r.item_key] : '';
+      out.push([r.rater, r.measure, pid, cond[pid], cat, parts[1], parts[2] || '', r.value, score(r.measure, r.value), d == null ? '' : d].map(cell).join(','));
+    });
+    return out.join('\n');
+  }
+
+  const api = { prep, items, metrics, condCat, mean, sd, dataCsv, ratingsCsv };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Measures = api;
 })(typeof window !== 'undefined' ? window : globalThis);

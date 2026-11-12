@@ -15,6 +15,8 @@ th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)}th{
 <div class="bar">
   <button class="btn btn-primary" id="save" onclick="save()">Save selection</button>
   <a class="btn btn-outline" href="/dashboard">Dashboard</a><a class="btn btn-outline" href="/rate" target="_blank">Rater page</a>
+  <button class="btn btn-outline" id="csv" onclick="csv()">Download data (CSV)</button>
+  <button class="btn btn-outline" id="csv2" onclick="csv(true)">Download ratings (CSV)</button>
   <button class="btn btn-outline" id="dist" onclick="dist()">Compute semantic distances</button>
   <span class="msg" id="msg"></span>
 </div>
@@ -43,6 +45,16 @@ async function save(){
   const ids=[...new Set([...document.querySelectorAll('.pc:checked')].map(b=>b.value))];
   const r=await fetch('/api/admin/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_ids:ids})});
   say(r.ok?`Saved: ${ids.length} participant(s) selected.`:'Could not save.');
+}
+async function csv(ratings){
+  await save();      // the file always matches what is ticked right now
+  const r=await fetch('/api/admin/data'); if(!r.ok){ say('Could not load the data.'); return; }
+  const data=await r.json(); if(!data.nodes.length){ say('No data for the selected participants.'); return; }
+  const text=ratings?Measures.ratingsCsv(data):Measures.dataCsv(data), n=text.split('\n').length-1;
+  if(ratings&&!n){ say('No ratings yet for the selected participants.'); return; }
+  const blob=new Blob([text],{type:'text/csv;charset=utf-8'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='ideaforest_'+(ratings?'ratings_':'data_')+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  say(`Downloaded ${n} rows for ${data.selected.length} participant(s).`);
 }
 async function dist(){
   const b=document.getElementById('dist'); b.disabled=true; say('Computing (the first run downloads the embedding model, this can take a few minutes)…');
