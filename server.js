@@ -183,7 +183,7 @@ app.post('/api/admin/compute-distances', adminAuth, needDb, wrap(async (req, res
     const it = Measures.items(pid, Measures.prep(by[pid]));
     it.edit.forEach(i => jobs.push({ kind: 'edit', key: i.key, texts: [i.prev, i.cur] }));
     it.final.forEach(i => jobs.push({ kind: 'final', key: i.key, texts: [i.root, i.final] }));
-    it.branch.forEach(i => jobs.push({ kind: 'branch', key: i.key, texts: i.kids }));
+    it.branch.forEach(i => jobs.push({ kind: 'branch', key: i.key, texts: [i.a, i.b] }));
   }
   const uniq = [...new Set(jobs.flatMap(j => j.texts))], vec = {};
   (await embed(uniq)).forEach((v, i) => { vec[uniq[i]] = v; });

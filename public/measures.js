@@ -37,7 +37,9 @@
     T.nodes.forEach(n => {
       if (!T.finGroups.has(n.groupId)) return;
       if (n.parentId) out.edit.push({ key: k(n.id), prev: T.by[n.parentId].body, cur: n.body });
-      const c = T.kids[n.id]; if (c && c.length >= 2) out.branch.push({ key: k(n.id), parent: n.body, kids: c.map(x => x.body) });
+      const c = T.kids[n.id];   // every pair of children of the same parent is rated / measured
+      if (c && c.length >= 2) for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++)
+        out.branch.push({ key: pid + '|' + c[i].id + '|' + c[j].id, a: c[i].body, b: c[j].body });
     });
     return out;
   }
@@ -63,8 +65,11 @@
     // exploration
     const br = T.nodes.filter(n => (T.kids[n.id] || []).length >= 2);
     m.branches = br.length; m.magnitude = mean(br.map(n => T.kids[n.id].length));
-    const bv = rv('branch_div', br.map(n => k(n.id)));
-    m.bdYes = share(bv, 'yes'); m.bdMaybe = share(bv, 'maybe'); m.bdNo = share(bv, 'no'); m.bdCalc = dv('branch', br.map(n => k(n.id)));
+    const pairKeys = br.filter(n => T.finGroups.has(n.groupId)).flatMap(n => { const c = T.kids[n.id], o = [];
+      for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) o.push(pid + '|' + c[i].id + '|' + c[j].id); return o; });
+    const bv = rv('branch_div', pairKeys);
+    m.bdYes = share(bv, 'yes'); m.bdMaybe = share(bv, 'maybe'); m.bdNo = share(bv, 'no'); m.bdCalc = dv('branch', pairKeys);
+    m.bdScore = bv.length ? mean(bv.map(x => x === 'yes' ? 1 : x === 'maybe' ? 0.5 : 0)) : null;   // yes = 1, maybe = 0.5, no = 0
     const sorted = T.nodes.slice().sort((a, b) => a.ts - b.ts), bt = [];
     for (let i = 1; i < sorted.length; i++) {
       const X = sorted[i], M = sorted[i - 1];

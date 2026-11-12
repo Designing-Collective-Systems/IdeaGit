@@ -65,9 +65,8 @@ function show(){
   if(it.measure==='quality') body=`<div class="lbl">Idea</div><div class="txt">${esc(it.text)}</div>`
     +scale('originality',it,ORIG,'Originality: the degree to which the idea is not only rare but is also ingenious, imaginative, or surprising')
     +scale('effectiveness',it,EFF,'Effectiveness: the degree to which the idea will solve the problem');
-  else if(it.measure==='branch_div') body=`<div class="lbl">Original version</div><div class="txt">${esc(it.parent)}</div><div class="lbl">Versions developed from it</div>`
-    +`<div class="cols">${it.kids.map((k,i)=>`<div><div class="lbl">Version ${String.fromCharCode(65+i)}</div><div class="txt">${esc(k)}</div></div>`).join('')}</div>`
-    +yn('branch_div',it,'Are these versions substantially different from each other?');
+  else if(it.measure==='branch_div') body=`<div class="cols"><div><div class="lbl">Version A</div><div class="txt">${esc(it.a)}</div></div><div><div class="lbl">Version B</div><div class="txt">${esc(it.b)}</div></div></div>`
+    +yn('branch_div',it,'Are these two versions substantially different from each other?');
   else if(it.measure==='edit_sig') body=`<div class="cols"><div><div class="lbl">Previous version</div><div class="txt">${esc(it.prev)}</div></div><div><div class="lbl">New version (after the edit)</div><div class="txt">${esc(it.cur)}</div></div></div>`
     +yn('edit_sig',it,'Did this edit substantially change the idea compared with its previous version?');
   else body=`<div class="cols"><div><div class="lbl">Original idea</div><div class="txt">${esc(it.root)}</div></div><div><div class="lbl">Finalized idea</div><div class="txt">${esc(it.final)}</div></div></div>`
