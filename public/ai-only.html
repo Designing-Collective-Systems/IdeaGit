@@ -55,9 +55,14 @@
         <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
-        <div class="reply-indicator" id="reply-indicator" style="display:none">
-          <span>↩ Replying to: <em id="reply-text"></em></span>
-          <button onclick="clearReply()" class="reply-clear-btn">✕</button>
+        <div class="chat-dock" id="chat-dock">
+          <div class="reply-indicator" id="reply-indicator" style="display:none">
+            <div class="reply-quote" onclick="jumpToReply()" title="Go to this message">
+              <div class="reply-quote-label" id="reply-label">Replying to</div>
+              <div class="reply-quote-text" id="reply-text"></div>
+            </div>
+            <button type="button" onclick="clearReply()" class="reply-clear-btn" aria-label="Cancel reply">✕</button>
+          </div>
         </div>
       </div>
     </div>

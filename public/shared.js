@@ -209,23 +209,27 @@ function renderIdeasList(containerId,emptyId,onSelect){
   }
 }
 
-// Ideas panel for the AI conditions: both categories are always shown (with a
-// short note when one is empty), and finalized ideas are numbered in order.
+// Ideas panel for the AI conditions: one card per chat (all branches of an idea live in one chat),
+// no section headings. A chat is green once any version in it is finalized.
 function renderIdeasPanel(containerId,onSelect){
   const area=document.getElementById(containerId); if(!area) return;
-  const {finalized,ongoing,unfinalized}=getDisplayIdeas();
-  const inProgress=ongoing.concat(unfinalized).sort((a,b)=>a.ts-b.ts);
   area.innerHTML='';
-  if(finalized.length||inProgress.length){
-    const instr=document.createElement('p'); instr.className='panel-instruction-inline'; instr.textContent='Click on any idea to work on it'; area.appendChild(instr);
-  }
-  const section=(label,list,status,emptyText,labelFn)=>{
-    const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent=label; area.appendChild(l);
-    if(!list.length){ const p=document.createElement('p'); p.className='ideas-section-empty'; p.textContent=emptyText; area.appendChild(p); return; }
-    list.forEach((n,i)=>area.appendChild(makeIdeaCard(n,status,onSelect,labelFn?labelFn(i):undefined)));
-  };
-  section('In Progress',inProgress,'ongoing','No ideas are in progress');
-  section('Finalized',finalized,'finalized','No ideas have been finalized',i=>`Finalized idea ${i+1}`);
+  const groups=new Map();
+  S.nodes.forEach(n=>{ if(!n.body) return; if(!groups.has(n.groupId)) groups.set(n.groupId,[]); groups.get(n.groupId).push(n); });
+  const cn=curNode();
+  groups.forEach((nodes,gid)=>{
+    nodes.sort((a,b)=>a.ts-b.ts);
+    const fin=nodes.filter(n=>n.isFinalized), show=fin.length?fin[fin.length-1]:nodes[nodes.length-1];
+    const card=makeIdeaCard(show,fin.length?'finalized':'',()=>selectChat(gid),fin.length>1?`${fin.length} finalized`:'Finalized');
+    card.classList.toggle('selected',!!cn&&cn.groupId===gid);
+    area.appendChild(card);
+  });
+}
+// Opens a chat from the list: its most recent version becomes the current one
+function selectChat(gid){
+  const cn=curNode(); if(cn&&cn.groupId===gid) return;
+  const ns=S.nodes.filter(n=>n.groupId===gid); if(!ns.length) return;
+  selectIdea(ns.reduce((m,n)=>n.ts>=m.ts?n:m).id);
 }
 
 // ── Process tree ──────────────────────────────────────────────
@@ -596,13 +600,17 @@ async function doDiscard(ids,keepChildren){
   removed.forEach(n=>n.extras.push({type:'discarded',ts:Date.now()})); // recorded in the database before removal
   await syncNow();
   S.nodes=S.nodes.filter(n=>!set.has(n.id));
+  if(_replyToNodeId&&set.has(_replyToNodeId)) clearReply();
   if(set.has(S.currentNodeId)){
     const first=removed[0], parent=first&&first.parentId?S.nodes.find(n=>n.id===first.parentId):null;
     const kid=keepChildren&&S.nodes.find(k=>k.groupId===first.groupId);
     if(parent) selectIdea(parent.id);
     else if(kid) selectIdea(kid.id);
     else{ S.currentNodeId=null; S.currentGroupId=null; const m=document.getElementById('chat-messages'); if(m) m.innerHTML=''; showChatInitial(); refreshUI(); }
-  } else refreshUI();
+  } else {
+    refreshUI();
+    if(threadMode()&&curNode()){ const w=document.getElementById('chat-messages'), st=w?w.scrollTop:0; rebuildChat(S.currentNodeId); if(w) w.scrollTop=st; }   // the discarded version leaves the chat
+  }
   toast('Idea discarded');
 }
 
@@ -936,6 +944,14 @@ function openSelfReport(){
 }
 const srIsAiEl=el=>el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
 // how many nodes / chat messages the participant could choose from (the denominators of the proportion measures)
+// AI-only: the chat shown (and counted) for an idea is the whole chat with every branch, as in the live chat;
+// the version being reported is tagged. Other conditions keep the single path.
+function srBuildChat(box,node){
+  if(threadMode()){
+    buildThreadInto(box,node.groupId);
+    const b=box.querySelector(`.idea-bubble[data-node-id="${node.id}"]`); if(b) b.classList.add('sr-this-idea');
+  } else buildChatInto(box,node.id);
+}
 function srCounts(node,insp){
   insp=insp||[];
   if(srTree()){
@@ -943,7 +959,7 @@ function srCounts(node,insp){
     insp.forEach(x=>x.ids.forEach(id=>getPath(id).forEach(y=>m.set(y.id,y))));   // lineage of each inspiring node
     const a=[...m.values()]; return {total_items:a.length,ai_items:a.filter(x=>x.tag==='ai-generated'||x.tag==='ai-modification').length};
   }
-  let tot=0,ai=0; [node].concat(insp.map(x=>x.node)).forEach(n=>{ const d=document.createElement('div'); buildChatInto(d,n.id); const c=[...d.children]; tot+=c.length; ai+=c.filter(srIsAiEl).length; });
+  let tot=0,ai=0; [node].concat(insp.map(x=>x.node)).forEach(n=>{ const d=document.createElement('div'); srBuildChat(d,n); const c=[...d.children]; tot+=c.length; ai+=c.filter(srIsAiEl).length; });
   return {total_items:tot,ai_items:ai};
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
@@ -1055,12 +1071,12 @@ function srDraw(disp,node,selMode,sel,infl){
       if(selMode==='ai'&&!ai){ el.classList.add('sr-dim'); return; }
       el.classList.add('sr-selectable');
       if(sel.has(id)) el.classList.add('sr-selected');
-      el.onclick=()=>srToggle(id,el.innerText.replace(/\s+/g,' ').trim(),el);
+      el.onclick=()=>srToggle(id,((el.querySelector('.bubble-content')||el).innerText).replace(/\s+/g,' ').trim(),el);
     }); };
-    buildChatInto(content,node.id); markChat(content);
+    srBuildChat(content,node); markChat(content);
     (infl||[]).forEach(x=>{ if(!x.node) return;
       const h=document.createElement('div'); h.className='sr-group-label'; h.style.cssText='position:static;margin:18px 0 6px'; h.textContent=`Inspiration (Idea ${x.num})`; sc.appendChild(h);
-      const box=document.createElement('div'); box.className='sr-chat-history'; sc.appendChild(box); buildChatInto(box,x.node.id); markChat(box); });
+      const box=document.createElement('div'); box.className='sr-chat-history'; sc.appendChild(box); srBuildChat(box,x.node); markChat(box); });
   } else {
     sc.innerHTML='<div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div>';
     content=sc.firstElementChild;
@@ -1434,6 +1450,7 @@ function refreshUI(){
   renderIdeasPanel('ideas-list',selectIdea);
   if(hasTree()) renderAllTrees();
   updateFinalizedCounter();
+  syncFinalizedBubbles();
 }
 
 function startIdeation(){
@@ -1482,7 +1499,7 @@ function updateChatHeader(){ renderChatActions(); }
 // The five action buttons sit in a bar at the top of the chat panel (two rows);
 // the inline composer for the chosen action opens under the newest bubble.
 function renderChatActions(){
-  const bar=document.getElementById('chat-actions-bar'), wrap=document.getElementById('chat-messages');
+  const bar=document.getElementById('chat-actions-bar'), wrap=document.getElementById('chat-dock')||document.getElementById('chat-messages');
   if(wrap){ const old=wrap.querySelector('#chat-actions'); if(old) old.remove(); }
   const node=curNode();
   if(bar){
@@ -1577,30 +1594,66 @@ function submitClarify(){
 // Rebuilds the full chat for nodeId, then scrolls to where that idea's own
 // body appears (its creation/edit point) rather than the bottom of any
 // trailing feedback/clarification messages.
-function buildChatInto(wrap,nodeId){
-  getPath(nodeId).forEach(node=>{
-    if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='ai-generated'?'ai-created':'manual-created'));
-    else if(node.type==='modification'){
-      if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt==='[Manual modification]'?'[Edited without AI]':node.userPrompt,node.id));
-      wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='manual-modification'?'manual':'modified'));
-    }
-    node.extras.forEach((ex,idx)=>{
-      if(ex.userPrompt) wrap.appendChild(makeMsgBubble('user',ex.userPrompt,node.id,idx));
-      if(ex.type==='feedback') wrap.appendChild(makeFeedbackBubble(ex.aiResponse,node.id,idx));
-      else if(ex.aiResponse) wrap.appendChild(makeMsgBubble('assistant',ex.aiResponse,node.id,idx));
-    });
+const threadMode=()=>S.condition==='AI-Assisted Ideation';   // AI-only: one chat window per idea, all branches in it
+function appendNodeBlock(wrap,node,quoteOf){
+  if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='ai-generated'?'ai-created':'manual-created'));
+  else if(node.type==='modification'){
+    if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt==='[Manual modification]'?'[Edited without AI]':node.userPrompt,node.id,null,quoteOf));
+    wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='manual-modification'?'manual':'modified'));
+  }
+  node.extras.forEach((ex,idx)=>{
+    if(ex.userPrompt) wrap.appendChild(makeMsgBubble('user',ex.userPrompt,node.id,idx));
+    if(ex.type==='feedback') wrap.appendChild(makeFeedbackBubble(ex.aiResponse,node.id,idx));
+    else if(ex.aiResponse) wrap.appendChild(makeMsgBubble('assistant',ex.aiResponse,node.id,idx));
+  });
+}
+// One idea's linear history (root → nodeId). Used by the self-report.
+function buildChatInto(wrap,nodeId){ getPath(nodeId).forEach(node=>appendNodeBlock(wrap,node,null)); }
+// The whole chat of one idea, every branch, in the order things happened (like a messaging app).
+// A message that branches from an older version carries a quote of the version it replied to.
+function threadTail(gid){
+  return S.nodes.filter(n=>n.groupId===gid&&(n.type==='creation'||n.type==='modification')).reduce((m,n)=>(!m||n.ts>=m.ts)?n:m,null);
+}
+function buildThreadInto(wrap,gid){
+  let prev=null;
+  S.nodes.filter(n=>n.groupId===gid).sort((a,b)=>a.ts-b.ts).forEach(node=>{
+    const par=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+    appendNodeBlock(wrap,node,(par&&prev&&par.id!==prev.id)?par:null);
+    if(node.type==='creation'||node.type==='modification') prev=node;
+  });
+}
+function makeQuote(par){
+  const el=document.createElement('div'); el.className='msg-quote'; el.title='Go to the message you replied to';
+  const t=(par.body||'').replace(/\s+/g,' ').trim();
+  el.innerHTML=`<div class="msg-quote-label">${esc(nodeTagLabel(par))}</div><div class="msg-quote-text">${esc(t.slice(0,90)+(t.length>90?'…':''))}</div>`;
+  el.addEventListener('click',ev=>{ ev.stopPropagation(); jumpToNode(par.id); });
+  return el;
+}
+function jumpToNode(id){
+  const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${id}"]`); if(!b) return;
+  b.scrollIntoView({behavior:'smooth',block:'center'});
+  b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(()=>b.classList.remove('flash'),1500);
+}
+function jumpToReply(){ if(_replyToNodeId) jumpToNode(_replyToNodeId); }
+// Finalized versions are green in the chat, like finalized nodes in the idea tree
+function syncFinalizedBubbles(){
+  if(!threadMode()) return;
+  document.querySelectorAll('#chat-messages .idea-bubble').forEach(el=>{
+    const n=S.nodes.find(x=>x.id===el.dataset.nodeId); el.classList.toggle('finalized',!!(n&&n.isFinalized));
   });
 }
 function rebuildChat(nodeId){
   const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
-  buildChatInto(wrap,nodeId); addReplyButtons(wrap);
+  const nd=S.nodes.find(n=>n.id===nodeId), tail=(threadMode()&&nd)?threadTail(nd.groupId):null;
+  if(tail) buildThreadInto(wrap,nd.groupId); else buildChatInto(wrap,nodeId);
+  addReplyButtons(wrap);
   renderChatActions(); markReplyTarget();
   const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
-  if(target) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
+  if(target&&!(tail&&tail.id===nodeId)) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
 }
 
 function makeIdeaBubble(node,label,cls){
-  const el=document.createElement('div'); el.className='idea-bubble'+(cls?' '+cls:''); el.dataset.nodeId=node.id;
+  const el=document.createElement('div'); el.className='idea-bubble'+(cls?' '+cls:'')+(threadMode()&&node.isFinalized?' finalized':''); el.dataset.nodeId=node.id;
   const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
   const bodyHtml=(node.type==='modification'&&parent)?diffHighlightBody(parent.body,node.body):esc(node.body);
   el.innerHTML=`
@@ -1608,13 +1661,14 @@ function makeIdeaBubble(node,label,cls){
     <div class="idea-bubble-body">${bodyHtml}</div>`;
   return el;
 }
-function makeMsgBubble(role,content,nodeId,extraIdx=null){
+function makeMsgBubble(role,content,nodeId,extraIdx=null,quoteNode=null){
   const el=document.createElement('div'); el.className='chat-msg '+role; el.dataset.nodeId=nodeId||'';
   const clean=role==='assistant'?stripMarkdown(content):content;
   const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
   const eidx=extraIdx!==null?`,'${extraIdx}'`:'null';
   if(role==='user'||role==='assistant'){
     el.innerHTML=`<span class="bubble-content">${esc(clean)}</span>`;
+    if(role==='user'&&quoteNode) el.insertBefore(makeQuote(quoteNode),el.firstChild);
   } else { el.textContent=clean; }
   return el;
 }
@@ -1637,11 +1691,21 @@ function appendToChat(el){
 function markReplyTarget(){
   document.querySelectorAll('#chat-messages .reply-target').forEach(e=>e.classList.remove('reply-target'));
   if(_replyToNodeId){ const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${_replyToNodeId}"]`); if(b) b.classList.add('reply-target'); }
+  document.querySelectorAll('#chat-messages .bubble-reply-btn').forEach(btn=>{
+    btn.textContent=(_replyToNodeId&&btn.parentElement.dataset.nodeId===_replyToNodeId)?'✕ Cancel reply':'↩ Reply';
+  });
 }
-function setReplyTo(nodeId,extraIdx,preview){
+// Replying: the idea version is outlined in the chat, and a quote of it sits right above the edit box
+function setReplyTo(nodeId){
   _replyToNodeId=nodeId;
-  const ind=document.getElementById('reply-indicator'), txt=document.getElementById('reply-text');
-  if(ind&&txt){ ind.style.display='flex'; txt.textContent=preview||'message'; }
+  const n=S.nodes.find(x=>x.id===nodeId);
+  const ind=document.getElementById('reply-indicator'), txt=document.getElementById('reply-text'), lab=document.getElementById('reply-label');
+  if(ind&&txt){
+    ind.style.display='flex';
+    const t=(n?n.body:'').replace(/\s+/g,' ').trim();
+    if(lab) lab.textContent='Replying to · '+(n?nodeTagLabel(n):'idea');
+    txt.textContent=t.slice(0,140)+(t.length>140?'…':'');
+  }
   markReplyTarget();
   renderChatActions();      // buttons and the edit box now refer to the version replied to
   const ta=document.getElementById('chat-composer-text')||document.getElementById('chat-input'); if(ta) ta.focus();
@@ -1658,13 +1722,8 @@ function addReplyButtons(root){
   const list=root.matches&&root.matches('.idea-bubble')?[root]:[...root.querySelectorAll('.idea-bubble')];
   list.forEach(el=>{
     const id=el.dataset.nodeId; if(!id||el.querySelector(':scope > .bubble-reply-btn')) return;
-    const b=document.createElement('button'); b.className='bubble-reply-btn'; b.type='button'; b.textContent='↩ Reply';
-    b.onclick=ev=>{
-      ev.stopPropagation();
-      const n=S.nodes.find(x=>x.id===id);
-      const txt=(n?n.body:el.textContent||'').replace(/\s+/g,' ').trim();
-      setReplyTo(id,null,(n?nodeTagLabel(n)+': ':'')+txt.slice(0,40)+(txt.length>40?'…':''));
-    };
+    const b=document.createElement('button'); b.className='bubble-reply-btn'; b.type='button'; b.textContent=(_replyToNodeId===id)?'✕ Cancel reply':'↩ Reply';
+    b.onclick=ev=>{ ev.stopPropagation(); if(_replyToNodeId===id) clearReply(); else setReplyTo(id); };
     el.appendChild(b);
   });
 }
@@ -1825,8 +1884,12 @@ async function processMessage(msg,type){
   clearReply();
   // Replying to an earlier version: show that version's own chat first, so the new messages follow it
   // (and not the later versions that came after it)
-  if(parent.id!==S.currentNodeId){ S.currentNodeId=parent.id; S.currentGroupId=parent.groupId; rebuildChat(parent.id); refreshUI(); }
-  appendToChat(makeMsgBubble('user',msg,parent.id));
+  if(parent.id!==S.currentNodeId){
+    S.currentNodeId=parent.id; S.currentGroupId=parent.groupId;
+    if(!threadMode()){ rebuildChat(parent.id); refreshUI(); }   // AI-only keeps every branch in one chat, so nothing to redraw
+  }
+  const tail=threadMode()?threadTail(parent.groupId):null;
+  appendToChat(makeMsgBubble('user',msg,parent.id,null,(tail&&tail.id!==parent.id)?parent:null));
   setChatThinking(true);
   try{
     if(type==='modification'){
