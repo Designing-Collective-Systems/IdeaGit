@@ -89,7 +89,7 @@
     const get = (nid, r) => { const x = sr.find(s => s.node_id === nid && Number(s.round) === r); return x ? x.answers : null; };
     const ideas = fin.map(n => {
       const a1 = get(n.id, 1), a2 = get(n.id, 2), p = T.path(n);
-      const prop = (a, key, ai) => { if (!a) return null; const tot = ai ? (a.ai_items != null ? a.ai_items : p.filter(x => AI(x.tag)).length) : (a.total_items != null ? a.total_items : p.length);
+      const prop = (a, key, ai) => { if (!a || a[key] == null) return null; const tot = ai ? (a.ai_items != null ? a.ai_items : p.filter(x => AI(x.tag)).length) : (a.total_items != null ? a.total_items : p.length);
         return tot ? (a[key] || []).length / tot : null; };
       const o = { id: n.id, text: n.body, depth: p.length - 1, orig: qual('originality', n), eff: qual('effectiveness', n),
         fsVals: ((R.final_sig || {})[k(n.id)] || []), fsCalc: D['final|' + k(n.id)] != null ? D['final|' + k(n.id)] : null,
@@ -136,7 +136,7 @@
           AI(r.tag) ? 1 : 0, r.is_finalized === true ? 1 : 0, ex.some(x => x.type === 'discarded') ? 1 : 0, onFin.has(id) ? 1 : 0,
           ms ? new Date(ms).toISOString() : '', ms || '', r.title, r.body, r.user_prompt, r.ai_response, r.influenced_by ? JSON.stringify(pe(r.influenced_by)) : ''];
         ['1', '2'].forEach(t => { const a = sr[pid + '|' + id + '|' + t];
-          line.push(a ? a.own : '', a ? a.dep : '', a ? a.effort : '', a ? ids(a.ownSel) : '', a ? ids(a.noAI) : '', a ? ids(a.skip) : '', a ? a.total_items : '', a ? a.ai_items : ''); });
+          line.push(a ? a.own : '', a ? a.dep : '', a ? a.effort : '', a && a.ownSel != null ? ids(a.ownSel) : '', a && a.noAI != null ? ids(a.noAI) : '', a && a.skip != null ? ids(a.skip) : '', a ? a.total_items : '', a ? a.ai_items : ''); });
         const a2 = sr[pid + '|' + id + '|2']; line.push(a2 && a2.changed_questions ? JSON.stringify(a2.changed_questions) : '');
         out.push(line.map(cell).join(','));
       });

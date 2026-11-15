@@ -51,6 +51,7 @@ window.confirmGenerateConfirm = async function(){
   const edited=document.getElementById('generate-prompt-text').value.trim();
   if(!edited){ setGeneratePromptError('Please enter a prompt.'); return; }
   const {system,hiddenSuffix}=_pendingGenerate||{};
+  const custom=edited!==((_pendingGenerate||{}).editable||'');
   const btn=document.getElementById('btn-generate-confirm');
   setGeneratePromptError('');
   btn.disabled=true; btn.textContent='Checking prompt…';
@@ -65,7 +66,9 @@ window.confirmGenerateConfirm = async function(){
     btn.textContent='Generating…';
     const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
     const json=parseAIJSON(text);
-    addNode(mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited}));
+    const gen=mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited});
+    if(custom) gen.extras.push({type:'custom_prompt',ts:Date.now()});
+    addNode(gen);
     _pendingGenerate=null; closeNewIdea(); refreshUI();
   }catch(e){ setGeneratePromptError('Could not generate an idea: '+e.message); }
   finally{ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
@@ -80,11 +83,11 @@ function renderActions(){
   if(!node||!S.nodes.length){ box.style.display='none'; return; }
   box.innerHTML='';
   const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='btn a5-tb-btn '+cls; b.textContent=label; b.onclick=fn; box.appendChild(b); };
-  mk('Edit the idea yourself','btn-outline',()=>openNodeModal('edit-self'));
-  mk('Edit the idea using AI','btn-outline',()=>openNodeModal('edit-ai'));
+  mk('Edit the idea yourself','btn-edit-self',()=>openNodeModal('edit-self'));
+  mk('Edit the idea using AI','btn-edit-ai',()=>openNodeModal('edit-ai'));
   // mk('Ask AI to clarify the idea','btn-outline',openAsk);   // hidden for now; may come back later
-  mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-green',finalizeCurrentIdea);
-  mk('Discard the current idea','btn-red',()=>discardNode(node.id));
+  mk(node.isFinalized?'Unfinalize the idea':'Finalize the idea',node.isFinalized?'btn-outline':'btn-finalize',()=>finalizeCurrentIdea(node));
+  mk('Discard the current idea','btn-discard',()=>discardNode(node.id));
   box.style.display='flex';
   const st=document.getElementById('a5-start'); if(st&&st.style.display!=='none') box.style.display='none';
   fitToolbar();
