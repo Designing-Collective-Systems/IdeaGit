@@ -838,3 +838,6 @@ body.app5 .tree-canvas{top:8px}
 /* ai-only action buttons: same height and spacing as the Idea Tree toolbar */
 .chat-actions-bar{height:auto;grid-auto-rows:44px;padding:8px 12px;gap:8px;align-content:normal}
 .chat-action-btn{min-height:44px}
+
+.btn.btn-skip{margin-right:auto;background:transparent;border:none;color:var(--text3);text-decoration:underline;padding:8px 4px}
+.btn.btn-skip:hover{color:var(--text)}

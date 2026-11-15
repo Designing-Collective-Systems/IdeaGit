@@ -961,6 +961,9 @@ function srBuildChat(box,node){
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
 function srBackBtn(){ return SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''; }
+// Skip: jump to the end of the current section and move on (answers given so far are kept)
+function srSkipBtn(){ return '<button class="btn btn-skip" onclick="srSkip()">Skip this section</button>'; }
+function srSkip(){ if(SR.busy) return; SR.p=SR.steps.length-1; srNext(); }
 function srHideLeft(){ document.getElementById('sr-left').style.display='none'; document.getElementById('sr-idea-display').innerHTML=''; hideTreeTooltip(); }
 function srRender(){
   const st=SR.steps[SR.p];
@@ -974,15 +977,15 @@ function srRender(){
     head=`Idea ${st.i+1} of ${SR.ideas.length}`;
     body=QS.map((q,x)=>`<div class="sr-q-block"><p class="sr-q-label">${x+1}. ${q.text}</p>`
       +srScaleOf(q.k).map((l,v)=>`<label class="sr-opt"><input type="radio" name="sr-${q.k}" value="${v+1}" ${a[q.k]===v+1?'checked':''} onchange="srPick('${q.k}',${v+1})"> ${v+1} = ${l}</label>`).join('')+`</div>`).join('');
-    foot=`${srBackBtn()}<button class="btn btn-primary" id="sr-go" onclick="srNext()" ${QS.every(q=>a[q.k])?'':'disabled'}>Next →</button>`;
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" id="sr-go" onclick="srNext()" ${QS.every(q=>a[q.k])?'':'disabled'}>Next →</button>`;
   } else if(st.t==='reflect'){
     head=`Reflection · Idea ${st.i+1} of ${SR.ideas.length}`;
     body=`<p class="sr-q-label">While looking at the ${srTree()?'idea tree':'chat history'}, can you please reflect out loud how the idea developed, from the start to the final version?</p>`;
-    foot=`${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
   } else {
     head=`Idea ${st.i+1} · Reflection on changed answer`;
     body=`<p class="sr-q-label">${esc(st.qtext)}</p><p style="font-size:0.95rem">Earlier, you answered "${esc(st.old)}." Now, you answered "${esc(st.nw)}."</p><p class="sr-q-label">Reflect out loud what led you to change your answer.</p>`;
-    foot=`${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
   }
   right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">${head}</div></div><div class="sr-page" style="display:flex">${body}<div class="sr-foot">${foot}</div></div>`;
   srShowLeft(node,null,null);
@@ -993,7 +996,7 @@ function srRenderIntro(st){
   const I=SR_INTRO[st.k];
   document.querySelector('.sr-right').innerHTML=`<div class="sr-intro"><div class="sr-intro-card"><h2 class="sr-intro-title">${I.title}</h2>`
     +I.body(srTree()).map(p=>`<p class="sr-intro-p">${p}</p>`).join('')
-    +`<div class="sr-foot"><button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
+    +`<div class="sr-foot">${srSkipBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
 }
 function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=!SR.QS.every(q=>srAns()[SR.ideas[SR.steps[SR.p].i].id][q.k]); }
 // Influence: only the finalized ideas are shown (no trees, no nodes); ideas from the same tree are left out
@@ -1009,7 +1012,7 @@ function srRenderInfl(st){
         <div class="sr-infl-this"><div class="sr-infl-num">Idea ${st.i+1}</div><div class="sr-infl-body">${esc(node.body||'')}</div></div>
         <div class="sr-infl-list">${cards}</div>
       </div>
-      <div class="sr-foot">${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+      <div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
     </div>`;
 }
 function srInflToggle(oid,el){
@@ -1081,7 +1084,7 @@ function srDraw(disp,node,selMode,sel,infl){
   });
 }
 function srFmt(q,v){ return v?`${v} = ${srScaleOf(q.k)[v-1]}`:'(no answer)'; }
-function srChanged(q,x,y){ return x!==y; }
+function srChanged(q,x,y){ return x!=null&&y!=null&&x!==y; }   // unanswered (skipped) questions are not compared
 function srPrevStep(){ if(SR.p>0){ SR.p--; srRender(); } }
 async function srPostRound(round,reports){
   try{
