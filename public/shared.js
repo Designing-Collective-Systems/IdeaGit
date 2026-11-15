@@ -920,18 +920,20 @@ function srQs(){
 }
 function srScaleOf(k){ return k==='own'?SR_SCALES.own:k==='dep'?SR_SCALES.dep:SR_SCALES.effort; }
 const SR_INTRO={
-  infl:{title:'How your ideas may have influenced each other',
-    body:()=>['While brainstorming, an idea can be inspired or influenced by another idea, even when that link is not visible on the screen. For example, something you came up with in one idea may have shaped how you approached another, without you ever copying it across.',
-              'These influences are not tracked by the tool, and we are trying to understand them. Next, for each of your final ideas, you will see your other final ideas and be asked to select the ones that influenced it. If none did, simply continue.']},
-  r1:{title:'Your perception of your ideas',
-    body:()=>['Next, we will ask you three short questions about each of your final ideas: how much the idea belongs to you (<strong>ownership</strong>), how much you depended on the AI (<strong>reliance on AI</strong>), and how much <strong>effort</strong> you invested.',
-              'There are no right or wrong answers. Please answer based on how you feel about each idea.']},
+  infl:{title:'Understanding how your ideas may have influenced each other',
+    body:()=>['While brainstorming, an idea can be inspired or influenced by another idea. For example, your first idea may have shaped how you approached another idea, without you ever copying the first idea’s text. These influences are not tracked by the tool since it often occurs in one’s mind. We are trying to track such influences.',
+              'In the next step, for each of your finalized ideas, you will be asked to select from a list of other finalized ideas the ones that influenced it. If none, press next.']},
+  r1:{title:'Understanding your perception of your ideation process',
+    body:()=>['In the next step, you will be asked three short questions about each of your finalized ideas: how much the idea belongs to you, how much you depended on the AI, and how much effort you invested.',
+              'There are no right or wrong answers. Please answer based on how you currently feel about each idea.']},
   reflect:{title:'Reflecting on how your ideas developed',
-    body:tree=>['For each idea, we would like you to reflect on how the initial idea was created and what the process was to reach the finalized idea.',
+    body:tree=>['In the next step, for each idea, you will be asked to reflect on how the initial idea was created and what the process was to reach the finalized idea.',
               `While looking at the ${tree?'idea tree':'chat history'}, please describe out loud how the idea developed, from the start to the final version.`]},
-  r2:{title:'Your perception of your ideas, once more',
-    body:()=>['We would now like you to answer the same three questions a second time for each idea: <strong>ownership</strong>, <strong>reliance on AI</strong>, and <strong>effort</strong> invested.',
-              'Please answer based on how you feel now. Your answers may stay the same or change; both are fine.']}
+  r2:{title:'Understanding your perception of your ideation process, once again',
+    body:()=>['In the next step, you will be asked to answer the same three questions a second time for each idea: ownership, reliance on AI, and effort invested.',
+              'There are no right or wrong answers. Please answer based on how you currently feel about each idea.']},
+  chg:{title:'Understanding why your answers changed',
+    body:()=>['In the next step, for each answer that differed between your first and second self-report, you will be asked to reflect out loud on why your answer changed.']}
 };
 function openSelfReport(){
   const ideas=S.nodes.filter(n=>n.isFinalized);
@@ -1002,7 +1004,7 @@ function srRenderInfl(st){
   const cards=others.map(({o,k})=>`<div class="sr-infl-card sr-selectable${SR.infl[node.id][o.id].sel.length?' sr-selected':''}" onclick="srInflToggle('${o.id}',this)"><div class="sr-infl-num">Idea ${k+1}</div><div class="sr-infl-body">${esc(o.body||'')}</div></div>`).join('');
   document.querySelector('.sr-right').innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} of ${SR.ideas.length}</div></div>
     <div class="sr-page" style="display:flex;min-height:0">
-      <p class="sr-q-label">Please select the other ideas that influenced the origin of this idea. If none, press next.</p>
+      <p class="sr-q-label">Please select the ideas on the right that influenced the origin of the idea on the left. If none, press next.</p>
       <div class="sr-infl-wrap">
         <div class="sr-infl-this"><div class="sr-infl-num">Idea ${st.i+1}</div><div class="sr-infl-body">${esc(node.body||'')}</div></div>
         <div class="sr-infl-list">${cards}</div>
@@ -1121,7 +1123,7 @@ async function srNext(){
     // reflection on every changed answer, after the whole second round
     const chg=[]; SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{ const c=srChgStep(i,j); if(c) chg.push(c); }));
     if(!chg.length){ srFinish(); return; }
-    SR.phase='chg'; SR.p=0; SR.steps=chg; srRender();
+    SR.phase='chg'; SR.p=0; SR.steps=[{t:'intro',k:'chg'}].concat(chg); srRender();
   } else srFinish();
 }
 function srFinish(){
@@ -1771,7 +1773,11 @@ async function confirmGenerateConfirm(){
 // ── Finalize / new idea ───────────────────────────────────────
 function finalizeCurrentIdea(n){
   const node=(n&&n.id&&n.body!==undefined)?n:curNode(); if(!node) return;
-  if(node.isFinalized){ doFinalizeIdea(node); return; }   // unfinalizing needs no confirmation
+  if(node.isFinalized){
+    askConfirm({title:'Unfinalize this idea?',message:'Are you sure you want to unfinalize this idea?',
+      buttons:[{label:'Cancel',cls:'btn-outline',onClick:()=>{}},{label:'Yes, unfinalize',cls:'btn-finalize',onClick:()=>doFinalizeIdea(node)}]});
+    return;
+  }
   const hasNewer=S.nodes.some(k=>k.parentId===node.id&&k.type!=='feedback'&&k.type!=='clarification');
   askConfirm({title:'Finalize this idea?',
     message:(hasNewer?'This is not the latest version of the idea. ':'')+'Are you sure you want to confirm this idea?',
