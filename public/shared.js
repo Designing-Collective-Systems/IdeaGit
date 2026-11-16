@@ -429,7 +429,7 @@ function treeNudge(real){
 // Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
 function nodeNotes(node){
   const m=node.meta||{}, out=[];
-  const tc=nodeTagColor(node), pc=isCustomPrompt(node)?'#7e22ce':'#db2777';
+  const tc=nodeTagColor(node), pc=isCustomPrompt(node)?'#db2777':'#92400e';
   if(m.ideaSummary) out.push(['Idea',m.ideaSummary,tc]);
   if(m.changeSummary) out.push(['Edit',m.changeSummary,tc]);
   if(m.promptSummary) out.push(['Prompt',m.promptSummary,pc]);
