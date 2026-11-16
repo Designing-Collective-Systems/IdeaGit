@@ -429,7 +429,7 @@ function treeNudge(real){
 // Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
 function nodeNotes(node){
   const m=node.meta||{}, out=[];
-  const tc=nodeTagColor(node), pc=isCustomPrompt(node)?'#7e22ce':'#0f766e';
+  const tc=nodeTagColor(node), pc=isCustomPrompt(node)?'#7e22ce':'#db2777';
   if(m.ideaSummary) out.push(['Idea',m.ideaSummary,tc]);
   if(m.changeSummary) out.push(['Edit',m.changeSummary,tc]);
   if(m.promptSummary) out.push(['Prompt',m.promptSummary,pc]);
@@ -440,7 +440,7 @@ function addSideNote(parentEl,node,left,top,w){
   const notes=nodeNotes(node); if(!notes.length) return;
   const d=document.createElement('div'); d.className='node-note';
   d.style.cssText=`left:${left}px;top:${top}px;width:${w||180}px`;
-  d.innerHTML=notes.map(([k,v,c])=>`<div${c?` style="color:${c}"`:''}><strong>${k}:</strong> ${esc(v)}</div>`).join('');
+  d.innerHTML=notes.map(([k,v,c])=>`<div><strong${c?` style="color:${c}"`:''}>${k}:</strong> ${esc(v)}</div>`).join('');
   parentEl.appendChild(d);
 }
 // Stacked mode lays every tree out under the previous one; the first pass measures how tall each tree's text needs
@@ -921,27 +921,26 @@ function srQs(){
 }
 function srScaleOf(k){ return k==='own'?SR_SCALES.own:k==='dep'?SR_SCALES.dep:SR_SCALES.effort; }
 const SR_INTRO={
-  infl:{greet:'Thank you for brainstorming ideas! We would like to understand your ideation in more detail.',
-    title:'Understanding how your ideas may have influenced each other',
-    what:()=>'For each of your finalized ideas, you will be asked to select, from a list of your other finalized ideas, the ones that influenced it.',
+  infl:{lead:()=>'Thank you for brainstorming ideas! We would like to understand how your ideas may have influenced each other.',
+    what:()=>'For each of your finalized ideas, we will ask you to select, from a list of your other finalized ideas, the ones that influenced it.',
     how:()=>'Click on the ideas that influenced the idea shown on the left. If none did, simply press Next.',
     why:()=>'While brainstorming, an idea can be inspired or influenced by another idea. For example, your first idea may have shaped how you approached another idea, without you ever copying the first idea’s text. These influences are not tracked by the tool since they often occur in one’s mind. We are trying to track such influences.'},
-  r1:{title:'Understanding your perception of your ideation process',
+  r1:{lead:()=>SR.hasInfl?'Thank you for telling us how your ideas influenced each other! We would like to understand your perception of your ideation process.':'Thank you for brainstorming ideas! We would like to understand your perception of your ideation process.',
     what:()=>'We will ask three questions about each of the finalized ideas: how much do you feel you own the idea, how much does the idea rely on AI, and how much effort did you put in.',
     how:()=>'Choose the option that best describes how you feel. There are no right or wrong answers.',
     why:()=>'Your responses will help us better understand how you perceive your own ideas.'},
-  reflect:{title:'Reflecting on how your ideas developed',
+  reflect:{lead:()=>'Thank you for rating your ideas! We would like to understand how your ideas developed.',
     what:()=>'For each idea, we will ask you to reflect on how the initial idea was created and how it evolved into the final idea.',
     how:tree=>`While looking at the ${tree?'idea tree':'chat history'}, please describe out loud how the idea developed, from the start to the final version.`,
     why:()=>'Your response will help us better understand your thought process during ideation.'},
-  r2:{title:'Understanding your perception of your ideation process',
-    what:()=>'We will ask the same three questions again for each of the finalized ideas.',
+  r2:{lead:()=>'Thank you for reflecting on your ideas! We would like to understand your perception of your ideation process.',
+    what:()=>'We will ask the same three questions again for each of the finalized ideas: how much do you feel you own the idea, how much does the idea rely on AI, and how much effort did you put in.',
     how:()=>'Now that you have reflected upon your ideas and their evolution, could you please rate them again. There are no right or wrong answers.',
     why:()=>'Your responses will help us better understand how you perceive your own ideas.'},
-  chg:{title:'Understanding why your answers changed',
+  chg:{lead:()=>'Thank you for rating your ideas again! We would like to understand why some of your answers changed.',
     what:()=>'For each answer that differed between your first and second ratings, we will ask you to reflect on why your answer changed.',
-    how:()=>'For each such answer, please say out loud what led you to change it.',
-    why:()=>'Your response will help us better understand how reflecting on your ideas shaped your perception.'}
+    how:()=>'For each such answer, please say out loud why the answer changed.',
+    why:()=>'Your response will help us better understand why your perception changed.'}
 };
 // Step numbers on the landing pages (the influence step is only there when it has something to ask)
 function srStepNo(k){ const o=['infl','r1','reflect','r2','chg'].filter(x=>x!=='infl'||SR.hasInfl); return o.indexOf(k)+1; }
@@ -954,7 +953,7 @@ function openSelfReport(){
   if(!ideas.length) return;
   const QS=srQs();
   const qSteps=k=>[{t:'intro',k}].concat(ideas.map((n,i)=>({t:'q',i})));
-  SR={ideas,QS,round:1,phase:'r1',p:0,steps:null,qSteps,a1:{},a2:{},busy:false,infl:{}};
+  SR={hist:[],ideas,QS,round:1,phase:'r1',p:0,steps:null,qSteps,a1:{},a2:{},busy:false,infl:{}};
   // ideas from the same tree obviously influenced each other, so only ideas from other trees are offered
   ideas.forEach(n=>{ SR.infl[n.id]={}; ideas.forEach(o=>{ if(srCanInfluence(n,o)) SR.infl[n.id][o.id]={on:false,sel:[]}; }); });
   const ask=ideas.map((n,i)=>i).filter(i=>Object.keys(SR.infl[ideas[i].id]).length);
@@ -975,7 +974,9 @@ function srBuildChat(box,node,main=true){
   } else buildChatInto(box,node.id);
 }
 function srAns(){ return SR.round===1?SR.a1:SR.a2; }
-function srBackBtn(){ return SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':''; }
+function srBackBtn(){ return SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':(SR.hist&&SR.hist.length?'<button class="btn btn-outline" onclick="srPrevPhase()">← Back</button>':''); }
+// back from a landing page to the last page of the previous section
+function srPrevPhase(){ const h=SR.hist.pop(); if(!h) return; SR.phase=h.phase; SR.round=h.round; SR.steps=h.steps; SR.p=h.p; srRender(); }
 // Skip: jump to the end of the current section and move on (answers given so far are kept)
 function srSkipBtn(){ return '<button class="btn btn-skip" onclick="srSkip()">Skip this section</button>'; }
 function srSkip(){ if(SR.busy) return; SR.p=SR.steps.length-1; srNext(); }
@@ -1010,9 +1011,9 @@ function srRenderIntro(st){
   srHideLeft();
   const I=SR_INTRO[st.k];
   const t=srTree(), P=(l,txt)=>`<p class="sr-intro-p"><strong>${l}:</strong> ${txt}</p>`;
-  document.querySelector('.sr-right').innerHTML=`<div class="sr-intro"><div class="sr-intro-card">${I.greet?`<h1 class="sr-intro-greet">${I.greet}</h1>`:''}<div class="sr-intro-step">Step ${srStepNo(st.k)}</div><h2 class="sr-intro-title">${I.title}</h2>`
+  document.querySelector('.sr-right').innerHTML=`<div class="sr-intro"><div class="sr-intro-card"><div class="sr-intro-step">Step ${srStepNo(st.k)}</div><h2 class="sr-intro-title">${I.lead()}</h2>`
     +P('What will you do',I.what(t))+P('How will you do it',I.how(t))+P('Why we want you to do it',I.why(t))
-    +`<div class="sr-foot">${srSkipBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
+    +`<div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
 }
 function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=!SR.QS.every(q=>srAns()[SR.ideas[SR.steps[SR.p].i].id][q.k]); }
 // Influence: only the finalized ideas are shown (no trees, no nodes); ideas from the same tree are left out
@@ -1119,21 +1120,22 @@ async function srNext(){
   if(SR.busy) return;
   if(SR.p<SR.steps.length-1){ SR.p++; srRender(); return; }
   // end of a phase
+  const snap={phase:SR.phase,round:SR.round,steps:SR.steps,p:SR.steps.length-1};
   if(SR.phase==='infl'){
     SR.busy=true;
     SR.ideas.forEach(n=>{ n.influencedBy=Object.keys(SR.infl[n.id]).map(oid=>({from_idea_node_id:oid,from_idea_number:SR.ideas.findIndex(x=>x.id===oid)+1,checked:SR.infl[n.id][oid].sel.length>0,selected:SR.infl[n.id][oid].sel})); });
     const ok=await syncNow();   // stored with the node itself (ideagit_nodes.influenced_by)
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
-    SR.phase='r1'; SR.round=1; SR.p=0; SR.steps=SR.qSteps('r1'); srRender();
+    SR.hist.push(snap); SR.phase='r1'; SR.round=1; SR.p=0; SR.steps=SR.qSteps('r1'); srRender();
   } else if(SR.phase==='r1'){
     SR.busy=true;
     const ok=await srPostRound(1,SR.ideas.map(n=>({node_id:n.id,answers:SR.a1[n.id]})));
     SR.busy=false;
     if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
-    SR.phase='reflect'; SR.p=0; SR.steps=[{t:'intro',k:'reflect'}].concat(SR.ideas.map((n,i)=>({t:'reflect',i}))); srRender();
+    SR.hist.push(snap); SR.phase='reflect'; SR.p=0; SR.steps=[{t:'intro',k:'reflect'}].concat(SR.ideas.map((n,i)=>({t:'reflect',i}))); srRender();
   } else if(SR.phase==='reflect'){
-    SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps('r2'); srRender();
+    SR.hist.push(snap); SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps('r2'); srRender();
   } else if(SR.phase==='r2'){
     SR.busy=true;
     const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:SR.QS.filter(q=>srChanged(q,SR.a1[n.id][q.k],SR.a2[n.id][q.k])).map(q=>q.k)})})));
@@ -1143,7 +1145,7 @@ async function srNext(){
     // reflection on every changed answer, after the whole second round
     const chg=[]; SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{ const c=srChgStep(i,j); if(c) chg.push(c); }));
     if(!chg.length){ srFinish(); return; }
-    SR.phase='chg'; SR.p=0; SR.steps=[{t:'intro',k:'chg'}].concat(chg); srRender();
+    SR.hist.push(snap); SR.phase='chg'; SR.p=0; SR.steps=[{t:'intro',k:'chg'}].concat(chg); srRender();
   } else srFinish();
 }
 function srFinish(){

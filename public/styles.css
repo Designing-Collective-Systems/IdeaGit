@@ -847,7 +847,7 @@ body.app5 .tree-canvas{top:8px}
 .tree-node.t-finalized .tree-node-compact{background:#c6efd3;border-color:var(--green)}
 .tree-node.current.t-finalized .tree-node-compact{background:#c6efd3}
 .pc-note{display:block;font-size:.85em;font-weight:600;line-height:1.15}
-.pc-default{color:#0f766e}.pc-custom{color:#7e22ce}
+.pc-default{color:#db2777}.pc-custom{color:#7e22ce}
 .bubble-reply-btn{font-size:.98rem !important;padding:8px 18px !important;background:var(--blue-lt) !important;color:var(--blue) !important;border:1.5px solid var(--blue-mid,#93c5fd) !important;border-radius:8px !important;font-weight:600}
 .bubble-reply-btn:hover{background:#dbeafe !important}
 .chat-msg.user .bubble-reply-btn{background:#fff !important;color:var(--blue) !important}
@@ -865,3 +865,11 @@ body.app5 .tree-canvas{top:8px}
 .chat-dock .chat-actions-bar .chat-action-btn:nth-child(n+4){grid-column:span 3}
 .chat-dock .chat-actions-bar:empty{display:none}
 .chat-dock .chat-actions-bar.busy{opacity:.5;pointer-events:none}
+
+.pc-default{color:#db2777}
+.tree-node.t-finalized .tree-node-compact,.tree-node.current.t-finalized .tree-node-compact{background:#e3f4ea;border-color:var(--green)}
+.sr-intro-title{font-size:1.5rem;line-height:1.4}
+
+/* AI chat: all five action buttons in one row */
+.chat-dock .chat-actions-bar{grid-template-columns:repeat(5,1fr);gap:6px}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(n){grid-column:span 1;white-space:nowrap;padding-left:4px;padding-right:4px}
