@@ -65,10 +65,10 @@
     <div class="modal-head">Create a new idea</div>
     <div class="modal-body">
       <div class="generate-inline">
-        <p class="create-heading">Create an idea with or without AI</p>
+        <p class="create-heading">Create an idea with AI or by yourself</p>
         <div class="create-choice">
-          <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
-          <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea yourself</button>
+          <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create an idea with AI</button>
+          <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create an idea yourself</button>
         </div>
         <div class="create-composer" id="create-ai-box" style="display:none">
           <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
@@ -162,5 +162,5 @@
 <div class="toast-wrap" id="toasts"></div>
 <script src="prompts.js"></script>
 <script src="shared.js"></script>
-<script src="idea-tree.js"></script>
+<script src="ConditionA.js"></script>
 </body></html>

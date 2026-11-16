@@ -29,13 +29,13 @@
   </nav>
   <div class="two-col ideation-grid ai-two-col">
     <div class="panel">
-      <div class="panel-header">AI Chat<button class="btn btn-newidea btn-new-idea" style="display:none" onclick="startNewIdea()">+ New Idea</button></div>
+      <div class="panel-header">AI Chat</div>
       <div class="chat-initial" id="chat-initial">
         <div class="empty-state-inner generate-inline">
-          <p class="create-heading">Create an idea with or without AI</p>
+          <p class="create-heading">Create an idea with AI or by yourself</p>
           <div class="create-choice">
-            <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create idea with AI</button>
-            <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create idea yourself</button>
+            <button class="btn btn-blue2" id="btn-create-ai" onclick="chooseCreate('ai')">Create an idea with AI</button>
+            <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create an idea yourself</button>
           </div>
           <div class="create-composer" id="create-ai-box" style="display:none">
             <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
@@ -51,8 +51,6 @@
         </div>
       </div>
       <div class="chat-active" id="chat-active" style="display:none">
-        <div class="chat-actions-bar" id="chat-actions-bar"></div>
-        <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-thinking" id="chat-thinking" style="display:none"><span class="spinner"></span> Loading AI response…</div>
         <div class="chat-dock" id="chat-dock">
@@ -63,6 +61,8 @@
             </div>
             <button type="button" onclick="clearReply()" class="reply-clear-btn" aria-label="Cancel reply">✕</button>
           </div>
+          <div class="chat-actions-bar" id="chat-actions-bar"></div>
+          <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
         </div>
       </div>
     </div>
@@ -142,5 +142,5 @@
 <div class="toast-wrap" id="toasts"></div>
 <script src="prompts.js"></script>
 <script src="shared.js"></script>
-<script src="ai-only.js"></script>
+<script src="ConditionB.js"></script>
 </body></html>

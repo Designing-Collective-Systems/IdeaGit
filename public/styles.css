@@ -841,3 +841,27 @@ body.app5 .tree-canvas{top:8px}
 
 .btn.btn-skip{margin-right:auto;background:transparent;border:none;color:var(--text3);text-decoration:underline;padding:8px 4px}
 .btn.btn-skip:hover{color:var(--text)}
+
+/* ── round 3 changes ── */
+.btn-discard{background:#c0524b;color:#fff}.btn-discard:not(:disabled):hover{background:#a9443e}
+.tree-node.t-finalized .tree-node-compact{background:#c6efd3;border-color:var(--green)}
+.tree-node.current.t-finalized .tree-node-compact{background:#c6efd3}
+.pc-note{display:block;font-size:.85em;font-weight:600;line-height:1.15}
+.pc-default{color:#0f766e}.pc-custom{color:#7e22ce}
+.bubble-reply-btn{font-size:.98rem !important;padding:8px 18px !important;background:var(--blue-lt) !important;color:var(--blue) !important;border:1.5px solid var(--blue-mid,#93c5fd) !important;border-radius:8px !important;font-weight:600}
+.bubble-reply-btn:hover{background:#dbeafe !important}
+.chat-msg.user .bubble-reply-btn{background:#fff !important;color:var(--blue) !important}
+.sr-idea-tab.sr-tab-off{color:#9ca3af !important;background:#f1f2f4 !important;opacity:.8}
+.idea-bubble.sr-this-idea,.idea-bubble.sr-focus{margin-top:38px;scroll-margin-top:40px}
+.idea-bubble.sr-this-idea::before{content:"Reporting on this idea \2193" !important;background:transparent !important;color:#000 !important;border:2px solid #dc2626;border-radius:8px !important;font-size:.85rem !important;font-weight:600 !important;padding:2px 10px !important;top:-34px !important;left:6px !important}
+.sr-intro-card{max-width:1100px}
+.sr-intro-greet{font-size:1.5rem;font-weight:700;margin:0;color:var(--text)}
+.sr-intro-step{font-size:1rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:-8px}
+.sr-intro-p{font-size:1.25rem}
+.sr-intro-p strong{color:var(--text)}
+/* AI chat: action buttons at the bottom, like a chat window */
+.chat-dock .chat-actions-bar{display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:44px;gap:8px;padding:8px 12px 10px;border-top:1px solid var(--border);border-bottom:none;background:var(--surface2);height:auto;align-content:normal}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(-n+3){grid-column:span 2}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(n+4){grid-column:span 3}
+.chat-dock .chat-actions-bar:empty{display:none}
+.chat-dock .chat-actions-bar.busy{opacity:.5;pointer-events:none}

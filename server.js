@@ -88,18 +88,18 @@ app.post('/api/save-nodes', async (req, res) => {
   }
 });
 
-// Root redirects straight to the Idea Tree version
-app.get('/', (req, res) => {
-  res.redirect('/idea-tree');
-});
+// Root redirects straight to Condition A (the Idea Tree version)
+app.get('/', (req, res) => { res.redirect('/ConditionA'); });
 
 // The two study versions
-app.get('/ai-only', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ai-only.html')); });
-app.get('/idea-tree', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'idea-tree.html')); });
-// Legacy routes
-app.get('/app', (req, res) => { res.redirect('/idea-tree'); });
-app.get('/app3', (req, res) => { res.redirect('/ai-only'); });
-app.get('/app5', (req, res) => { res.redirect('/idea-tree'); });
+app.get('/ConditionA', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ConditionA.html')); });
+app.get('/ConditionB', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ConditionB.html')); });
+// Old links keep working
+app.get('/idea-tree', (req, res) => { res.redirect('/ConditionA'); });
+app.get('/ai-only', (req, res) => { res.redirect('/ConditionB'); });
+app.get('/app', (req, res) => { res.redirect('/ConditionA'); });
+app.get('/app3', (req, res) => { res.redirect('/ConditionB'); });
+app.get('/app5', (req, res) => { res.redirect('/ConditionA'); });
 
 // ── Read-only viewer (/view) ──────────────────────────────────
 // Set VIEW_PASSWORD in the environment to protect it with a browser login prompt (any user name, that password).
