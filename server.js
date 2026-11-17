@@ -7,7 +7,7 @@
 const express = require('express');
 const path    = require('path');
 const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes, getSelfReports,
-        getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances } = require('./db');
+        saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances } = require('./db');
 const Measures = require('./public/measures.js');
 
 const app  = express();
@@ -63,6 +63,15 @@ app.post('/api/save-selfreport', async (req, res) => {
     await saveSelfReports(participant_id.trim(), condition, round, reports);
     res.json({ ok: true });
   } catch (err) { console.error('Database error:', err); res.status(500).json({ error: 'Database error' }); }
+});
+
+app.post('/api/save-landing', async (req, res) => {
+  if (!dbConfigured()) return res.status(503).json({ error: 'Database is not configured.' });
+  const { participant_id, condition, page, opened } = req.body || {};
+  if (typeof participant_id !== 'string' || !participant_id.trim() || participant_id.length > 100 || !['infl', 'r1', 'reflect', 'r2', 'chg'].includes(page))
+    return res.status(400).json({ error: 'Invalid payload.' });
+  try { await saveLanding(participant_id.trim(), condition, page, opened === true); res.json({ ok: true }); }
+  catch (err) { console.error('Database error:', err); res.status(500).json({ error: 'Database error' }); }
 });
 
 app.post('/api/save-nodes', async (req, res) => {
@@ -155,6 +164,11 @@ app.get('/admin', adminAuth, (req, res) => res.sendFile(path.join(__dirname, 'pu
 app.get('/dashboard', adminAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/rate', (req, res) => res.sendFile(path.join(__dirname, 'public', 'rate.html')));
 
+// Study switches: the participant pages read them, the admin page changes them
+app.get('/api/settings', wrap(async (req, res) => { res.json(dbConfigured() ? await getSettings() : { ...SETTING_DEFAULTS }); }));
+app.get('/api/admin/settings', adminAuth, needDb, wrap(async (req, res) => { res.json(await getSettings()); }));
+app.post('/api/admin/settings', adminAuth, needDb, wrap(async (req, res) => { await setSettings(req.body || {}); res.json(await getSettings()); }));
+
 app.get('/api/admin/participants', adminAuth, needDb, wrap(async (req, res) => {
   res.json({ participants: await listParticipants(), selected: await getSelection() });
 }));
@@ -165,7 +179,7 @@ app.post('/api/admin/selection', adminAuth, needDb, wrap(async (req, res) => {
 }));
 app.get('/api/admin/data', adminAuth, needDb, wrap(async (req, res) => {
   const selected = await getSelection();
-  res.json({ selected, nodes: await getNodesFor(selected), selfreports: await getSelfReportsFor(selected), ratings: await getRatings(), distances: await getDistances() });
+  res.json({ selected, nodes: await getNodesFor(selected), selfreports: await getSelfReportsFor(selected), landing: await getLandingFor(selected), ratings: await getRatings(), distances: await getDistances() });
 }));
 
 // Semantic distance = cosine distance between sentence embeddings (Sentence-BERT all-MiniLM-L6-v2, runs on the server).

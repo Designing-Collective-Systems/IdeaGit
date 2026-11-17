@@ -121,6 +121,9 @@
       'is_finalized', 'is_discarded', 'on_finalized_path', 'created_at', 'created_ms', 'title', 'body', 'user_prompt', 'ai_response', 'influenced_by'];
     ['t1', 't2'].forEach(t => head.push(t + '_ownership', t + '_ai_reliance', t + '_effort', t + '_ownership_nodes', t + '_without_ai_nodes', t + '_skip_nodes', t + '_total_items', t + '_ai_items'));
     head.push('t2_changed_questions');
+    const LP = [['infl', 'influence'], ['r1', 'self_report_1'], ['reflect', 'reflection'], ['r2', 'self_report_2'], ['chg', 'answer_changes']];
+    LP.forEach(p => head.push('landing_opened_' + p[1]));   // blank = page not shown, 0 = shown but "How will this help our research" not clicked, 1 = clicked
+    const lp = {}; (data.landing || []).forEach(x => { lp[x.participant_id + '|' + x.page] = x.opened ? 1 : 0; });
     const out = [head.join(',')];
     Object.keys(byP).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).forEach(pid => {
       const rows = byP[pid], by = {}, kids = {};
@@ -138,6 +141,7 @@
         ['1', '2'].forEach(t => { const a = sr[pid + '|' + id + '|' + t];
           line.push(a ? a.own : '', a ? a.dep : '', a ? a.effort : '', a && a.ownSel != null ? ids(a.ownSel) : '', a && a.noAI != null ? ids(a.noAI) : '', a && a.skip != null ? ids(a.skip) : '', a ? a.total_items : '', a ? a.ai_items : ''); });
         const a2 = sr[pid + '|' + id + '|2']; line.push(a2 && a2.changed_questions ? JSON.stringify(a2.changed_questions) : '');
+        LP.forEach(p => { const v = lp[pid + '|' + p[0]]; line.push(v == null ? '' : v); });
         out.push(line.map(cell).join(','));
       });
     });

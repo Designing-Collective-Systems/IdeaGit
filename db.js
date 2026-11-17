@@ -58,6 +58,10 @@ const CREATE_SR_SQL = `
 
 // Admin selection (which participants raters see), raters, ratings, and cached semantic distances.
 const CREATE_ADMIN_SQL = `
+  CREATE TABLE IF NOT EXISTS ideagit_settings (key TEXT PRIMARY KEY, value JSONB NOT NULL);
+  CREATE TABLE IF NOT EXISTS ideagit_landing (
+    participant_id TEXT NOT NULL, page TEXT NOT NULL, study_condition TEXT, opened BOOLEAN NOT NULL DEFAULT FALSE, open_count INT NOT NULL DEFAULT 0,
+    first_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(), first_opened TIMESTAMPTZ, PRIMARY KEY (participant_id, page));
   CREATE TABLE IF NOT EXISTS ideagit_selection (
     participant_id TEXT PRIMARY KEY, selected_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
   CREATE TABLE IF NOT EXISTS ideagit_raters (
@@ -193,6 +197,31 @@ async function getSelfReports(participantId) {
   return r.rows;
 }
 
+// Study switches set from the admin page (e.g. allowSkip). Missing keys fall back to the defaults.
+const SETTING_DEFAULTS = { allowSkip: true };
+async function getSettings() {
+  const out = { ...SETTING_DEFAULTS };
+  try { (await pool.query('SELECT key, value FROM ideagit_settings')).rows.forEach(r => { if (r.key in SETTING_DEFAULTS) out[r.key] = r.value; }); } catch (e) {}
+  return out;
+}
+async function setSettings(obj) {
+  for (const k of Object.keys(SETTING_DEFAULTS)) if (k in obj)
+    await pool.query('INSERT INTO ideagit_settings (key, value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', [k, JSON.stringify(!!obj[k])]);
+}
+// Landing pages: a row means the page was shown; opened = the participant clicked "How will this help our research"
+async function saveLanding(pid, condition, page, opened) {
+  await pool.query(
+    `INSERT INTO ideagit_landing (participant_id, page, study_condition, opened, open_count, first_opened)
+     VALUES ($1,$2,$3,$4,$5, CASE WHEN $4 THEN NOW() END)
+     ON CONFLICT (participant_id, page) DO UPDATE SET
+       opened = ideagit_landing.opened OR EXCLUDED.opened,
+       open_count = ideagit_landing.open_count + EXCLUDED.open_count,
+       first_opened = COALESCE(ideagit_landing.first_opened, EXCLUDED.first_opened)`,
+    [pid, page, condition == null ? null : String(condition), !!opened, opened ? 1 : 0]);
+}
+async function getLandingFor(pids) {
+  return (await pool.query('SELECT participant_id, page, opened, open_count FROM ideagit_landing WHERE participant_id = ANY($1::text[])', [pids])).rows;
+}
 async function getSelection() { return (await pool.query('SELECT participant_id FROM ideagit_selection ORDER BY participant_id')).rows.map(r => r.participant_id); }
 async function setSelection(pids) {
   const c = await pool.connect();
@@ -231,4 +260,4 @@ async function saveDistances(rows) {
     await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
 }
 
-module.exports = { getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances, getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };
+module.exports = { saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances, getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };

@@ -920,23 +920,28 @@ function srQs(){
   ];
 }
 function srScaleOf(k){ return k==='own'?SR_SCALES.own:k==='dep'?SR_SCALES.dep:SR_SCALES.effort; }
+const APP_SETTINGS={allowSkip:true};
+function loadAppSettings(){ try{ fetch('/api/settings').then(r=>r.ok?r.json():null).then(j=>{ if(j) Object.assign(APP_SETTINGS,j); }).catch(()=>{}); }catch(e){} }
+loadAppSettings();
+const THANKS='Thank you for ideating with our tool. Your efforts will help the research team get a deeper insight into the ideation process.';
+const Q3_LIST='<ol class="sr-intro-ol"><li>How much do you feel <strong>you own the idea</strong>?</li><li>How much does the idea <strong>rely on AI</strong>?</li><li>How much <strong>effort</strong> did you put in?</li></ol>';
 const SR_INTRO={
-  infl:{lead:()=>'Thank you for brainstorming ideas! We would like to understand how your ideas may have influenced each other.',
-    what:()=>'For each of your finalized ideas, we will ask you to select, from a list of your other finalized ideas, the ones that influenced it.',
+  infl:{lead:()=>THANKS+' We would like to understand how your ideas may have influenced each other.',
+    what:()=>'For each of your <strong>finalized ideas</strong>, we will ask you to select other finalized idea(s) that influenced it.',
     how:()=>'Click on the ideas that influenced the idea shown on the left. If none did, simply press Next.',
     why:()=>'While brainstorming, an idea can be inspired or influenced by another idea. For example, your first idea may have shaped how you approached another idea, without you ever copying the first idea’s text. These influences are not tracked by the tool since they often occur in one’s mind. We are trying to track such influences.'},
-  r1:{lead:()=>SR.hasInfl?'Thank you for telling us how your ideas influenced each other! We would like to understand your perception of your ideation process.':'Thank you for brainstorming ideas! We would like to understand your perception of your ideation process.',
-    what:()=>'We will ask three questions about each of the finalized ideas: how much do you feel you own the idea, how much does the idea rely on AI, and how much effort did you put in.',
-    how:()=>'Choose the option that best describes how you feel. There are no right or wrong answers.',
-    why:()=>'Your responses will help us better understand how you perceive your own ideas.'},
+  r1:{lead:()=>SR.hasInfl?'Thank you for telling us how some of your ideas were influenced by other ideas! We would like to understand your perception of your ideation process.':THANKS+' We would like to understand your perception of your ideation process.',
+    what:()=>'We will ask three questions about each of the finalized ideas:'+Q3_LIST,
+    how:()=>'Choose the option that best describes how you feel. There are no right or wrong answers!',
+    why:()=>'We are trying to understand how you perceive your AI-assisted ideation. Things like ownership, reliance on AI and effort is difficult to understand from what you did on screen, so we ask you directly. Your answers will help us understand how people’s ideation process influences their perception.'},
   reflect:{lead:()=>'Thank you for rating your ideas! We would like to understand how your ideas developed.',
     what:()=>'For each idea, we will ask you to reflect on how the initial idea was created and how it evolved into the final idea.',
     how:tree=>`While looking at the ${tree?'idea tree':'chat history'}, please describe out loud how the idea developed, from the start to the final version.`,
     why:()=>'Your response will help us better understand your thought process during ideation.'},
   r2:{lead:()=>'Thank you for reflecting on your ideas! We would like to understand your perception of your ideation process.',
-    what:()=>'We will ask the same three questions again for each of the finalized ideas: how much do you feel you own the idea, how much does the idea rely on AI, and how much effort did you put in.',
-    how:()=>'Now that you have reflected upon your ideas and their evolution, could you please rate them again. There are no right or wrong answers.',
-    why:()=>'Your responses will help us better understand how you perceive your own ideas.'},
+    what:()=>'We will ask the same three questions again for each of the finalized ideas:'+Q3_LIST,
+    how:()=>'Now that you have reflected upon your ideas and their evolution, could you please rate them again. There are no right or wrong answers!',
+    why:()=>'We are trying to understand how you perceive your AI-assisted ideation. Things like ownership, reliance on AI and effort is difficult to understand from what you did on screen, so we ask you directly. Your answers will help us understand how people’s ideation process influences their perception.'},
   chg:{lead:()=>'Thank you for rating your ideas again! We would like to understand why some of your answers changed.',
     what:()=>'For each answer that differed between your first and second ratings, we will ask you to reflect on why your answer changed.',
     how:()=>'For each such answer, please say out loud why the answer changed.',
@@ -949,6 +954,7 @@ function srRootTs(x){ const p=getPath(x.id); return (p[0]&&p[0].ts)||x.ts||0; }
 function srAllDefaultAI(x){ return getPath(x.id).every(y=>(y.tag==='ai-generated'||y.tag==='ai-modification')&&!isCustomPrompt(y)); }
 function srCanInfluence(n,o){ return o.id!==n.id&&o.groupId!==n.groupId&&srRootTs(o)<(n.ts||0)&&!srAllDefaultAI(n); }
 function openSelfReport(){
+  loadAppSettings();
   const ideas=S.nodes.filter(n=>n.isFinalized);
   if(!ideas.length) return;
   const QS=srQs();
@@ -978,7 +984,7 @@ function srBackBtn(){ return SR.p>0?'<button class="btn btn-outline" onclick="sr
 // back from a landing page to the last page of the previous section
 function srPrevPhase(){ const h=SR.hist.pop(); if(!h) return; SR.phase=h.phase; SR.round=h.round; SR.steps=h.steps; SR.p=h.p; srRender(); }
 // Skip: jump to the end of the current section and move on (answers given so far are kept)
-function srSkipBtn(){ return '<button class="btn btn-skip" onclick="srSkip()">Skip this section</button>'; }
+function srSkipBtn(){ return APP_SETTINGS.allowSkip===false?'':'<button class="btn btn-skip" onclick="srSkip()">Skip this section</button>'; }
 function srSkip(){ if(SR.busy) return; SR.p=SR.steps.length-1; srNext(); }
 function srHideLeft(){ document.getElementById('sr-left').style.display='none'; document.getElementById('sr-idea-display').innerHTML=''; hideTreeTooltip(); }
 function srRender(){
@@ -1007,12 +1013,18 @@ function srRender(){
   srShowLeft(node,null,null);
 }
 // Landing page shown before each section
+// Which landing pages the participant saw, and whether they opened "How will this help our research"
+function srLogLanding(page,opened){
+  try{ fetch('/api/save-landing',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,page,opened:!!opened})}).catch(()=>{}); }catch(e){}
+}
 function srRenderIntro(st){
-  srHideLeft();
+  srHideLeft(); srLogLanding(st.k,false);
   const I=SR_INTRO[st.k];
-  const t=srTree(), P=(l,txt)=>`<p class="sr-intro-p"><strong>${l}:</strong> ${txt}</p>`;
+  const t=srTree(), P=(l,txt)=>`<div class="sr-intro-p"><strong>${l}:</strong> ${txt}</div>`;
   document.querySelector('.sr-right').innerHTML=`<div class="sr-intro"><div class="sr-intro-card"><div class="sr-intro-step">Step ${srStepNo(st.k)}</div><h2 class="sr-intro-title">${I.lead()}</h2>`
-    +P('What will you do',I.what(t))+P('How will you do it',I.how(t))+P('Why we want you to do it',I.why(t))
+    +P('What will you do',I.what(t))+P('How will you do it',I.how(t))
+    +`<details class="sr-why" ontoggle="if(this.open) srLogLanding('${st.k}',true)"><summary>How will this help our research</summary><div class="sr-intro-p">${I.why(t)}</div></details>`
     +`<div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
 }
 function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=!SR.QS.every(q=>srAns()[SR.ideas[SR.steps[SR.p].i].id][q.k]); }
@@ -1026,16 +1038,26 @@ function srRenderInfl(st){
     <div class="sr-page" style="display:flex;min-height:0">
       <p class="sr-q-label">Please select the ideas on the right that influenced the origin of the idea on the left. If none, press next.</p>
       <div class="sr-infl-wrap">
-        <div class="sr-infl-this"><div class="sr-infl-num">Idea ${st.i+1}</div><div class="sr-infl-body">${esc(node.body||'')}</div></div>
-        <div class="sr-infl-list">${cards}</div>
+        <div class="sr-infl-leftcol"><div class="sr-infl-title">Idea you are considering</div>
+          <div class="sr-infl-this"><div class="sr-infl-num">Idea ${st.i+1}</div><div class="sr-infl-body">${esc(node.body||'')}</div></div>
+          <div class="sr-infl-log" id="sr-infl-log"></div></div>
+        <div class="sr-infl-rightcol"><div class="sr-infl-title">Which ideas might have influenced it</div>
+          <div class="sr-infl-list">${cards}</div></div>
       </div>
       <div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
     </div>`;
+  srInflLog();
+}
+// "Idea 2 influenced Idea 3" for every idea marked so far on this page
+function srInflLog(){
+  const el=document.getElementById('sr-infl-log'); if(!el) return;
+  const i=SR.steps[SR.p].i, n=SR.ideas[i];
+  el.innerHTML=SR.ideas.map((o,k)=>(SR.infl[n.id][o.id]&&SR.infl[n.id][o.id].sel.length)?`<div class="sr-infl-log-line">Idea ${k+1} influenced Idea ${i+1}</div>`:'').join('');
 }
 function srInflToggle(oid,el){
   const n=SR.ideas[SR.steps[SR.p].i], s=SR.infl[n.id][oid], o=SR.ideas.find(x=>x.id===oid);
   s.sel=s.sel.length?[]:[{id:oid,text:(o.body||'').slice(0,120)}]; s.on=s.sel.length>0;
-  el.classList.toggle('sr-selected',s.on);
+  el.classList.toggle('sr-selected',s.on); srInflLog();
 }
 function srShowLeft(node,selMode,j){
   hideTreeTooltip();
@@ -1226,20 +1248,28 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
   if(!nodesEl||!svg) return;
   nodesEl.innerHTML=''; svg.innerHTML=''; hideTreeTooltip();
   const W=165,H=62, lineage=new Set(getPath(currentNodeId).map(n=>n.id));
-  const groups=[{gid,main:true}].concat((infl||[]).map(x=>({gid:x.gid,ids:x.ids,label:x.label})));
+  const mainNum=(SR&&SR.ideas?SR.ideas.findIndex(i=>i.id===currentNodeId):-1)+1;
+  let groups=[{gid,main:true,num:mainNum,label:'Idea '+mainNum}].concat((infl||[]).map(x=>({gid:x.gid,ids:x.ids,label:x.label+' (inspiration)',num:parseInt(String(x.label).replace(/\D/g,''),10)||99})));
+  groups.sort((a,b)=>a.num-b.num);   // left to right in idea-number order, even if the idea being reported on sits in the middle
+  const multi=groups.length>1, frames=[];
   svg.innerHTML=`<defs><marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
   let right=0, maxY=0; const pairs=[];
   groups.forEach(g=>{
     const gNodes=S.nodes.filter(n=>n.groupId===g.gid&&n.type!=='feedback'&&n.type!=='clarification'); if(!gNodes.length) return;
     const savedGid=S.currentGroupId; S.currentGroupId=g.gid; const pos0=computeLayout(g.gid,190); S.currentGroupId=savedGid;
     const vals=Object.values(pos0); if(!vals.length) return;
-    const dx=g.main?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
+    const dx=(right===0)?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
     const lin=new Set(); if(!g.main) g.ids.forEach(id=>getPath(id).forEach(y=>lin.add(y.id)));
     const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
     right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes
     maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
-    if(!g.main){ const lb=document.createElement('div'); lb.className='sr-group-label'; lb.textContent=g.label+' (inspiration)';
-      lb.style.cssText=`left:${Math.min(...Object.values(pos).map(p=>p.x))-W/2}px;top:-22px`; nodesEl.appendChild(lb); }
+    if(multi){
+      const gl=Math.min(...Object.values(pos).map(p=>p.x))-W/2-12, gr=Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180, gb=Math.max(...Object.values(pos).map(p=>p.y))+H+30;
+      const fr=document.createElement('div'); fr.className='tree-group-frame'+(g.main?'':' tree-group-frame-other'); fr.style.cssText=`left:${gl}px;top:-34px;width:${gr-gl}px;height:${gb+34}px`; nodesEl.appendChild(fr);
+      const lb=document.createElement('div'); lb.className='sr-group-label'+(g.main?' sr-group-label-main':''); lb.textContent=g.label;
+      lb.style.cssText=g.main?`left:${gr-10}px;top:-28px;transform:translateX(-100%)`:`left:${gl+10}px;top:-28px`; nodesEl.appendChild(lb);
+      right=Math.max(right,gr+10); maxY=Math.max(maxY,gb+4);
+    }
     gNodes.forEach(node=>{
       if(!node.parentId) return;
       const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
@@ -1261,7 +1291,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
         (isCurrent?'<div class="sr-current-ring"></div>':'')+
         `<div class="tree-node-type" style="color:${tagColor}">${nodeTagHtml(node)}</div></div>`+
         (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
-      if(!g.main&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id});   // dotted line only, no tick
+      if(!g.main&&g.ids&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id});   // dotted line only, no tick
       if(!g.main&&!selMode) el.style.pointerEvents='none';
       if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
       else if(selMode){
@@ -1480,10 +1510,43 @@ function updateChatHeader(){ renderChatActions(); }
 
 // The five action buttons sit in a bar at the top of the chat panel (two rows);
 // the inline composer for the chosen action opens under the newest bubble.
+// The action buttons (and the edit box) sit in the message flow: right under the message that was replied to,
+// otherwise right under the last message.
+function ensureActionsDock(){
+  const msgs=document.getElementById('chat-messages'); if(!msgs||!document.getElementById('chat-dock')) return null;
+  let d=document.getElementById('chat-actions-dock');
+  if(!d||d.parentNode!==msgs){
+    if(d) d.remove();
+    d=document.createElement('div'); d.id='chat-actions-dock'; d.className='chat-actions-dock';
+    d.innerHTML='<div class="chat-actions-bar" id="chat-actions-bar"></div><div class="chat-actions-bar2" id="chat-actions-bar2"></div>'; msgs.appendChild(d);
+  }
+  return d;
+}
+function placeActionsDock(){
+  const d=ensureActionsDock(); if(!d) return null;
+  const msgs=d.parentNode; let anchor=null;
+  if(_replyToNodeId) anchor=[...msgs.querySelectorAll('.idea-bubble')].find(b=>b.dataset.nodeId===_replyToNodeId)||null;
+  if(!anchor){ const kids=[...msgs.children].filter(c=>c!==d); anchor=kids[kids.length-1]||null; }
+  if(anchor){ if(anchor.nextSibling!==d) anchor.after(d); } else if(msgs.lastChild!==d) msgs.appendChild(d);
+  return d;
+}
+// "Currently selected idea": the version replied to, or else the latest one
+function updateSelectedChip(){
+  const ind=document.getElementById('reply-indicator'); if(!ind) return;
+  const cur=curNode(), n=replyTarget();
+  if(!cur||!n){ ind.style.display='none'; return; }
+  ind.style.display='flex';
+  const lab=document.getElementById('reply-label'), txt=document.getElementById('reply-text');
+  if(lab) lab.textContent='Currently selected idea · '+nodeTagLabel(n);
+  const t=(n.body||'').replace(/\s+/g,' ').trim(); if(txt) txt.textContent=t.slice(0,140)+(t.length>140?'…':'');
+  const x=ind.querySelector('.reply-clear-btn'); if(x) x.style.display=_replyToNodeId?'':'none';
+}
 function renderChatActions(){
-  const bar=document.getElementById('chat-actions-bar'), wrap=document.getElementById('chat-dock')||document.getElementById('chat-messages');
+  const dock=ensureActionsDock();
+  const bar=document.getElementById('chat-actions-bar'), wrap=dock||document.getElementById('chat-messages');
   if(wrap){ const old=wrap.querySelector('#chat-actions'); if(old) old.remove(); }
   const node=curNode();
+  if(dock) dock.style.display=node?'':'none';
   if(bar){
     bar.innerHTML=''; const bar2=document.getElementById('chat-actions-bar2'); if(bar2) bar2.innerHTML='';
     if(node){
@@ -1500,11 +1563,13 @@ function renderChatActions(){
       mk('+ New Idea','btn-newidea',()=>startNewIdea());
     }
   }
+  if(node&&_chatMode&&wrap){
+    const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
+    box.appendChild(buildChatComposer(_chatMode,replyTarget()||node));
+    wrap.appendChild(box);
+  }
+  placeActionsDock(); updateSelectedChip();
   fitActionButtons(); requestAnimationFrame(()=>{ fitActionButtons(); fitPromptLabels(); }); fitPromptLabels();
-  if(!node||!_chatMode||!wrap) return;
-  const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
-  box.appendChild(buildChatComposer(_chatMode,replyTarget()||node));
-  if(bar&&bar.parentNode===wrap) wrap.insertBefore(box,bar); else wrap.appendChild(box);
 }
 // One line per button: shrink the shared font size until every label fits.
 // Prompt-box captions stay on one line: shrink the font only if needed.
@@ -1536,10 +1601,10 @@ function buildChatComposer(mode,node){
     label.textContent='Edit the idea below, then save your edit.'; ta.value=node.body;
     go.className='btn btn-amber btn-sm'; go.textContent='Save edit'; go.onclick=submitSelfEdit;
   } else if(mode==='edit-ai'){
-    label.innerHTML='Here is a prompt to edit the idea using AI. <strong>You can edit it.</strong>'; ta.value=DEFAULT_EDIT_PROMPT; markDefault(ta);
+    label.innerHTML='Here is a prompt to edit the idea using AI.<br><span class="prompt-hint">You can change the prompt in any way you want.</span>'; ta.value=DEFAULT_EDIT_PROMPT; markDefault(ta);
     go.className='btn btn-blue2 btn-sm'; go.textContent='Edit the idea using AI'; go.onclick=submitAIEdit;
   } else {
-    label.innerHTML='Here is a prompt to ask AI to clarify the idea. <strong>You can edit it.</strong>'; ta.value='Explain the idea'; ta.placeholder='Type your question…'; markDefault(ta);
+    label.innerHTML='Here is a prompt to ask AI to clarify the idea.<br><span class="prompt-hint">You can change the prompt in any way you want.</span>'; ta.value='Explain the idea'; ta.placeholder='Type your question…'; markDefault(ta);
     go.className='btn btn-blue2 btn-sm'; go.textContent='Ask AI'; go.onclick=submitClarify;
   }
   row.appendChild(go); row.appendChild(cancel);
@@ -1627,7 +1692,7 @@ function syncFinalizedBubbles(){
   });
 }
 function rebuildChat(nodeId){
-  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML='';
+  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML=''; bindChatClickSelect();
   const nd=S.nodes.find(n=>n.id===nodeId), tail=(threadMode()&&nd)?threadTail(nd.groupId):null;
   if(tail) buildThreadInto(wrap,nd.groupId); else buildChatInto(wrap,nodeId);
   addReplyButtons(wrap);
@@ -1666,9 +1731,9 @@ function makeFeedbackBubble(content,nodeId,extraIdx){
 }
 function appendToChat(el){
   const w=document.getElementById('chat-messages'); if(!w) return;
-  const act=w.querySelector('#chat-actions');
-  if(act) w.insertBefore(el,act); else w.appendChild(el);
+  w.appendChild(el);
   addReplyButtons(el);
+  placeActionsDock();
   w.scrollTop=w.scrollHeight;
 }
 
@@ -1682,23 +1747,26 @@ function markReplyTarget(){
 // Replying: the idea version is outlined in the chat, and a quote of it sits right above the edit box
 function setReplyTo(nodeId){
   _replyToNodeId=nodeId;
-  const n=S.nodes.find(x=>x.id===nodeId);
-  const ind=document.getElementById('reply-indicator'), txt=document.getElementById('reply-text'), lab=document.getElementById('reply-label');
-  if(ind&&txt){
-    ind.style.display='flex';
-    const t=(n?n.body:'').replace(/\s+/g,' ').trim();
-    if(lab) lab.textContent='Replying to · '+(n?nodeTagLabel(n):'idea');
-    txt.textContent=t.slice(0,140)+(t.length>140?'…':'');
-  }
   markReplyTarget();
-  renderChatActions();      // buttons and the edit box now refer to the version replied to
-  const ta=document.getElementById('chat-composer-text')||document.getElementById('chat-input'); if(ta) ta.focus();
+  renderChatActions();      // buttons, the edit box and the "currently selected" bar now refer to the version replied to
+  const d=document.getElementById('chat-actions-dock'); if(d) d.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const ta=document.getElementById('chat-composer-text')||document.getElementById('chat-input'); if(ta) ta.focus({preventScroll:true});
 }
 function clearReply(){
   const had=!!_replyToNodeId; _replyToNodeId=null;
-  const ind=document.getElementById('reply-indicator'); if(ind) ind.style.display='none';
   markReplyTarget();
-  if(had) renderChatActions();
+  if(had) renderChatActions(); else updateSelectedChip();
+}
+// Clicking any message in the chat selects its idea (same as the Reply button)
+function bindChatClickSelect(){
+  const w=document.getElementById('chat-messages'); if(!w||w._selBound||window.TREE_STACK) return; w._selBound=true;
+  w.addEventListener('click',ev=>{
+    if(ev.target.closest('button,textarea,input,a,.msg-quote,.chat-actions-dock')) return;
+    const el=ev.target.closest('[data-node-id]'); if(!el||!w.contains(el)) return;
+    if(window.getSelection&&String(window.getSelection()).length>0) return;
+    const id=el.dataset.nodeId; if(!id||_replyToNodeId===id) return;
+    setReplyTo(id);
+  });
 }
 // Every idea bubble in the live chat gets a "Reply" button; replying selects that idea version for the edit buttons
 function addReplyButtons(root){

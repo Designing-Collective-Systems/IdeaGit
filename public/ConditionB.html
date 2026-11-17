@@ -38,7 +38,7 @@
             <button class="btn btn-primary" id="btn-create-self" onclick="chooseCreate('self')">Create an idea yourself</button>
           </div>
           <div class="create-composer" id="create-ai-box" style="display:none">
-            <label class="generate-prompt-title">Here is a prompt to generate an idea using AI. <strong>You can edit it.</strong></label>
+            <label class="generate-prompt-title">Here is a prompt to generate an idea using AI.<br><span class="prompt-hint">You can change the prompt in any way you want.</span></label>
             <textarea id="generate-prompt-text" class="field-textarea generate-prompt-textarea" rows="10"></textarea>
             <p class="field-error" id="generate-prompt-error" style="display:none"></p>
             <button class="btn btn-blue2" id="btn-generate-confirm" onclick="confirmGenerateConfirm()">Generate</button>
@@ -61,8 +61,6 @@
             </div>
             <button type="button" onclick="clearReply()" class="reply-clear-btn" aria-label="Cancel reply">✕</button>
           </div>
-          <div class="chat-actions-bar" id="chat-actions-bar"></div>
-          <div class="chat-actions-bar2" id="chat-actions-bar2"></div>
         </div>
       </div>
     </div>

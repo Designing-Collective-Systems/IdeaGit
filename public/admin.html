@@ -20,6 +20,11 @@ th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)}th{
   <button class="btn btn-outline" id="dist" onclick="dist()">Compute semantic distances</button>
   <span class="msg" id="msg"></span>
 </div>
+<div class="bar" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+  <strong>Study settings</strong>
+  <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="set-skip" onchange="saveSettings()"> Show the “Skip this section” button in the self-report</label>
+  <span class="msg" id="set-msg"></span>
+</div>
 <table id="tbl"><tr><td>Loading…</td></tr></table>
 </div>
 <script src="measures.js"></script>
@@ -41,6 +46,14 @@ async function load(){
   document.getElementById('tbl').innerHTML=h;
 }
 function all_(c,on){ document.querySelectorAll('.pc[data-cat="'+c+'"]').forEach(b=>b.checked=on); }
+async function loadSettings(){
+  try{ const r=await fetch('/api/admin/settings'); if(!r.ok) return; const s=await r.json(); document.getElementById('set-skip').checked=s.allowSkip!==false; }catch(e){}
+}
+async function saveSettings(){
+  const m=document.getElementById('set-msg');
+  const r=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({allowSkip:document.getElementById('set-skip').checked})});
+  m.textContent=r.ok?'Saved. Applies to participants who start the self-report from now on.':'Could not save.';
+}
 async function save(){
   const ids=[...new Set([...document.querySelectorAll('.pc:checked')].map(b=>b.value))];
   const r=await fetch('/api/admin/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_ids:ids})});
@@ -61,5 +74,5 @@ async function dist(){
   try{ const r=await fetch('/api/admin/compute-distances',{method:'POST'}); const j=await r.json(); say(r.ok?`Done: ${j.computed} distances computed for the saved selection.`:('Failed: '+(j.error||r.status))); }
   catch(e){ say('Failed: '+e.message); } b.disabled=false;
 }
-load();
+load(); loadSettings();
 </script></body></html>
