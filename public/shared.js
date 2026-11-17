@@ -909,7 +909,7 @@ function confirmDone(){
 // ── Self-report: influence → ratings (round 1) → reflect-aloud → ratings (round 2) → reflect on changes ──
 // Every section starts with a short landing page. Per idea, all questions share one page.
 const SR_LVL=['Not at all','Slightly','Moderately','Mostly','Completely'];
-const SR_SCALES={own:SR_LVL,dep:SR_LVL,effort:['Very low','Low','Moderate','High','Very high']};
+const SR_SCALES={own:SR_LVL,dep:SR_LVL,effort:['None at all','A little','A moderate amount','A lot','As much as I could']};
 let SR=null;
 const srTree=()=>!!window.SR_TREE_ONLY;
 function srQs(){

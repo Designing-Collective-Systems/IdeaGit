@@ -160,7 +160,7 @@ function openDetails(id) {
   if (parent) h += `<details class="v-prev"><summary>Previous version</summary><div class="v-box v-text">${esc(parent.body)}</div></details>`;
   if (n.isFinalized && SR_DATA[n.id]) {
     const L = { own: ['Not at all', 'Slightly', 'Moderately', 'Mostly', 'Completely'], dep: ['Not at all', 'Slightly', 'Moderately', 'Mostly', 'Completely'],
-                effort: ['Very low', 'Low', 'Moderate', 'High', 'Very high'] };
+                effort: ['None at all', 'A little', 'A moderate amount', 'A lot', 'As much as I could'] };
     const cell = (a, k) => (a && a[k]) ? `${a[k]} – ${L[k][a[k] - 1]}` : '—';
     const a1 = SR_DATA[n.id][1], a2 = SR_DATA[n.id][2];
     h += '<h4 class="v-h">Self-report scores</h4><table class="v-sr"><tr><th></th><th>Before</th><th>After</th></tr>'
