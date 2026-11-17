@@ -903,3 +903,8 @@ body.app5 .tree-canvas{top:8px}
 .chat-dock .reply-indicator{border-top:1px solid var(--border)}
 .chat-dock .reply-quote-label{font-weight:700}
 .chat-dock .reply-indicator{padding-bottom:10px}
+
+/* AI-only chat: the selected idea carries the same red box as "Working on this idea" in the idea tree */
+.idea-bubble.reply-target{outline:2px solid var(--blue) !important;outline-offset:2px;box-shadow:none !important;margin-top:40px}
+.idea-bubble.reply-target::before{content:"Working on this idea \2193" !important;position:absolute;top:-36px !important;left:2px !important;background:transparent !important;color:#000 !important;border:2px solid #dc2626;border-radius:8px !important;font-size:.85rem !important;font-weight:600 !important;padding:2px 10px !important}
+.idea-bubble.reply-target::before{white-space:nowrap !important;width:max-content}

@@ -937,7 +937,7 @@ const SR_INTRO={
   reflect:{lead:()=>'Thank you for rating your ideas! We would like to understand how your ideas developed.',
     what:()=>'For each idea, we will ask you to reflect on how the initial idea was created and how it evolved into the final idea.',
     how:tree=>`While looking at the ${tree?'idea tree':'chat history'}, please describe out loud how the idea developed, from the start to the final version.`,
-    why:()=>'Your response will help us better understand your thought process during ideation.'},
+    why:()=>'We are trying to understand how your ideas took shape. Much of how an idea develops happens in your head and can’t be seen from what you did on screen, so we ask you to walk us through it. Hearing your own account will help us understand the thought process behind people’s ideation.'},
   r2:{lead:()=>'Thank you for reflecting on your ideas! We would like to understand your perception of your ideation process.',
     what:()=>'We will ask the same three questions again for each of the finalized ideas:'+Q3_LIST,
     how:()=>'Now that you have reflected upon your ideas and their evolution, could you please rate them again. There are no right or wrong answers!',
@@ -945,7 +945,7 @@ const SR_INTRO={
   chg:{lead:()=>'Thank you for rating your ideas again! We would like to understand why some of your answers changed.',
     what:()=>'For each answer that differed between your first and second ratings, we will ask you to reflect on why your answer changed.',
     how:()=>'For each such answer, please say out loud why the answer changed.',
-    why:()=>'Your response will help us better understand why your perception changed.'}
+    why:()=>'When your answer changes, hearing your explanation helps us understand why your perception changed.'}
 };
 // Step numbers on the landing pages (the influence step is only there when it has something to ask)
 function srStepNo(k){ const o=['infl','r1','reflect','r2','chg'].filter(x=>x!=='infl'||SR.hasInfl); return o.indexOf(k)+1; }
@@ -1237,7 +1237,15 @@ function drawInfluenceLines(svg,nodesEl,pairs,k){
     const a={x:(rf.l+rf.r)/2,y:(rf.t+rf.b)/2}, b={x:(rt.l+rt.r)/2,y:(rt.t+rt.b)/2};
     const d=pts?_roundPath(pts,24):`M${a.x},${a.y} Q${(a.x+b.x)/2},${Math.min(a.y,b.y)-80} ${b.x},${b.y}`;
     const p=document.createElementNS(NS,'path'); p.setAttribute('d',d); p.setAttribute('class','edge-infl'); svg.appendChild(p);
-    [pts?pts[0]:a, pts?pts[pts.length-1]:b].forEach(e=>{ const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',e.x); c.setAttribute('cy',e.y); c.setAttribute('r',4.5); c.setAttribute('class','infl-dot'); svg.appendChild(c); });
+    const ends=[pts?pts[0]:a, pts?pts[pts.length-1]:b];
+    ends.forEach((e,ei)=>{
+      if(pr.arrow&&ei===0){      // arrow runs from the inspiring idea into the idea being reported on
+        const nx=pts&&pts[1]?pts[1]:b, dx=e.x-nx.x, dy=e.y-nx.y, L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L, px=-uy, py=ux, S1=13, S2=7;
+        const poly=document.createElementNS(NS,'polygon');
+        poly.setAttribute('points',`${e.x},${e.y} ${e.x-ux*S1+px*S2},${e.y-uy*S1+py*S2} ${e.x-ux*S1-px*S2},${e.y-uy*S1-py*S2}`);
+        poly.setAttribute('class','infl-dot'); svg.appendChild(poly); return;
+      }
+      const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',e.x); c.setAttribute('cy',e.y); c.setAttribute('r',4.5); c.setAttribute('class','infl-dot'); svg.appendChild(c); });
   });
 }
 
@@ -1259,17 +1267,11 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
     const savedGid=S.currentGroupId; S.currentGroupId=g.gid; const pos0=computeLayout(g.gid,190); S.currentGroupId=savedGid;
     const vals=Object.values(pos0); if(!vals.length) return;
     const dx=(right===0)?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
+    const startIdx=nodesEl.children.length;
     const lin=new Set(); if(!g.main) g.ids.forEach(id=>getPath(id).forEach(y=>lin.add(y.id)));
     const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
     right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes
     maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
-    if(multi){
-      const gl=Math.min(...Object.values(pos).map(p=>p.x))-W/2-12, gr=Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180, gb=Math.max(...Object.values(pos).map(p=>p.y))+H+30;
-      const fr=document.createElement('div'); fr.className='tree-group-frame'+(g.main?'':' tree-group-frame-other'); fr.style.cssText=`left:${gl}px;top:-34px;width:${gr-gl}px;height:${gb+34}px`; nodesEl.appendChild(fr);
-      const lb=document.createElement('div'); lb.className='sr-group-label'+(g.main?' sr-group-label-main':''); lb.textContent=g.label;
-      lb.style.cssText=g.main?`left:${gr-10}px;top:-28px;transform:translateX(-100%)`:`left:${gl+10}px;top:-28px`; nodesEl.appendChild(lb);
-      right=Math.max(right,gr+10); maxY=Math.max(maxY,gb+4);
-    }
     gNodes.forEach(node=>{
       if(!node.parentId) return;
       const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
@@ -1291,7 +1293,7 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
         (isCurrent?'<div class="sr-current-ring"></div>':'')+
         `<div class="tree-node-type" style="color:${tagColor}">${nodeTagHtml(node)}</div></div>`+
         (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
-      if(!g.main&&g.ids&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id});   // dotted line only, no tick
+      if(!g.main&&g.ids&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id,arrow:true});   // dotted line only, no tick
       if(!g.main&&!selMode) el.style.pointerEvents='none';
       if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
       else if(selMode){
@@ -1303,6 +1305,21 @@ function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
       nodesEl.appendChild(el);
       addSideNote(nodesEl,node,p.x+W/2+8,p.y);
     });
+    if(multi){
+      // box = everything this tree drew (nodes, "Finalized" tags and the side notes), measured from the page
+      const base=nodesEl.getBoundingClientRect(), kk=(base.width/(nodesEl.offsetWidth||base.width))||1;
+      let gl=Infinity,gr=-Infinity,gb=-Infinity;
+      for(let ci=startIdx;ci<nodesEl.children.length;ci++){
+        const ce=nodesEl.children[ci]; [ce,...ce.querySelectorAll('.tree-node-final,.tree-node-inner,.sr-current-badge')].forEach(x=>{ const r=x.getBoundingClientRect(); if(!r.width) return;
+          gl=Math.min(gl,(r.left-base.left)/kk); gr=Math.max(gr,(r.right-base.left)/kk); gb=Math.max(gb,(r.bottom-base.top)/kk); });
+      }
+      if(!isFinite(gl)){ gl=Math.min(...Object.values(pos).map(p=>p.x))-W/2; gr=gl+W+8+180; gb=Math.max(...Object.values(pos).map(p=>p.y))+H+30; }
+      gl-=14; gr+=14; gb+=28;
+      const fr=document.createElement('div'); fr.className='tree-group-frame'+(g.main?'':' tree-group-frame-other'); fr.style.cssText=`left:${gl}px;top:-34px;width:${gr-gl}px;height:${gb+34}px`; nodesEl.appendChild(fr);
+      const lb=document.createElement('div'); lb.className='sr-group-label'+(g.main?' sr-group-label-main':''); lb.textContent=g.label;
+      lb.style.cssText=`left:${gl+10}px;top:${gb-24}px`; nodesEl.appendChild(lb);
+      right=Math.max(right,gr+10); maxY=Math.max(maxY,gb+4);
+    }
   });
   const inner=document.getElementById('sr-tree-inner');
   if(inner){ inner.style.width=right+'px'; inner.style.height=maxY+'px'; }
@@ -1532,7 +1549,9 @@ function placeActionsDock(){
 }
 // "Currently selected idea": the version replied to, or else the latest one
 function updateSelectedChip(){
+  markReplyTarget();   // the selected idea is marked in the chat itself (red box), the bottom bar is no longer used
   const ind=document.getElementById('reply-indicator'); if(!ind) return;
+  ind.style.display='none'; return;
   const cur=curNode(), n=replyTarget();
   if(!cur||!n){ ind.style.display='none'; return; }
   ind.style.display='flex';
@@ -1739,7 +1758,7 @@ function appendToChat(el){
 
 function markReplyTarget(){
   document.querySelectorAll('#chat-messages .reply-target').forEach(e=>e.classList.remove('reply-target'));
-  if(_replyToNodeId){ const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${_replyToNodeId}"]`); if(b) b.classList.add('reply-target'); }
+  const sel=replyTarget(); if(sel){ const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${sel.id}"]`); if(b) b.classList.add('reply-target'); }
   document.querySelectorAll('#chat-messages .bubble-reply-btn').forEach(btn=>{
     btn.textContent=(_replyToNodeId&&btn.parentElement.dataset.nodeId===_replyToNodeId)?'✕ Cancel reply':'↩ Reply';
   });
