@@ -7,7 +7,7 @@
 const express = require('express');
 const path    = require('path');
 const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes, getSelfReports,
-        saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances } = require('./db');
+        deleteParticipants, saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances } = require('./db');
 const Measures = require('./public/measures.js');
 
 const app  = express();
@@ -176,6 +176,11 @@ app.post('/api/admin/selection', adminAuth, needDb, wrap(async (req, res) => {
   const p = (req.body || {}).participant_ids;
   if (!Array.isArray(p) || p.length > 1000 || p.some(x => typeof x !== 'string')) return res.status(400).json({ error: 'participant_ids must be a list of strings.' });
   await setSelection(p); res.json({ ok: true });
+}));
+app.post('/api/admin/delete-participants', adminAuth, needDb, wrap(async (req, res) => {
+  const p = (req.body || {}).participant_ids;
+  if (!Array.isArray(p) || !p.length || p.length > 200 || p.some(x => typeof x !== 'string' || !x)) return res.status(400).json({ error: 'participant_ids must be a non-empty list of strings.' });
+  res.json({ ok: true, deleted_nodes: await deleteParticipants(p) });
 }));
 app.get('/api/admin/data', adminAuth, needDb, wrap(async (req, res) => {
   const selected = await getSelection();

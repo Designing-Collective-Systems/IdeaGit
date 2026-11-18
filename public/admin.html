@@ -37,13 +37,21 @@ async function load(){
   const r=await fetch('/api/admin/participants'); if(!r.ok){ document.getElementById('tbl').innerHTML='<tr><td>Could not load: '+esc((await r.json().catch(()=>({}))).error||r.status)+'</td></tr>'; return; }
   const {participants,selected}=await r.json(), sel=new Set(selected);
   ROWS=participants.map(p=>({...p,cat:Measures.condCat(p.condition)}));
-  let h='<tr><th style="width:40px"></th><th>Participant</th><th>Condition</th><th>Nodes</th></tr>';
+  let h='<tr><th style="width:40px"></th><th>Participant</th><th>Condition</th><th>Nodes</th><th></th></tr>';
   ['ai-only','idea-tree','other'].forEach(c=>{
     const rs=ROWS.filter(x=>x.cat===c).sort((a,b)=>a.participant_id.localeCompare(b.participant_id,undefined,{numeric:true})); if(!rs.length) return;
-    h+=`<tr class="grp"><td><input type="checkbox" onchange="all_('${c}',this.checked)"></td><td colspan="3">${LBL[c]} (${rs.length})</td></tr>`;
-    rs.forEach(x=>{ h+=`<tr><td><input type="checkbox" class="pc" data-cat="${c}" value="${esc(x.participant_id)}" ${sel.has(x.participant_id)?'checked':''}></td><td>${esc(x.participant_id)}</td><td>${esc(x.condition||'—')}</td><td>${x.n}</td></tr>`; });
+    h+=`<tr class="grp"><td><input type="checkbox" onchange="all_('${c}',this.checked)"></td><td colspan="4">${LBL[c]} (${rs.length})</td></tr>`;
+    rs.forEach(x=>{ h+=`<tr><td><input type="checkbox" class="pc" data-cat="${c}" value="${esc(x.participant_id)}" ${sel.has(x.participant_id)?'checked':''}></td><td>${esc(x.participant_id)}</td><td>${esc(x.condition||'—')}</td><td>${x.n}</td><td><button class="btn btn-sm" style="background:#c0524b;color:#fff" onclick="del_(this.dataset.p,${x.n})" data-p="${esc(x.participant_id)}">Delete</button></td></tr>`; });
   });
   document.getElementById('tbl').innerHTML=h;
+}
+async function del_(pid,n){
+  if(!confirm(`Permanently delete ALL data for participant "${pid}"?\n\n${n} idea version(s), their self-reports, landing-page logs and the ratings of their ideas will be removed from the database. This cannot be undone.\n\n(Download the CSV first if you might need it.)`)) return;
+  const t=prompt('To confirm, type the participant ID exactly:'); if(t!==pid){ say('Not deleted: the ID did not match.'); return; }
+  const r=await fetch('/api/admin/delete-participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_ids:[pid]})});
+  const j=await r.json().catch(()=>({}));
+  say(r.ok?`Deleted ${pid} (${j.deleted_nodes} idea versions).`:('Could not delete: '+(j.error||r.status)));
+  if(r.ok) load();
 }
 function all_(c,on){ document.querySelectorAll('.pc[data-cat="'+c+'"]').forEach(b=>b.checked=on); }
 async function loadSettings(){

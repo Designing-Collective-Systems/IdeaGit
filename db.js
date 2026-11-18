@@ -177,6 +177,23 @@ async function listParticipants() {
        FROM ideagit_nodes GROUP BY study_condition, participant_id ORDER BY study_condition, participant_id`);
   return r.rows;
 }
+// Permanently removes everything stored for the given participants (ideas, self-reports, landing logs, selection,
+// and the ratings / cached distances of their ideas). Returns how many idea versions were deleted.
+async function deleteParticipants(pids) {
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const n = (await c.query('DELETE FROM ideagit_nodes WHERE participant_id = ANY($1::text[])', [pids])).rowCount;
+    await c.query('DELETE FROM ideagit_selfreports WHERE participant_id = ANY($1::text[])', [pids]);
+    await c.query('DELETE FROM ideagit_landing WHERE participant_id = ANY($1::text[])', [pids]);
+    await c.query('DELETE FROM ideagit_selection WHERE participant_id = ANY($1::text[])', [pids]);
+    for (const p of pids) {
+      await c.query("DELETE FROM ideagit_ratings WHERE left(item_key, length($1) + 1) = $1 || '|'", [p]);
+      await c.query("DELETE FROM ideagit_distances WHERE left(item_key, length($1) + 1) = $1 || '|'", [p]);
+    }
+    await c.query('COMMIT'); return n;
+  } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+}
 async function getParticipantNodes(conditions, participantId) {
   // conditions: array of raw study_condition values (null / '' = no condition recorded)
   const vals = conditions.filter(c => c !== null && c !== '');
@@ -260,4 +277,4 @@ async function saveDistances(rows) {
     await c.query('COMMIT'); } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
 }
 
-module.exports = { saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances, getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };
+module.exports = { deleteParticipants, saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances, getSelfReports, initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes };
