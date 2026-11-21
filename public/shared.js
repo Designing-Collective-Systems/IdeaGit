@@ -7,9 +7,8 @@ const REQUIRED_IDEAS = 3; // Change this to set the number of ideas required
 
 
 const FIXED_CHALLENGE = [
-  "Task: You are a designer tasked with designing a smartphone feature to reduce the duration and frequency of \u201cdoom-scrolling\u201d. Doom-scrolling refers to compulsive, endless scrolling, often on social media.",
-  "Constraints: The feature should not turn off the phone, delete apps, or block the user from using an app.",
-  "Scenario: Imagine you're pitching these ideas to a team that will implement your ideas. Describe each idea with enough detail that they wouldn't need to ask follow-up questions."
+  "Setup: You are a designer at a technology company. Your task is to brainstorm ideas for a smartphone feature to reduce the amount of time users spend \u201ccompulsive scrolling\u201d. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.",
+  "Constraints: Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone."
 ].join("\n\n");
 
 const TASK_PREAMBLE_TEXT = 'For the following design challenge, please brainstorm and write down at least three ideas within 15 minutes (after you read the instructions). The goal of this task is to brainstorm ideas that meet the requirements of the design challenge. Your goal is NOT to complete the task quickly. Please let the research team member know once you are done brainstorming ideas.';
@@ -53,13 +52,23 @@ const S = {
   currentGroupId: null,
   activityLog: [],
   selfReportData: null, // populated when self-report is submitted (also used to prefill if reopened)
-  app: '',              // which app this page is (app1 / app2); set by app1.js / app2.js. Saved work is kept per app.
-  username: '',         // the logged-in participant; set once their saved work has loaded, which also switches saving on
+  participantId: '',    // entered on the landing page (app3/app4); identifies this participant in the database
+  studyCondition: '',   // label stored in the database (set by each app); S.condition stays the internal name
 };
 
 // ── Utilities ─────────────────────────────────────────────────
 function uid(){ return 'n'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Defense-in-depth: the AI is told not to use markdown, but strip common
+// tokens anyway so a stray "**bold**" never shows up literally in the UI.
+function stripMarkdown(s){
+  return String(s||'')
+    .replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1')
+    .replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g,'$1')
+    .replace(/(?<!_)_(?!_)([^_\n]+?)_(?!_)/g,'$1')
+    .replace(/`([^`]+?)`/g,'$1')
+    .replace(/^#{1,6}\s+/gm,'').replace(/^[-*]\s+/gm,'');
+}
 function toast(msg,bg=''){
   const el=document.createElement('div'); el.className='toast';
   if(bg) el.style.background=bg; el.textContent=msg;
@@ -91,7 +100,35 @@ function addNode(node){
   S.currentNodeId=node.id;
   S.currentGroupId=node.groupId;
   queueSync();
+  summarizeChange(node);
   return node;
+}
+// Short (<10 words) summary of what changed vs. the parent version; shown on the tree edge.
+async function summarizeChange(node){
+  const p=node.parentId&&S.nodes.find(n=>n.id===node.parentId);
+  const manual=node.tag==='manual-modification', aiPrompt=node.tag==='ai-generated'||node.tag==='ai-modification';
+  const wantIdea=!!window.SHOW_IDEA_SUMMARY&&!p;   // creation nodes: summary of the idea itself
+  if(!node.body||(!p&&!aiPrompt&&!wantIdea)) return;
+  try{
+    const ask=`${p?'Old version:\n'+p.body+'\n\n':''}New version:\n${node.body}\n\n${aiPrompt?'Prompt the user gave the AI: '+node.userPrompt+'\n\n':''}`+
+      'Reply with ONLY JSON: {"change":"what changed vs the old version","prompt":"what the user asked the AI to do","idea":"what the idea is"}. Each value is ONE complete phrase of at most 14 words that ends naturally (never cut off mid-sentence), plain text, no trailing period.'+
+      (p?'':' Use an empty string for "change".')+(aiPrompt?'':' Use an empty string for "prompt".')+(wantIdea?'':' Use an empty string for "idea".');
+    const t=await callClaude([{role:'user',content:ask}],'You write very short summaries.');
+    const j=parseAIJSON(t);
+    const cut=v=>{ const w=String(v||'').trim().replace(/[.\s]+$/,'').split(/\s+/).filter(Boolean); return w.length>24?w.slice(0,24).join(' ')+'…':w.join(' '); };   // generous safety cap only
+    node.meta=node.meta||{}; node.meta.changeSummary=p?cut(j.change):''; node.meta.promptSummary=aiPrompt?cut(j.prompt):''; node.meta.ideaSummary=wantIdea?cut(j.idea):'';
+    // Saved in the node's existing `extras` JSON column (no new column needed)
+    node.extras=node.extras.filter(x=>x.type!=='change_summary');
+    node.extras.push({type:'change_summary',summary:node.meta.changeSummary,prompt_summary:node.meta.promptSummary,idea_summary:node.meta.ideaSummary,ts:Date.now()});
+    renderAllTrees(); queueSync();
+  }catch(e){}
+}
+// One-line summary of a question / clarification asked about a node (shown beside the node).
+async function summarizeQuestion(node,ex){
+  try{
+    const t=await callClaude([{role:'user',content:'Summarize this question as ONE complete phrase of at most 14 words that ends naturally (never cut off mid-sentence), plain text, no trailing period:\n'+ex.userPrompt}],'You write very short summaries.');
+    { const w=t.trim().replace(/[.\s]+$/,'').split(/\s+/); ex.summary=w.length>24?w.slice(0,24).join(' ')+'…':w.join(' '); } renderAllTrees(); queueSync();
+  }catch(e){}
 }
 function curNode(){ return S.nodes.find(n=>n.id===S.currentNodeId); }
 function getPath(nodeId){
@@ -111,10 +148,10 @@ function buildAPIHistory(nodeId){
   return h;
 }
 function existingSummary(){
-  const roots=S.nodes.filter(n=>!n.parentId&&n.title);
+  const roots=S.nodes.filter(n=>!n.parentId&&n.body);
   if(!roots.length) return '';
   return '\n\nExisting ideas (do NOT repeat):\n'+
-    roots.map((n,i)=>`${i+1}. "${n.title}" — ${n.body.slice(0,100)}`).join('\n');
+    roots.map((n,i)=>`${i+1}. ${n.body.slice(0,100)}`).join('\n');
 }
 
 // ── Ideas list ────────────────────────────────────────────────
@@ -122,13 +159,13 @@ function getDisplayIdeas(){
   const finalized=S.nodes.filter(n=>n.isFinalized);
   const parentIds=new Set(S.nodes.map(n=>n.parentId).filter(Boolean));
   // In-progress: leaf nodes that are not finalized
-  const ongoing=S.nodes.filter(n=>!parentIds.has(n.id)&&!n.isFinalized&&n.title);
+  const ongoing=S.nodes.filter(n=>!parentIds.has(n.id)&&!n.isFinalized&&n.body);
   // Unfinalized: nodes that WERE finalized (isFinalized=false) but have children,
   // so they're not leaves — they'd otherwise be invisible
   const ongoingIds=new Set(ongoing.map(n=>n.id));
   const finalizedIds=new Set(finalized.map(n=>n.id));
   const unfinalized=S.nodes.filter(n=>
-    !n.isFinalized && n.title &&
+    !n.isFinalized && n.body &&
     parentIds.has(n.id) &&          // has children (not a leaf)
     !finalizedIds.has(n.id) &&
     !ongoingIds.has(n.id) &&
@@ -136,15 +173,13 @@ function getDisplayIdeas(){
   );
   return {finalized,ongoing,unfinalized};
 }
-function makeIdeaCard(node,status,onSelect){
+function makeIdeaCard(node,status,onSelect,label){
   const card=document.createElement('div');
   card.className=`idea-card ${status}${node.id===S.currentNodeId?' selected':''}`;
-  card.innerHTML=`
-    <div class="idea-card-badge ${status==='finalized'?'badge-finalized':'badge-ongoing'}">
-      ${status==='finalized'?'Finalized':'In Progress'}
-    </div>
-    <div class="idea-card-title">${esc(node.title)}</div>
-    <div class="idea-card-body">${esc(node.body)}</div>`;
+  // Only the Finalized badge is shown on the card itself; "In Progress" is
+  // conveyed once, by the section label above the group of cards.
+  const badge=status==='finalized'?`<div class="idea-card-badge badge-finalized">${esc(label||'Finalized')}</div>`:'';
+  card.innerHTML=`${badge}<div class="idea-card-body">${esc(node.body)}</div>`;
   if(onSelect) card.addEventListener('click',()=>onSelect(node.id));
   return card;
 }
@@ -158,6 +193,8 @@ function renderIdeasList(containerId,emptyId,onSelect){
     if(emptyEl) emptyEl.style.display='flex'; return;
   }
   if(emptyEl) emptyEl.style.display='none';
+  const instr=document.createElement('p'); instr.className='panel-instruction-inline'; instr.textContent='Click on any idea to work on it';
+  area.appendChild(instr);
   if(finalized.length){
     const l=document.createElement('div'); l.className='ideas-section-label'; l.textContent='Finalized';
     area.appendChild(l); finalized.forEach(n=>area.appendChild(makeIdeaCard(n,'finalized',onSelect)));
@@ -172,14 +209,38 @@ function renderIdeasList(containerId,emptyId,onSelect){
   }
 }
 
+// Ideas panel for the AI conditions: one card per chat (all branches of an idea live in one chat),
+// no section headings. A chat is green once any version in it is finalized.
+function renderIdeasPanel(containerId,onSelect){
+  const area=document.getElementById(containerId); if(!area) return;
+  area.innerHTML='';
+  const groups=new Map();
+  S.nodes.forEach(n=>{ if(!n.body) return; if(!groups.has(n.groupId)) groups.set(n.groupId,[]); groups.get(n.groupId).push(n); });
+  const cn=curNode();
+  groups.forEach((nodes,gid)=>{
+    nodes.sort((a,b)=>a.ts-b.ts);
+    const fin=nodes.filter(n=>n.isFinalized), show=fin.length?fin[fin.length-1]:nodes[nodes.length-1];
+    const card=makeIdeaCard(show,fin.length?'finalized':'',()=>selectChat(gid),fin.length>1?`${fin.length} finalized`:'Finalized');
+    card.classList.toggle('selected',!!cn&&cn.groupId===gid);
+    area.appendChild(card);
+  });
+}
+// Opens a chat from the list: its most recent version becomes the current one
+function selectChat(gid){
+  const cn=curNode(); if(cn&&cn.groupId===gid) return;
+  const ns=S.nodes.filter(n=>n.groupId===gid); if(!ns.length) return;
+  selectIdea(ns.reduce((m,n)=>n.ts>=m.ts?n:m).id);
+}
+
 // ── Process tree ──────────────────────────────────────────────
-const _pan={x:0,y:0,dragging:false,sx:0,sy:0,_canvasId:null};
+const _pan={x:0,y:0,k:1,dragging:false,sx:0,sy:0,_canvasId:null,_areaId:null};
 
 function initTreePanOn(areaId,canvasId){
-  _pan._canvasId=canvasId;
+  _pan._canvasId=canvasId; _pan._areaId=areaId;
   const area=document.getElementById(areaId); if(!area) return;
+  if(window.TREE_STACK){ initStackScroll(area); return; }
   area.addEventListener('mousedown',e=>{
-    if(e.target.closest('.tree-node')) return;
+    if(e.target.closest('.tree-node,.tree-zoom')) return;
     _pan.dragging=true; _pan.sx=e.clientX-_pan.x; _pan.sy=e.clientY-_pan.y;
     area.classList.add('dragging');
   });
@@ -190,13 +251,80 @@ function initTreePanOn(areaId,canvasId){
   window.addEventListener('mouseup',()=>{
     if(_pan.dragging){ _pan.dragging=false; document.getElementById(areaId)?.classList.remove('dragging'); }
   });
+  // Zoom: scroll wheel / trackpad (pinch too) around the cursor, plus + and - buttons
+  area.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const r=area.getBoundingClientRect();
+    zoomTree(Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0015)),e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  if(!area.querySelector('.tree-zoom')){
+    const z=document.createElement('div'); z.className='tree-zoom';
+    z.innerHTML='<button type="button" aria-label="Zoom in" title="Zoom in">+</button><button type="button" aria-label="Zoom out" title="Zoom out">\u2212</button>';
+    const [b1,b2]=z.querySelectorAll('button');
+    const mid=()=>[area.clientWidth/2,area.clientHeight/2];
+    b1.onclick=()=>zoomTree(1.25,...mid()); b2.onclick=()=>zoomTree(0.8,...mid());
+    area.appendChild(z);
+  }
+}
+// ── Stacked trees: the tree panel scrolls natively (scroll bar, trackpad, wheel); dragging pans; zoom keeps its buttons ──
+function _scroller(){ return document.getElementById('tree-scroll'); }
+function initStackScroll(area){
+  const sc=_scroller(); if(!sc) return;
+  let drag=null;
+  sc.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.target.closest('.tree-node')) return;
+    drag={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop}; sc.classList.add('dragging');
+  });
+  window.addEventListener('mousemove',e=>{ if(!drag) return; sc.scrollLeft=drag.l-(e.clientX-drag.x); sc.scrollTop=drag.t-(e.clientY-drag.y); });
+  window.addEventListener('mouseup',()=>{ if(drag){ drag=null; sc.classList.remove('dragging'); } });
+  // pinch (ctrl + wheel) zooms; a plain wheel / two-finger swipe scrolls natively
+  sc.addEventListener('wheel',e=>{
+    if(!e.ctrlKey) return; e.preventDefault();
+    const r=sc.getBoundingClientRect(); zoomTree(Math.exp(-e.deltaY*0.01),e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  if(!area.querySelector('.tree-zoom')){
+    const z=document.createElement('div'); z.className='tree-zoom';
+    z.innerHTML='<button type="button" aria-label="Zoom in" title="Zoom in">+</button><button type="button" aria-label="Zoom out" title="Zoom out">\u2212</button>';
+    const [b1,b2]=z.querySelectorAll('button');
+    const mid=()=>[sc.clientWidth/2,sc.clientHeight/2];
+    b1.onclick=()=>zoomTree(1.25,...mid()); b2.onclick=()=>zoomTree(0.8,...mid());
+    area.appendChild(z);
+  }
+}
+function zoomTree(f,cx,cy){
+  if(window.TREE_STACK){
+    const sc=_scroller(), canvas=document.getElementById(_pan._canvasId); if(!sc||!canvas) return;
+    const k2=Math.max(0.3,Math.min(2,_pan.k*f)); if(k2===_pan.k) return;
+    const ty=canvas.offsetTop, px=(sc.scrollLeft+cx)/_pan.k, py=(sc.scrollTop+cy-ty)/_pan.k;
+    _pan.k=k2; applyPan(); sc.scrollLeft=px*k2-cx; sc.scrollTop=py*k2+ty-cy; return;
+  }
+  const k2=Math.max(0.3,Math.min(2,_pan.k*f)); if(k2===_pan.k) return;
+  const ty=12;   // canvas top offset inside the area
+  const px=(cx-_pan.x)/_pan.k, py=(cy-ty-_pan.y)/_pan.k;
+  _pan.x=cx-px*k2; _pan.y=cy-ty-py*k2; _pan.k=k2; applyPan();
 }
 function applyPan(){
-  const el=document.getElementById(_pan._canvasId); if(el) el.style.transform=`translate(${_pan.x}px,${_pan.y}px)`;
+  const el=document.getElementById(_pan._canvasId); if(!el) return;
+  el.style.transform=window.TREE_STACK?`scale(${_pan.k})`:`translate(${_pan.x}px,${_pan.y}px) scale(${_pan.k})`;
+}
+// back to default zoom, with the current idea's tree in view
+function refocusTree(){
+  if(window.TREE_STACK){ stackFocus(); return; }
+  _pan.k=1; _pan.x=_pan.focusPx||0; _pan.y=0; applyPan();
+}
+// stacked trees: default zoom, the current idea's tree scrolled to the top of the panel
+function stackFocus(){
+  const sc=_scroller(), canvas=document.getElementById(_pan._canvasId); if(!sc||!canvas) return;
+  _pan.k=1; applyPan();
+  const f=(_pan.frames||[]).find(f=>f.isCur); if(!f){ sc.scrollTop=0; sc.scrollLeft=0; return; }
+  sc.scrollTop=Math.max(0,f.top+canvas.offsetTop-8);
+  const p=_pan.pos&&curNode()&&_pan.pos[curNode().id];
+  sc.scrollLeft=(p&&f.width>sc.clientWidth)?Math.max(0,p.x-sc.clientWidth/2):0;
 }
 function resetPan(){ _pan.x=0; _pan.y=0; applyPan(); }
 
-function computeLayout(gid){
+function computeLayout(gid,extraW){
+  const LW=extraW||0;
   const gNodes=S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification');
   if(!gNodes.length) return {};
   const children={};
@@ -204,7 +332,7 @@ function computeLayout(gid){
   gNodes.forEach(n=>{ if(n.parentId&&children[n.parentId]) children[n.parentId].push(n.id); });
   const root=gNodes.find(n=>!n.parentId||!gNodes.find(p=>p.id===n.parentId));
   if(!root) return {};
-  const W=165,H=62,HG=20,VG=70; const pos={};
+  const W=165+LW,H=62,HG=20,VG=120; const pos={};
   function getW(id){ const k=children[id]||[]; return !k.length?W:Math.max(W,k.reduce((s,c)=>s+getW(c),0)+HG*(k.length-1)); }
   function layout(id,x,y){
     pos[id]={x,y}; const k=children[id]||[]; if(!k.length) return;
@@ -212,6 +340,7 @@ function computeLayout(gid){
     k.forEach(c=>{ const cw=getW(c); layout(c,cx+cw/2,y+H+VG); cx+=cw+HG; });
   }
   layout(root.id,getW(root.id)/2+24,24);
+  if(LW) Object.keys(pos).forEach(k=>{ pos[k].x-=LW/2; });
   return pos;
 }
 
@@ -220,6 +349,8 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   const svg=document.getElementById(svgId);
   const emptyEl=document.getElementById(emptyId);
   if(!nodesEl||!svg) return;
+  const instrEl=document.getElementById('tree-instruction');
+  if(instrEl) instrEl.style.display=S.nodes.length?'block':'none';
   nodesEl.innerHTML=''; svg.innerHTML='';
   if(hoverMode) hideTreeTooltip();
   if(!S.currentGroupId){ if(emptyEl) emptyEl.style.display='flex'; return; }
@@ -228,7 +359,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   if(emptyEl) emptyEl.style.display='none';
   const pos=computeLayout(S.currentGroupId);
   const vals=Object.values(pos); if(!vals.length){ if(emptyEl) emptyEl.style.display='flex'; return; }
-  const maxX=Math.max(...vals.map(p=>p.x))+110, maxY=Math.max(...vals.map(p=>p.y))+80;
+  const maxX=Math.max(...vals.map(p=>p.x))+110+190, maxY=Math.max(...vals.map(p=>p.y))+80;
   const W=165,H=62;
   const canvas=document.getElementById(canvasId);
   if(canvas){ canvas.style.width=maxX+'px'; canvas.style.height=maxY+'px'; }
@@ -247,8 +378,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
     const isCur=node.id===S.currentNodeId;
     const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
               node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
-    const typeLabel=node.isFinalized?'Finalized':node.type==='creation'?(node.tag==='ai-generated'?'AI Creation':'Creation'):
-                    node.tag==='manual-modification'?'Manual Edit':'AI Modification';
+    const typeLabel=node.isFinalized?'Finalized':nodeTagLabel(node);
     const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
                     tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
     const el=document.createElement('div');
@@ -261,7 +391,7 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
                      node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
       el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
         (node.isFinalized?'<div class="tree-node-status">Finalized</div>':'')+
-        `<div class="tree-node-type" style="color:${tagColor}">${nodeTagLabel(node)}</div></div>`;
+        `<div class="tree-node-type" style="color:${tagColor}">${nodeTagHtml(node)}</div></div>`;
       el.addEventListener('mouseenter',e=>showTreeTooltip(node,e));
       el.addEventListener('mousemove',moveTreeTooltip);
       el.addEventListener('mouseleave',hideTreeTooltip);
@@ -277,13 +407,388 @@ function renderTreeInto({svgId,nodesId,emptyId,labelId,canvasId,onNodeClick,hove
   if(labelEl) labelEl.textContent=root?root.title:'';
 }
 
+// ── Idea Tree panel (app4): every idea's tree, side by side ────
+// New ideas get a new tree to the right; selecting an idea focuses its tree.
+// Refined = continuing a version; explored = branching into a different direction.
+// Exploration / fixation nudge (shown above the current tree) is switched off for now. To bring it back,
+// delete the 'return' line below and un-comment the block.
+function treeNudge(real){
+  return '';
+  /*
+  let refined=0,dirs=0;
+  real.forEach(n=>{ if(!n.parentId) return;
+    const first=real.filter(k=>k.parentId===n.parentId).sort((a,b)=>a.ts-b.ts)[0];
+    if(first&&first.id===n.id) refined++; else dirs++; });
+  const pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  if(!refined&&!dirs) return '';
+  if(dirs===0) return refined>=2?`You've refined this idea ${pl(refined,'time')}. Want to try a different direction?`:`You've refined this idea once. Keep refining, or try a different direction?`;
+  if(refined<dirs) return `You've explored ${pl(dirs,'new direction')}. Want to refine one further?`;
+  return `${pl(refined,'refinement')} and ${pl(dirs,'new direction')} so far. Keep exploring or refining!`;
+  */
+}
+// Short notes shown to the right of a node: what changed, the prompt used, and questions asked.
+function nodeNotes(node){
+  const m=node.meta||{}, out=[];
+  const tc=nodeTagColor(node), pc=isCustomPrompt(node)?'#db2777':'#92400e';
+  if(m.ideaSummary) out.push(['Idea',m.ideaSummary,tc]);
+  if(m.changeSummary) out.push(['Edit',m.changeSummary,tc]);
+  if(m.promptSummary) out.push(['Prompt',m.promptSummary,pc]);
+  (node.extras||[]).forEach(ex=>{ if(ex.summary&&ex.type!=='change_summary') out.push([ex.type==='feedback'?'Feedback':'Question',ex.summary]); });
+  return out;
+}
+function addSideNote(parentEl,node,left,top,w){
+  const notes=nodeNotes(node); if(!notes.length) return;
+  const d=document.createElement('div'); d.className='node-note';
+  d.style.cssText=`left:${left}px;top:${top}px;width:${w||180}px`;
+  d.innerHTML=notes.map(([k,v,c])=>`<div><strong${c?` style="color:${c}"`:''}>${k}:</strong> ${esc(v)}</div>`).join('');
+  parentEl.appendChild(d);
+}
+// Stacked mode lays every tree out under the previous one; the first pass measures how tall each tree's text needs
+// to be, the second pass lays the trees out with those heights so nothing overlaps.
+function renderAllTrees(){
+  const m=_renderAllTreesOnce(null);
+  if(window.TREE_STACK&&m&&m.grew) _renderAllTreesOnce(m.heights);
+}
+function _renderAllTreesOnce(minH){
+  const nodesEl=document.getElementById('tree-nodes'), svg=document.getElementById('tree-svg');
+  const canvas=document.getElementById('tree-canvas'), area=document.getElementById('tree-area');
+  if(!nodesEl||!svg||!canvas) return;
+  hideTreeTooltip();
+  nodesEl.innerHTML=''; svg.innerHTML=''; _pan.pos={};
+  const sub=document.getElementById('tree-subheader'); if(sub){ sub.style.visibility='visible'; sub.textContent=S.nodes.length?(window.TREE_HINT_TEXT||'Click on a node to see the detail on the right panel (Current Idea panel). You can edit the idea yourself or using AI.\nWhen you are satisfied, you can finalize the idea. Click on + New Idea to create a different idea.'):(window.TREE_EMPTY_TEXT||'When you create an idea, the idea tree will be populated'); fitHint(sub); }
+  const W=165,LW=190,WW=W+LW,H=62,HG=20,VG=120,GAP=40,PAD=10;
+  const gids=[]; S.nodes.forEach(n=>{ if(!gids.includes(n.groupId)) gids.push(n.groupId); });
+  gids.reverse(); // newest idea's tree on the left, older ones move right
+  const cur=curNode();
+  const getW=t=>!t.children.length?WW:Math.max(WW,t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1));
+  const place=(t,cx,y)=>{ t.x=cx; t.y=y; if(!t.children.length) return;
+    const tw=t.children.reduce((s,c)=>s+getW(c),0)+HG*(t.children.length-1); let x=cx-tw/2;
+    t.children.forEach(c=>{ const cw=getW(c); place(c,x+cw/2,y+H+VG); x+=cw+HG; }); };
+  // Real nodes fill the skeleton slots in order; an action with no free slot gets a new node.
+  // Unused skeleton nodes stay as empty (dashed) nodes.
+  const merge=(real,t,all)=>{ t.real=real;
+    all.filter(n=>n.parentId===real.id).sort((a,b)=>a.ts-b.ts).forEach((k,i)=>{
+      let c=t.children[i]; if(!c){ c={children:[]}; t.children.push(c); } merge(k,c,all); }); };
+  const stack=!!window.TREE_STACK; const flat=[], frames=[]; let cursor=4, cursorY=0, maxH=0, maxW=0;
+  (gids.length?gids:[null]).forEach(gid=>{
+    const real=gid?S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification'):[];
+    const t=window.TREE_NO_SKELETON?{children:[]}:{children:[{children:[]},{children:[{children:[]}]}]}; // the skeleton (hidden in the read-only viewer)
+    const root=real.find(n=>!n.parentId||!real.find(p=>p.id===n.parentId));
+    if(root) merge(root,t,real);
+    place(t,getW(t)/2,0);
+    const list=[]; const walk=(x,p)=>{ x.parent=p; list.push(x); x.children.forEach(c=>walk(c,x)); }; walk(t,null);
+    const minX=Math.min(...list.map(x=>x.x))-WW/2, maxX=Math.max(...list.map(x=>x.x))+WW/2;
+    const isCurT=!!(cur&&gid===cur.groupId);
+    const gi0=gids.length-1-gids.indexOf(gid), nudge0=(gid&&gi0>=1&&isCurT)?treeNudge(real):'';
+    const raw=maxX-minX, width=Math.max(raw,240),
+      TOP=stack?(isCurT?((nudge0?104:0)+((window.WORKING_BADGE&&cur&&!cur.parentId)?40:0)):0):(gids.length>1?(window.WORKING_BADGE?104:78):(window.WORKING_BADGE?40:0));
+    let height=Math.max(...list.map(x=>x.y))+H+TOP; const shiftX=cursor+PAD+(width-raw)/2-minX;
+    if(stack&&minH&&gid&&minH[gid]) height=Math.max(height,minH[gid]-2*PAD);
+    list.forEach(x=>{ x.x+=shiftX-LW/2; x.y+=PAD+TOP+(stack?cursorY:0); });
+    flat.push(...list);
+    const gi=gids.length-1-gids.indexOf(gid);   // 0 = oldest tree
+    const nudge=(gid&&gi>=1&&cur&&cur.groupId===gid)?treeNudge(real):'';   // current tree only, from the 2nd tree on
+    frames.push({gid,left:cursor,top:stack?cursorY:0,width:width+2*PAD,height:height+2*PAD,nudge,isCur:!!(cur&&gid===cur.groupId)});
+    maxH=Math.max(maxH,height+2*PAD); maxW=Math.max(maxW,width+2*PAD);
+    if(stack) cursorY+=height+2*PAD+GAP; else cursor+=width+2*PAD+GAP;
+  });
+  const totalW=stack?maxW+8:cursor-GAP+4, totalH=stack?cursorY-GAP+8:maxH+8;
+  canvas.style.width=totalW+'px'; canvas.style.height=totalH+'px';
+  svg.style.width=totalW+'px'; svg.style.height=totalH+'px';
+  svg.innerHTML=`<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
+  frames.forEach(f=>{
+    if(f.nudge){ const nd=document.createElement('div'); nd.className='tree-nudge';
+      nd.style.cssText=`left:${f.left}px;top:${f.top+PAD+4}px;width:${f.width-2*PAD}px`; nd.textContent=f.nudge; nodesEl.appendChild(nd); }
+    if(!f.gid) return;   // blue outline = tree being worked on, grey = the others
+    const fr=document.createElement('div'); fr.className='tree-group-frame'+(f.isCur?'':' tree-group-frame-other');
+    fr.style.cssText=`left:${f.left}px;top:${f.top}px;width:${f.width}px;height:${f.height}px`; nodesEl.appendChild(fr); f.el=fr;
+  });
+  flat.forEach(x=>{
+    if(!x.parent) return;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${x.parent.x},${x.parent.y+H} C${x.parent.x},${x.parent.y+H+66} ${x.x},${x.y-66} ${x.x},${x.y}`);
+    path.setAttribute('class','edge'+(x.real?'':' edge-ghost'));
+    if(x.real) path.setAttribute('marker-end','url(#arr)');
+    svg.appendChild(path);
+  });
+  flat.forEach(x=>{
+    const el=document.createElement('div');
+    el.style.left=x.x+'px'; el.style.top=x.y+'px'; el.style.width=W+'px';
+    if(!x.real){
+      el.className='tree-node tree-ghost';
+      el.innerHTML=`<div class="tree-node-inner tree-node-compact" style="height:${H}px"></div>`;
+      nodesEl.appendChild(el); return;
+    }
+    const node=x.real;
+    const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
+              node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
+    const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                   node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+    el.className=`tree-node ${tc}${node.id===S.currentNodeId?' current':''}`;
+    el.innerHTML=(window.WORKING_BADGE&&node.id===S.currentNodeId?'<div class="work-badge">Working on this idea \u2193</div>':'')+
+      `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+      `<div class="tree-node-type" style="color:${tagColor}">${nodeTagHtml(node)}</div>`+
+      (window.TREE_READONLY?'':`<button class="tree-node-discard" title="Discard this idea" aria-label="Discard this idea">\u00d7</button>`)+'</div>'+
+      (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
+    const _dx=el.querySelector('.tree-node-discard'); if(_dx) _dx.addEventListener('click',e=>{ e.stopPropagation(); hideTreeTooltip(); discardNode(node.id); });
+    el.dataset.nodeId=node.id; _pan.pos[node.id]={x:x.x,y:x.y+H/2};
+    el.addEventListener('click',()=>{ if(window.onTreeNodeClick) window.onTreeNodeClick(node.id); else selectIdea(node.id); });
+    nodesEl.appendChild(el);
+    addSideNote(nodesEl,node,x.x+W/2+8,x.y);
+  });
+  // A tree's frame always grows to contain every piece of text inside it (side notes, "Finalized" labels, ...), so it never crosses text
+  let result=null;
+  if(canvas.getBoundingClientRect().width){
+    const cr=canvas.getBoundingClientRect(), k=_pan.k||1; let tall=totalH, grew=false; const heights={};
+    const items=[...nodesEl.querySelectorAll('.tree-node,.node-note,.tree-node-final,.tree-nudge,.work-badge')].map(el=>{
+      const r=el.getBoundingClientRect(); return {l:(r.left-cr.left)/k,r:(r.right-cr.left)/k,t:(r.top-cr.top)/k,b:(r.bottom-cr.top)/k};});
+    frames.forEach(f=>{
+      if(!f.el) return; let bot=f.top+f.height, right=f.left+f.width;
+      items.forEach(i=>{
+        const inside=stack?(i.t>=f.top-1&&i.t<=f.top+f.height):(((i.l+i.r)/2)>=f.left&&((i.l+i.r)/2)<=f.left+f.width);
+        if(!inside) return; bot=Math.max(bot,i.b+PAD+2); right=Math.max(right,i.r+PAD+2); });
+      const h=bot-f.top; heights[f.gid]=h; if(h>f.height+0.5) grew=true;
+      f.el.style.height=h+'px'; f.el.style.width=(right-f.left)+'px'; tall=Math.max(tall,(stack?bot:bot)+8);
+    });
+    if(stack) tall+=24;
+    canvas.style.height=tall+'px'; svg.style.height=tall+'px'; result={heights,grew};
+  }
+  _pan.frames=frames;
+  if(window.drawExtraEdges) window.drawExtraEdges(svg,_pan.pos);   // the viewer adds dotted 'influenced by' lines here
+  // Focus the current idea's tree when all trees don't fit side by side
+  let px=0;
+  const f=cur&&frames.find(f=>f.gid===cur.groupId);
+  if(f&&area&&area.clientWidth&&totalW>area.clientWidth){
+    px=Math.max(area.clientWidth-totalW,Math.min(0,area.clientWidth/2-(f.left+f.width/2)));
+  }
+  // Re-centre only when the focused tree (or the number of trees) changes, so panning/zooming isn't undone by re-renders
+  const fkey=(cur?cur.groupId:'')+'|'+frames.length;
+  _pan.focusPx=px;
+  if(fkey!==_pan._focusKey){ _pan._focusKey=fkey; if(stack){ _pan.k=1; applyPan(); setTimeout(stackFocus,0); } else { _pan.x=px; _pan.y=0; _pan.k=1; } }
+  applyPan();
+  return result;
+}
+
+// Discarding removes the node and every later version branching from it.
+function branchIds(rootId){
+  const ids=[rootId];
+  for(let i=0;i<ids.length;i++) S.nodes.forEach(n=>{ if(n.parentId===ids[i]) ids.push(n.id); });
+  return ids;
+}
+function discardNode(nodeId){
+  if(S.condition==='AI-Assisted Ideation'){   // app3: discard only this idea; later versions stay
+    const n=S.nodes.find(k=>k.id===nodeId); if(!n) return;
+    if(n.isFinalized){ askConfirm({title:'Unfinalize first',message:'This idea is finalized. Please unfinalize it before discarding.',buttons:[{label:'OK',cls:'btn-primary'}]}); return; }
+    askConfirm({title:'Discard this idea?',message:'This will permanently remove this idea.',
+      buttons:[{label:'Cancel',cls:'btn-outline'},{label:'Discard',cls:'btn-discard',onClick:()=>doDiscard([nodeId],true)}]});
+    return;
+  }
+  const ids=branchIds(nodeId);
+  const nodes=ids.map(id=>S.nodes.find(n=>n.id===id)).filter(Boolean);
+  if(nodes.some(n=>n.isFinalized)){
+    askConfirm({title:'Unfinalize first',message:'A finalized idea is part of this branch. Please unfinalize it before discarding.',
+      buttons:[{label:'OK',cls:'btn-primary'}]});
+    return;
+  }
+  askConfirm({title:'Discard this idea?',
+    message:nodes.length>1?`This will permanently remove this idea and the ${nodes.length-1} later version${nodes.length>2?'s':''} connected to it.`:'This will permanently remove this idea.',
+    buttons:[{label:'Cancel',cls:'btn-outline'},{label:'Discard',cls:'btn-discard',onClick:()=>doDiscard(ids)}]});
+}
+async function doDiscard(ids,keepChildren){
+  const set=new Set(ids);
+  const removed=S.nodes.filter(n=>set.has(n.id));
+  removed.forEach(n=>n.extras.push({type:'discarded',ts:Date.now()})); // recorded in the database before removal
+  await syncNow();
+  S.nodes=S.nodes.filter(n=>!set.has(n.id));
+  if(_replyToNodeId&&set.has(_replyToNodeId)) clearReply();
+  if(set.has(S.currentNodeId)){
+    const first=removed[0], parent=first&&first.parentId?S.nodes.find(n=>n.id===first.parentId):null;
+    const kid=keepChildren&&S.nodes.find(k=>k.groupId===first.groupId);
+    if(parent) selectIdea(parent.id);
+    else if(kid) selectIdea(kid.id);
+    else{ S.currentNodeId=null; S.currentGroupId=null; const m=document.getElementById('chat-messages'); if(m) m.innerHTML=''; showChatInitial(); refreshUI(); }
+  } else {
+    refreshUI();
+    if(threadMode()&&curNode()){ const w=document.getElementById('chat-messages'), st=w?w.scrollTop:0; rebuildChat(S.currentNodeId); if(w) w.scrollTop=st; }   // the discarded version leaves the chat
+  }
+  toast('Idea discarded');
+}
+
+// Small reusable confirmation popup: buttons = [{label,cls,onClick}]
+// Keeps the tree hint to at most two lines, balanced (no single word left hanging on the second line)
+function fitHint(el){
+  if(!el||!el.textContent) return;
+  const raw=el.textContent;
+  if(raw.includes('\n')){   // fixed two-line text: one sentence group per line, font shrinks until each line fits
+    el.innerHTML=raw.split('\n').map(t=>'<span style="display:block;white-space:nowrap;overflow:hidden">'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span>').join('');
+    el.style.textAlign='left'; el.style.lineHeight='1.35'; el.style.fontWeight='500';
+    const spans=[...el.children]; let fs=20; el.style.fontSize=fs+'px';
+    while(fs>8&&spans.some(x=>x.scrollWidth>x.clientWidth+0.5)){ fs-=0.5; el.style.fontSize=fs+'px'; }
+    return;
+  }
+  const lines=()=>{ const r=document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(x=>Math.round(x.top))).size; };
+  el.style.maxWidth=''; el.style.margin=''; el.style.textAlign='left'; el.style.textWrap='balance'; el.style.lineHeight='1.3'; el.style.fontWeight='500';
+  let fs=20; el.style.fontSize=fs+'px';
+  while(lines()>2&&fs>8){ fs-=0.5; el.style.fontSize=fs+'px'; }
+}
+window.addEventListener('resize',()=>fitHint(document.getElementById('tree-subheader')));
+// Editing a finalized idea leaves it finalized; the new version is never finalized for the participant.
+function offerFinalizeNew(){}
+function askConfirm({title,message,buttons}){
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-message').textContent=message;
+  const foot=document.getElementById('confirm-buttons'); foot.innerHTML='';
+  buttons.forEach(b=>{
+    const el=document.createElement('button'); el.className='btn '+(b.cls||'btn-outline'); el.textContent=b.label;
+    el.addEventListener('click',()=>{ document.getElementById('modal-confirm').style.display='none'; if(b.onClick) b.onClick(); });
+    foot.appendChild(el);
+  });
+  document.getElementById('modal-confirm').style.display='flex';
+}
+
+// Hard cap: ideas stay at 70 words unless the user explicitly asked for a longer one.
+async function enforceWords(body,userMsg){
+  const wc=t=>(t||'').trim().split(/\s+/).length;
+  if(wc(body)<=70||/longer|lengthy|\d+\s*words|paragraph|more words|in depth|in-depth|elaborate at length/i.test(userMsg||'')) return body;
+  try{
+    const t=await callClaude([{role:'user',content:'Shorten this design idea to 60 words or fewer, keeping every key feature. Return only the text, no quotes.\n\n'+body}],'You tighten text without changing its meaning.');
+    const out=t.trim(); return wc(out)<wc(body)?out:body;
+  }catch(e){ return body; }
+}
+
+// The model sometimes returns JSON with unescaped quotes inside the text; recover the body in that case
+function parseAIJSON(text){
+  let t=String(text).replace(/```json|```/g,'').trim();
+  const a=t.indexOf('{'); if(a>0) t=t.slice(a);
+  const b=t.lastIndexOf('}'); const whole=t;
+  const tries=[t, b>0?t.slice(0,b+1):t, whole+'}', whole+'"}'];   // the model sometimes leaves off the closing quote/brace
+  for(const c of tries){ try{ return JSON.parse(c); }catch(e){} }
+  // text up to the closing quote that is followed by another key or the end (extra keys are ignored)
+  const m=whole.match(/"body"\s*:\s*"([\s\S]*?)"?\s*(?:,\s*"\w+"\s*:|\}?\s*$)/);
+  if(m&&m[1].trim()) return {body:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').trim()};
+  console.error('Unreadable AI reply:',text);
+  throw new Error('Could not read the AI reply ('+String(text).slice(0,160).replace(/\s+/g,' ')+')');
+}
 // ── Claude API ─────────────────────────────────────────────────
-async function callClaude(messages,system=''){
-  const body={model:'claude-sonnet-4-6',max_tokens:1024,messages};
+async function callClaude(messages,system='',maxTokens=8192){
+  const body={model:'claude-sonnet-5-5',max_tokens:maxTokens,messages};
   if(system) body.system=system;
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e?.error||'API error '+res.status); }
-  return (await res.json()).content[0].text;
+  const data=await res.json();
+  const why=data.stop_reason;
+  // thinking can use up the token limit: try again once with a bigger limit
+  if(why==='max_tokens'&&maxTokens<32000){ console.warn('Reply hit the token limit; retrying with a larger limit'); return callClaude(messages,system,maxTokens*2); }
+  if(why==='refusal'){ console.error('AI declined:',data); throw new Error('The AI declined this request. Please rephrase and try again.'); }
+  if(why&&why!=='end_turn'&&why!=='stop_sequence') console.warn('AI reply stop_reason:',why);
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('')||data.content[0].text;   // skip thinking blocks
+}
+
+
+// ── Export ideas as one PDF ────────────────────────────────────
+// app3: the AI chat history of every idea (coloured like the chat). app5: the idea tree of every idea.
+// The two libraries are loaded from /lib only when the button is used.
+function _loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector('script[data-lib="'+src+'"]')) return res();
+    const el=document.createElement('script'); el.src=src; el.dataset.lib=src; el.onload=res;
+    el.onerror=()=>rej(new Error('Could not load '+src)); document.head.appendChild(el);
+  });
+}
+async function _loadPdfLibs(){
+  if(!window.html2canvas) await _loadScript('lib/html2canvas.min.js');
+  if(!window.jspdf) await _loadScript('lib/jspdf.umd.min.js');
+}
+function _exportHost(){
+  let h=document.getElementById('export-host');
+  if(!h){ h=document.createElement('div'); h.id='export-host'; h.style.cssText='position:fixed;left:-30000px;top:0;background:#fff;pointer-events:none'; document.body.appendChild(h); }
+  h.innerHTML=''; return h;
+}
+function _pdfHeader(doc,text){ doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(30,41,59); doc.text(text,36,30); }
+const _ascii=t=>String(t).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\x20-\x7e]/g,'');
+
+async function exportIdeas(){
+  const btn=document.getElementById('btn-export'); const label=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='Exporting…'; }
+  try{
+    if(!S.nodes.length){ toast('There are no ideas to export yet.'); return; }
+    await _loadPdfLibs();
+    if(window.EXPORT_MODE==='trees') await _exportTrees(); else await _exportChats();
+  }catch(e){ console.error(e); toast('Could not export: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=label; } }
+}
+
+// app3: one section per idea, chat history from the first message to that idea
+async function _exportChats(){
+  const {jsPDF}=window.jspdf, {finalized,ongoing,unfinalized}=getDisplayIdeas();
+  const list=[...finalized.map((n,i)=>({n,tag:'Finalized idea '+(i+1)})),
+              ...ongoing.concat(unfinalized).sort((a,b)=>a.ts-b.ts).map(n=>({n,tag:'In progress'}))];
+  if(!list.length){ toast('There are no ideas to export yet.'); return; }
+  const doc=new jsPDF({orientation:'p',unit:'pt',format:'letter'});
+  const PW=612, PH=792, M=36, CW=PW-2*M, CSS_W=720, k=CW/CSS_W;            // css px -> pt
+  const pageH=PH-M-50;                                                      // room under the header
+  let first=true;
+  for(let idx=0;idx<list.length;idx++){
+    const {n,tag}=list[idx];
+    const host=_exportHost();
+    const wrap=document.createElement('div'); wrap.className='chat-messages';
+    wrap.style.cssText='width:'+CSS_W+'px;height:auto;max-height:none;overflow:visible;flex:none;background:#fff;padding:12px 16px;box-sizing:border-box';
+    host.appendChild(wrap); buildChatInto(wrap,n.id);
+    wrap.querySelectorAll('.bubble-content,.chat-msg,.feedback-bubble,.idea-bubble').forEach(e=>{ e.style.cursor='default'; });
+    const H=wrap.offsetHeight, scale=Math.min(2,15000/H);
+    const canvas=await html2canvas(wrap,{scale,backgroundColor:'#ffffff',logging:false,useCORS:true});
+    // choose page breaks between messages where possible
+    const bounds=[...wrap.children].map(c=>c.offsetTop+c.offsetHeight);
+    const maxPx=pageH/k; let y0=0, page=0; const pages=[];
+    while(y0<H-1){
+      let y1=Math.min(H,y0+maxPx);
+      if(y1<H){ const fit=bounds.filter(b=>b>y0+40&&b<=y1); if(fit.length) y1=fit[fit.length-1]+6; }
+      pages.push([y0,Math.min(H,y1)]); y0=Math.min(H,y1);
+    }
+    pages.forEach(([a,b],pi)=>{
+      if(!first) doc.addPage('letter','p'); first=false;
+      _pdfHeader(doc,_ascii('Idea '+(idx+1)+' of '+list.length+' - '+tag+(pages.length>1?'  (page '+(pi+1)+' of '+pages.length+')':'')));
+      const sl=document.createElement('canvas'); sl.width=canvas.width; sl.height=Math.max(1,Math.round((b-a)*scale));
+      const cx=sl.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,sl.width,sl.height);
+      cx.drawImage(canvas,0,Math.round(a*scale),canvas.width,sl.height,0,0,canvas.width,sl.height);
+      doc.addImage(sl.toDataURL('image/jpeg',0.92),'JPEG',M,44,CW,(b-a)*k);
+    });
+    host.innerHTML='';
+  }
+  doc.save('IdeaForest_'+_ascii(S.participantId||'participant')+'_chat_history.pdf');
+}
+
+// app5: one landscape page per idea tree (oldest first), taken from the tree on screen
+async function _exportTrees(){
+  const {jsPDF}=window.jspdf; const canvasEl=document.getElementById(_pan._canvasId||'tree-canvas');
+  const frames=(_pan.frames||[]).filter(f=>f.gid).slice().reverse();          // oldest first
+  if(!canvasEl||!frames.length){ toast('There are no ideas to export yet.'); return; }
+  const doc=new jsPDF({orientation:'l',unit:'pt',format:'letter'});
+  const PW=792, PH=612, M=36;
+  for(let i=0;i<frames.length;i++){
+    const f=frames[i], host=_exportHost();
+    const box=document.createElement('div'); box.style.cssText='position:relative;overflow:hidden;background:#fff;width:'+f.width+'px;height:'+f.height+'px';
+    const clone=canvasEl.cloneNode(true); clone.removeAttribute('id'); clone.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+    clone.style.cssText+=';position:absolute;transform:none;left:'+(-f.left)+'px;top:'+(-f.top)+'px';
+    clone.querySelectorAll('.tree-group-frame,.tree-nudge,.work-badge,.tree-ghost,.edge-ghost,.tree-node-discard').forEach(e=>e.remove());
+    clone.querySelectorAll('.tree-node.current').forEach(e=>e.classList.remove('current'));
+    box.appendChild(clone); host.appendChild(box);
+    const canvas=await html2canvas(box,{scale:2,backgroundColor:'#ffffff',logging:false,useCORS:true});
+    const real=S.nodes.filter(n=>n.groupId===f.gid), fin=real.some(n=>n.isFinalized);
+    if(i) doc.addPage('letter','l');
+    _pdfHeader(doc,_ascii('Idea tree '+(i+1)+' of '+frames.length+' - '+(fin?'finalized':'in progress')));
+    const maxW=PW-2*M, maxH=PH-M-50; let w=f.width*0.75, h=f.height*0.75; const sc=Math.min(2,maxW/w,maxH/h); w*=sc; h*=sc;
+    const finals=real.filter(n=>n.isFinalized).sort((a,b)=>b.ts-a.ts), fn=finals[0];
+    const reserve=fn?150:0; const sc2=Math.min(1,(maxH-reserve)/h); if(sc2<1){ w*=sc2; h*=sc2; }
+    doc.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',M,46,w,h);
+    if(fn){
+      let y=46+h+22; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,41,59); doc.text('Final idea',M,y); y+=15;
+      doc.setFont('helvetica','normal'); doc.setFontSize(10);
+      doc.splitTextToSize(_ascii(fn.body||''),PW-2*M).forEach(line=>{ if(y>PH-M){ doc.addPage('letter','l'); y=M+10; } doc.text(line,M,y); y+=13; });
+    }
+    host.innerHTML='';
+  }
+  doc.save('IdeaForest_'+_ascii(S.participantId||'participant')+'_idea_trees.pdf');
 }
 
 // ── Classification (C3/C4) ────────────────────────────────────
@@ -316,13 +821,14 @@ function buildCombinedCSV(){
 
   const hdr=['node_id','group_id','parent_id','type','tag','title','body',
              'is_finalized','user_prompt','ai_response','timestamp','extras_json',
-             'self_report_ai_use'];
+             'self_report_ai_use','influenced_by'];
   const rows=S.nodes.map(n=>[
     n.id,n.groupId,n.parentId||'',n.type,n.tag,
     csvC(n.title),csvC(n.body),n.isFinalized?'1':'0',
     csvC(n.userPrompt),csvC(n.aiResponse),
     new Date(n.ts).toISOString(), csvC(JSON.stringify(n.extras)),
-    csvC(srMap.get(n.id) || '')
+    csvC(srMap.get(n.id) || ''),
+    csvC(JSON.stringify(n.influencedBy || []))
   ].join(','));
   return [hdr.join(','),...rows].join('\n');
 }
@@ -334,21 +840,35 @@ function exportCSV(){
 
 // ── Navigation ─────────────────────────────────────────────────
 function goHome(){
-  if(S.username) return; // participants stay on their own condition's page
+  if(S.participantId) return; // participants stay on their own condition's page
   if(S.nodes.length&&!confirm('Go back? Export first if you want to save.')) return;
   window.location.href='/';
 }
 
 // ── Instructions ───────────────────────────────────────────────
+let _instrAfterDetails=false; // true only at session start: Design challenge closes -> IdeaForest instructions open
 function openInstructions(){
-  document.getElementById('instructions-head').textContent='Instructions for using IdeaGit';
+  document.getElementById('instructions-head').textContent=window.CONDITION_INSTRUCTIONS_TITLE||'IdeaForest';
   document.getElementById('instructions-content').innerHTML=window.CONDITION_INSTRUCTIONS||'';
   document.getElementById('instructions-modal').style.display='flex';
+  fitInstructionText();
 }
-function closeInstructions(){ document.getElementById('instructions-modal').style.display='none'; }
+// Each panel description wraps onto exactly two balanced lines; the popup width follows the text.
+function fitInstructionText(){
+  const ts=[...document.querySelectorAll('#instructions-content .instr-text')]; if(!ts.length) return;
+  ts.forEach(t=>{ t.innerHTML=t.innerHTML.replace(/<br\s*\/?>/g,' '); t.style.width=''; t.style.whiteSpace='nowrap'; t.style.display='inline-block'; });
+  const M=Math.max(...ts.map(t=>t.scrollWidth));
+  ts.forEach(t=>{ t.style.whiteSpace=''; t.style.display=''; t.style.width=Math.ceil(M/2)+48+'px'; });
+}
+function closeInstructions(){
+  document.getElementById('instructions-modal').style.display='none';
+}
 
 function openDetailsModal(){ document.getElementById('details-modal').style.display='flex'; }
-function closeDetailsModal(){ document.getElementById('details-modal').style.display='none'; }
+function closeDetailsModal(){
+  document.getElementById('details-modal').style.display='none';
+  if(_instrAfterDetails){ _instrAfterDetails=false; openInstructions(); }
+}
 
 // ── Setup page ─────────────────────────────────────────────────
 function onChallengeInput(){
@@ -366,9 +886,18 @@ function updateFinalizedCounter(){
 function checkThreeDone(){
   // No-op: idea count target removed. Participants finish via the "Done with Task" button only.
 }
+function offerFinalizeThen(next){
+  const node=curNode();
+  if(!isAICondition()||!node||node.isFinalized){ next(); return; }
+  askConfirm({title:'Finalize this idea?',message:'Do you want to finalize the current idea before you continue?',
+    buttons:[{label:'No, continue',cls:'btn-outline',onClick:next},
+             {label:'Yes, finalize it',cls:'btn-finalize',onClick:()=>{ doFinalizeIdea(node); next(); }}]});
+}
 function handleDone(){
-  document.getElementById('done-count').textContent=finalizedCount();
-  document.getElementById('done-popup').style.display='flex';
+  offerFinalizeThen(()=>{
+    document.getElementById('done-count').textContent=finalizedCount();
+    document.getElementById('done-popup').style.display='flex';
+  });
 }
 function closeDonePopup(){ document.getElementById('done-popup').style.display='none'; }
 function confirmDone(){
@@ -377,196 +906,425 @@ function confirmDone(){
   else{ exportCSV(); toast('Session exported. You may now close the page.','var(--green)'); }
 }
 
-// ── Self-report (C3/C4 only) ──────────────────────────────────
-let _srPage=0,_srCurrentIdea=0,_srSubTab='chat';
+// ── Self-report: influence → ratings (round 1) → reflect-aloud → ratings (round 2) → reflect on changes ──
+// Every section starts with a short landing page. Per idea, all questions share one page.
+const SR_LVL=['Not at all','Slightly','Moderately','Mostly','Completely'];
+const SR_SCALES={own:SR_LVL,dep:SR_LVL,effort:['None at all','A little','A moderate amount','A lot','As much as I could']};
+let SR=null;
+const srTree=()=>!!window.SR_TREE_ONLY;
+function srQs(){
+  return [
+    {k:'own',type:'scale',text:'To what extent do you feel this idea belongs to you?'},
+    {k:'dep',type:'scale',text:'To what extent did you depend on the AI to develop this idea?'},
+    {k:'effort',type:'scale',text:'How much effort did you invest in developing this idea?'}
+  ];
+}
+function srScaleOf(k){ return k==='own'?SR_SCALES.own:k==='dep'?SR_SCALES.dep:SR_SCALES.effort; }
+const APP_SETTINGS={allowSkip:true};
+function loadAppSettings(){ try{ fetch('/api/settings').then(r=>r.ok?r.json():null).then(j=>{ if(j) Object.assign(APP_SETTINGS,j); }).catch(()=>{}); }catch(e){} }
+loadAppSettings();
+const THANKS='Thank you for ideating with our tool. Your efforts will help the research team get a deeper insight into the ideation process.';
+const Q3_LIST='<ol class="sr-intro-ol"><li>How much do you feel <strong>you own the idea</strong>?</li><li>How much does the idea <strong>rely on AI</strong>?</li><li>How much <strong>effort</strong> did you put in?</li></ol>';
+const SR_INTRO={
+  infl:{lead:()=>THANKS+' We would like to understand how your ideas may have influenced each other.',
+    what:()=>'For each of your <strong>finalized ideas</strong>, we will ask you to select other finalized idea(s) that influenced it.',
+    how:()=>'Click on the ideas that influenced the idea shown on the left. If none did, simply press Next.',
+    why:()=>'While brainstorming, an idea can be inspired or influenced by another idea. For example, your first idea may have shaped how you approached another idea, without you ever copying the first idea’s text. These influences are not tracked by the tool since they often occur in one’s mind. We are trying to track such influences.'},
+  r1:{lead:()=>SR.hasInfl?'Thank you for telling us how some of your ideas were influenced by other ideas! We would like to understand your perception of your ideation process.':THANKS+' We would like to understand your perception of your ideation process.',
+    what:()=>'We will ask three questions about each of the finalized ideas:'+Q3_LIST,
+    how:()=>'Choose the option that best describes how you feel. There are no right or wrong answers!',
+    why:()=>'We are trying to understand how you perceive your AI-assisted ideation. Things like ownership, reliance on AI and effort is difficult to understand from what you did on screen, so we ask you directly. Your answers will help us understand how people’s ideation process influences their perception.'},
+  reflect:{lead:()=>'Thank you for rating your ideas! We would like to understand how your ideas developed.',
+    what:()=>'For each idea, we will ask you to reflect on how the initial idea was created and how it evolved into the final idea.',
+    how:tree=>`While looking at the ${tree?'idea tree':'chat history'}, please describe out loud how the idea developed, from the start to the final version.`,
+    why:()=>'We are trying to understand how your ideas took shape. Much of how an idea develops happens in your head and can’t be seen from what you did on screen, so we ask you to walk us through it. Hearing your own account will help us understand the thought process behind people’s ideation.'},
+  r2:{lead:()=>'Thank you for reflecting on your ideas! We would like to understand your perception of your ideation process.',
+    what:()=>'We will ask the same three questions again for each of the finalized ideas:'+Q3_LIST,
+    how:()=>'Now that you have reflected upon your ideas and their evolution, could you please rate them again. There are no right or wrong answers!',
+    why:()=>'We are trying to understand how you perceive your AI-assisted ideation. Things like ownership, reliance on AI and effort is difficult to understand from what you did on screen, so we ask you directly. Your answers will help us understand how people’s ideation process influences their perception.'},
+  chg:{lead:()=>'Thank you for rating your ideas again! We would like to understand why some of your answers changed.',
+    what:()=>'For each answer that differed between your first and second ratings, we will ask you to reflect on why your answer changed.',
+    how:()=>'For each such answer, please say out loud why the answer changed.',
+    why:()=>'When your answer changes, hearing your explanation helps us understand why your perception changed.'}
+};
+// Step numbers on the landing pages (the influence step is only there when it has something to ask)
+function srStepNo(k){ const o=['infl','r1','reflect','r2','chg'].filter(x=>x!=='infl'||SR.hasInfl); return o.indexOf(k)+1; }
+// Could idea `o` have influenced idea `n`? Only if the tree o belongs to was started before n was created.
+function srRootTs(x){ const p=getPath(x.id); return (p[0]&&p[0].ts)||x.ts||0; }
+function srAllDefaultAI(x){ return getPath(x.id).every(y=>(y.tag==='ai-generated'||y.tag==='ai-modification')&&!isCustomPrompt(y)); }
+function srCanInfluence(n,o){ return o.id!==n.id&&o.groupId!==n.groupId&&srRootTs(o)<(n.ts||0)&&!srAllDefaultAI(n); }
 function openSelfReport(){
-  const finalized=S.nodes.filter(n=>n.isFinalized);
-  if(!finalized.length) return;
-  _srPage=0; _srCurrentIdea=0;
-  _srSubTab=isCondition4()?'tree':'chat';
-
-  // ── Left panel: idea tabs ────────────────────────────────────
-  const tabs=document.getElementById('sr-idea-tabs'); if(!tabs) return;
-  tabs.innerHTML='';
-  finalized.forEach((n,i)=>{
-    const btn=document.createElement('button');
-    btn.className='sr-idea-tab'+(i===0?' sr-idea-active':'');
-    btn.textContent=`Idea ${i+1}`;
-    btn.onclick=()=>{ srSelectIdea(i,finalized); srShowPage(i); };
-    tabs.appendChild(btn);
-  });
-  const subTabs=document.getElementById('sr-sub-tabs');
-  if(subTabs) subTabs.style.display=isAICondition()?'flex':'none';
-  const treeTab=document.getElementById('sr-tab-tree');
-  if(treeTab) treeTab.style.display=isCondition4()?'':'none';
-  const srLeft=document.getElementById('sr-left');
-  if(srLeft) srLeft.style.display=isAICondition()?'flex':'none';
-
-  // ── Right panel: generate one page per idea ──────────────────
-  const srRight=document.querySelector('.sr-right');
-  if(srRight){
-    srRight.innerHTML='<div class="sr-right-header"><div class="sr-step-indicator" id="sr-step-indicator"></div><button class="btn btn-outline btn-sm" onclick="closeSelfReport()">Close ✕</button></div>';
-    finalized.forEach((node,i)=>{
-      const isLast=i===finalized.length-1;
-      const page=document.createElement('div');
-      page.className='sr-page'; page.id=`sr-page-${i}`;
-      page.style.display=i===0?'flex':'none';
-      page.innerHTML=`
-        <h2 class="sr-page-title">Idea ${i+1}: <span class="sr-idea-title-inline">${esc(node.title)}</span></h2>
-        <div class="sr-question">
-          <p class="sr-q-label">Please describe how you used AI to generate or improve this idea.</p>
-          <textarea class="sr-ai-use-ta" id="sr-ai-use-${i}"
-            placeholder="Describe how you used AI, or write 'N/A' if you did not use AI for this idea…"
-            rows="6"></textarea>
-        </div>
-        <div class="sr-foot">
-          ${i>0?'<button class="btn btn-outline" onclick="srPrev()">← Back</button>':''}
-          ${isLast
-            ?'<button class="btn btn-green" onclick="srSubmit()">Submit Self-Reports</button>'
-            :'<button class="btn btn-primary" onclick="srNext()">Next →</button>'}
-        </div>`;
-      srRight.appendChild(page);
-    });
-
-    // Prefill previously saved answers (matched by node id) if reopening after a prior submit
-    if(S.selfReportData){
-      const savedMap = new Map();
-      S.selfReportData.finalized.forEach((n,i)=>{ savedMap.set(n.id, S.selfReportData.aiUses[i]); });
-      finalized.forEach((node,i)=>{
-        if(savedMap.has(node.id)){
-          const ta=document.getElementById(`sr-ai-use-${i}`);
-          if(ta) ta.value = savedMap.get(node.id);
-        }
-      });
-    }
-  }
-
-  srUpdateStep(); srSelectIdea(0,finalized); srShowPage(0); srSubTab(_srSubTab);
-  document.getElementById('self-report-modal').style.display='flex';
+  loadAppSettings();
+  const ideas=S.nodes.filter(n=>n.isFinalized);
+  if(!ideas.length) return;
+  const QS=srQs();
+  const qSteps=k=>[{t:'intro',k}].concat(ideas.map((n,i)=>({t:'q',i})));
+  SR={hist:[],ideas,QS,round:1,phase:'r1',p:0,steps:null,qSteps,a1:{},a2:{},busy:false,infl:{}};
+  // ideas from the same tree obviously influenced each other, so only ideas from other trees are offered
+  ideas.forEach(n=>{ SR.infl[n.id]={}; ideas.forEach(o=>{ if(srCanInfluence(n,o)) SR.infl[n.id][o.id]={on:false,sel:[]}; }); });
+  const ask=ideas.map((n,i)=>i).filter(i=>Object.keys(SR.infl[ideas[i].id]).length);
+  SR.hasInfl=ask.length>0;
+  if(ask.length){ SR.phase='infl'; SR.round=0; SR.steps=[{t:'intro',k:'infl'}].concat(ask.map(i=>({t:'infl',i}))); }
+  else SR.steps=qSteps('r1');
+  ideas.forEach(n=>{ SR.a1[n.id]={}; SR.a2[n.id]={}; });
+  const m=document.getElementById('self-report-modal'); m.style.display='flex';
+  document.getElementById('sr-sub-tabs').style.display='none';
+  document.getElementById('sr-left').style.display='flex';
+  srRender();
 }
-function srSelectIdea(idx,finalizedArg){
-  _srCurrentIdea=idx;
-  const finalized=finalizedArg||S.nodes.filter(n=>n.isFinalized);
-  document.querySelectorAll('.sr-idea-tab').forEach((t,i)=>t.classList.toggle('sr-idea-active',i===idx));
-  srRenderContent(finalized[idx]);
+const srIsAiEl=el=>el.classList.contains('assistant')||el.classList.contains('feedback-bubble')||el.classList.contains('ai-created')||el.classList.contains('modified');
+function srBuildChat(box,node,main=true){
+  if(threadMode()){
+    buildThreadInto(box,node.groupId);
+    const b=box.querySelector(`.idea-bubble[data-node-id="${node.id}"]`); if(b) b.classList.add(main?'sr-this-idea':'sr-focus');
+  } else buildChatInto(box,node.id);
 }
-function srRenderContent(node){
-  if(!node) return;
-  const disp=document.getElementById('sr-idea-display'); if(!disp) return;
-  if(_srSubTab==='chat'){
-    const path=getPath(node.id); let html='<div class="sr-chat-history">';
-    path.forEach(n=>{
-      if(n.type==='creation') html+=`<div class="sr-idea-bubble"><strong>${esc(n.title)}</strong><br>${esc(n.body)}</div>`;
-      else if(n.type==='modification'){
-        if(n.userPrompt) html+=`<div class="sr-msg-user">${esc(n.userPrompt)}</div>`;
-        html+=`<div class="sr-idea-bubble"><em>${n.tag==='manual-modification'?'Manual edit':'AI modified'}</em><br><strong>${esc(n.title)}</strong><br>${esc(n.body)}</div>`;
-      }
-      n.extras.forEach(ex=>{
-        if(ex.userPrompt) html+=`<div class="sr-msg-user">${esc(ex.userPrompt)}</div>`;
-        if(ex.aiResponse) html+=`<div class="sr-msg-ai">${esc(ex.aiResponse)}</div>`;
-      });
-    });
-    disp.innerHTML=html+'</div>';
+function srAns(){ return SR.round===1?SR.a1:SR.a2; }
+function srBackBtn(){ return SR.p>0?'<button class="btn btn-outline" onclick="srPrevStep()">← Back</button>':(SR.hist&&SR.hist.length?'<button class="btn btn-outline" onclick="srPrevPhase()">← Back</button>':''); }
+// back from a landing page to the last page of the previous section
+function srPrevPhase(){ const h=SR.hist.pop(); if(!h) return; SR.phase=h.phase; SR.round=h.round; SR.steps=h.steps; SR.p=h.p; srRender(); }
+// Skip: jump to the end of the current section and move on (answers given so far are kept)
+function srSkipBtn(){ return APP_SETTINGS.allowSkip===false?'':'<button class="btn btn-skip" onclick="srSkip()">Skip this section</button>'; }
+function srSkip(){ if(SR.busy) return; SR.p=SR.steps.length-1; srNext(); }
+function srHideLeft(){ document.getElementById('sr-left').style.display='none'; document.getElementById('sr-idea-display').innerHTML=''; hideTreeTooltip(); }
+function srRender(){
+  const st=SR.steps[SR.p];
+  if(st.t==='intro'){ srRenderIntro(st); return; }
+  if(st.t==='infl'){ srRenderInfl(st); return; }
+  const node=SR.ideas[st.i], QS=SR.QS, right=document.querySelector('.sr-right');
+  document.getElementById('sr-idea-tabs').innerHTML=SR.ideas.map((n,i)=>`<div class="sr-idea-tab${i===st.i?' sr-idea-active':' sr-tab-off'}" style="cursor:default">Idea ${i+1}</div>`).join('');
+  let head='',body='',foot='';
+  if(st.t==='q'){
+    const a=srAns()[node.id];
+    head=`Idea ${st.i+1} of ${SR.ideas.length}`;
+    body=QS.map((q,x)=>`<div class="sr-q-block"><p class="sr-q-label">${x+1}. ${q.text}</p>`
+      +srScaleOf(q.k).map((l,v)=>`<label class="sr-opt"><input type="radio" name="sr-${q.k}" value="${v+1}" ${a[q.k]===v+1?'checked':''} onchange="srPick('${q.k}',${v+1})"> ${l}</label>`).join('')+`</div>`).join('');
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" id="sr-go" onclick="srNext()" ${QS.every(q=>a[q.k])?'':'disabled'}>Next →</button>`;
+  } else if(st.t==='reflect'){
+    head=`Reflection · Idea ${st.i+1} of ${SR.ideas.length}`;
+    body=`<p class="sr-q-label">While looking at the ${srTree()?'idea tree':'chat history'}, can you please speak out loud about how the idea developed, from the start to the final version?</p>`;
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button>`;
   } else {
-    disp.innerHTML='<div style="width:100%;height:100%;position:relative;overflow:auto;background:var(--bg);padding-top:1.8rem;box-sizing:border-box"><div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div></div>';
-    renderSrTree(node.groupId, node.id);
+    head=`Idea ${st.i+1} · Reflection on changed answer`;
+    body=`<p class="sr-q-label">${esc(st.qtext)}</p><p style="font-size:0.95rem">Your response shifted from “${esc(st.old)}” to “${esc(st.nw)}”.</p><p class="sr-q-label">Reflect out loud what led you to change your answer.</p>`;
+    foot=`${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">${SR.p===SR.steps.length-1?'Finish':'Next →'}</button>`;
   }
+  right.innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">${head}</div></div><div class="sr-page" style="display:flex">${body}<div class="sr-foot">${foot}</div></div>`;
+  srShowLeft(node,null,null);
 }
-function renderSrTree(gid, currentNodeId){
+// Landing page shown before each section
+// Which landing pages the participant saw, and whether they opened "How will this help our research"
+function srLogLanding(page,opened){
+  try{ fetch('/api/save-landing',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,page,opened:!!opened})}).catch(()=>{}); }catch(e){}
+}
+function srRenderIntro(st){
+  srHideLeft(); srLogLanding(st.k,false);
+  const I=SR_INTRO[st.k];
+  const t=srTree(), P=(l,txt)=>`<div class="sr-intro-p"><strong>${l}:</strong> ${txt}</div>`;
+  document.querySelector('.sr-right').innerHTML=`<div class="sr-intro"><div class="sr-intro-card"><div class="sr-intro-step">Step ${srStepNo(st.k)}</div><h2 class="sr-intro-title">${I.lead()}</h2>`
+    +P('What will you do',I.what(t))+P('How will you do it',I.how(t))
+    +`<details class="sr-why" ontoggle="if(this.open) srLogLanding('${st.k}',true)"><summary>How will this help our research</summary><div class="sr-intro-p">${I.why(t)}</div></details>`
+    +`<div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div></div></div>`;
+}
+function srPick(k,v){ srAns()[SR.ideas[SR.steps[SR.p].i].id][k]=v; const b=document.getElementById('sr-go'); if(b) b.disabled=!SR.QS.every(q=>srAns()[SR.ideas[SR.steps[SR.p].i].id][q.k]); }
+// Influence: only the finalized ideas are shown (no trees, no nodes); ideas from the same tree are left out
+function srRenderInfl(st){
+  srHideLeft();
+  const node=SR.ideas[st.i];
+  const others=SR.ideas.map((o,k)=>({o,k})).filter(x=>SR.infl[node.id][x.o.id]);
+  const cards=others.map(({o,k})=>`<div class="sr-infl-card sr-selectable${SR.infl[node.id][o.id].sel.length?' sr-selected':''}" onclick="srInflToggle('${o.id}',this)"><div class="sr-infl-num">Idea ${k+1}</div><div class="sr-infl-body">${esc(o.body||'')}</div></div>`).join('');
+  document.querySelector('.sr-right').innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${st.i+1} of ${SR.ideas.length}</div></div>
+    <div class="sr-page" style="display:flex;min-height:0">
+      <p class="sr-q-label">Please select the ideas on the right that influenced the origin of the idea on the left. If none, press next.</p>
+      <div class="sr-infl-wrap">
+        <div class="sr-infl-leftcol"><div class="sr-infl-title">Idea you are considering</div>
+          <div class="sr-infl-this"><div class="sr-infl-num">Idea ${st.i+1}</div><div class="sr-infl-body">${esc(node.body||'')}</div></div>
+          <div class="sr-infl-log" id="sr-infl-log"></div></div>
+        <div class="sr-infl-rightcol"><div class="sr-infl-title">Which ideas might have influenced it</div>
+          <div class="sr-infl-list">${cards}</div></div>
+      </div>
+      <div class="sr-foot">${srSkipBtn()}${srBackBtn()}<button class="btn btn-primary" onclick="srNext()">Next →</button></div>
+    </div>`;
+  srInflLog();
+}
+// "Idea 2 influenced Idea 3" for every idea marked so far on this page
+function srInflLog(){
+  const el=document.getElementById('sr-infl-log'); if(!el) return;
+  const i=SR.steps[SR.p].i, n=SR.ideas[i];
+  el.innerHTML=SR.ideas.map((o,k)=>(SR.infl[n.id][o.id]&&SR.infl[n.id][o.id].sel.length)?`<div class="sr-infl-log-line">Idea ${k+1} influenced Idea ${i+1}</div>`:'').join('');
+}
+function srInflToggle(oid,el){
+  const n=SR.ideas[SR.steps[SR.p].i], s=SR.infl[n.id][oid], o=SR.ideas.find(x=>x.id===oid);
+  s.sel=s.sel.length?[]:[{id:oid,text:(o.body||'').slice(0,120)}]; s.on=s.sel.length>0;
+  el.classList.toggle('sr-selected',s.on); srInflLog();
+}
+function srShowLeft(node,selMode,j){
+  hideTreeTooltip();
+  const st=SR.steps[SR.p], left=document.getElementById('sr-left');
+  const fb0=document.getElementById('sr-final-banner'); if(fb0) fb0.style.display='none';
+  left.style.display='flex';
+  const sel=null;
+  let fb=document.getElementById('sr-final-banner');
+  if(!fb){ fb=document.createElement('div'); fb.id='sr-final-banner'; fb.style.cssText='flex-shrink:0;max-height:28%;overflow:auto;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:0.95rem;line-height:1.5'; const d=document.getElementById('sr-idea-display'); d.parentNode.insertBefore(fb,d); }
+  fb.style.display=srTree()?'':'none'; fb.innerHTML=`<strong>Final idea:</strong> ${esc(node.body||'')}`;
+  const disp=document.getElementById('sr-idea-display'), subEl=document.getElementById('sr-sub-tabs'), insp=srInsp(st.i);
+  if(!srTree()&&insp.length){      // AI-only: one extra tab per idea that inspired this one
+    if(SR.subFor!==st.i){ SR.sub=0; SR.subFor=st.i; }
+    subEl.style.display='flex';
+    subEl.innerHTML=`<button class="sr-sub-tab${SR.sub===0?' sr-sub-active':''}" onclick="srSubTab(0)">Idea ${st.i+1} chat</button>`
+      +insp.map((x,k)=>`<button class="sr-sub-tab${SR.sub===k+1?' sr-sub-active':''}" onclick="srSubTab(${k+1})">Inspiration ${k+1} (Idea ${x.num})</button>`).join('');
+    if(SR.sub>0){ srDraw(disp,insp[SR.sub-1].node,selMode,sel,null,true); return; }
+  } else { subEl.style.display='none'; SR.sub=0; }
+  srDraw(disp,node,selMode,sel,srTree()?insp.map(x=>({gid:x.gid,ids:x.ids,label:'Idea '+x.num})):null);
+}
+// the other ideas this idea was inspired by (from the influence step)
+function srInsp(i){
+  const n=SR.ideas[i], out=[];
+  SR.ideas.forEach((o,k)=>{ if(o.id===n.id) return; const st=SR.infl[n.id]&&SR.infl[n.id][o.id], sel=st?st.sel:[];
+    if(sel.length) out.push({node:o,num:k+1,gid:o.groupId,sel,ids:new Set(sel.map(x=>String(x.id).split('#')[0]))}); });
+  return out;
+}
+function srSubTab(k){ SR.sub=k; srRender(); }
+function srDraw(disp,node,selMode,sel,infl,isInsp){
+  const tree=srTree();
+  disp.innerHTML=`<div style="position:absolute;inset:0"><div class="srz-scroll" style="position:absolute;inset:0;overflow:auto;background:var(--bg);cursor:grab;box-sizing:border-box;padding:${tree?'1.8rem 0 0':'14px'}"></div><div class="tree-zoom"><button type="button" title="Zoom in">+</button><button type="button" title="Zoom out">\u2212</button></div></div>`;
+  const sc=disp.querySelector('.srz-scroll'); let content;
+  if(!tree){
+    content=document.createElement('div'); content.className='sr-chat-history'; sc.appendChild(content);
+    const markChat=box=>{ if(selMode) [...box.children].forEach((el,i)=>{
+      const id=`${el.dataset.nodeId}#${i}`;
+      if(selMode==='ro'){ if(sel.has(id)) el.classList.add('sr-selected'); return; }
+      const ai=srIsAiEl(el);
+      if(selMode==='ai'&&!ai){ el.classList.add('sr-dim'); return; }
+      el.classList.add('sr-selectable');
+      if(sel.has(id)) el.classList.add('sr-selected');
+      el.onclick=()=>srToggle(id,((el.querySelector('.bubble-content')||el).innerText).replace(/\s+/g,' ').trim(),el);
+    }); };
+    srBuildChat(content,node,!isInsp); markChat(content);
+    { const f=content.querySelector('.sr-this-idea,.sr-focus'); if(f) setTimeout(()=>f.scrollIntoView({block:'center'}),30); }
+    (infl||[]).forEach(x=>{ if(!x.node) return;
+      const h=document.createElement('div'); h.className='sr-group-label'; h.style.cssText='position:static;margin:18px 0 6px'; h.textContent=`Inspiration (Idea ${x.num})`; sc.appendChild(h);
+      const box=document.createElement('div'); box.className='sr-chat-history'; sc.appendChild(box); srBuildChat(box,x.node,false); markChat(box); });
+  } else {
+    sc.innerHTML='<div id="sr-tree-inner" style="position:relative"><svg id="sr-tree-svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible"></svg><div id="sr-tree-nodes"></div></div>';
+    content=sc.firstElementChild;
+    renderSrTree(node.groupId,node.id,selMode,sel,infl);
+  }
+  // zoom (buttons + ctrl/pinch wheel) and drag-to-pan, like the main Idea Tree panel
+  let k=1; const zoom=f=>{ k=Math.max(0.3,Math.min(2,k*f)); content.style.zoom=k; };
+  const [zi,zo]=disp.querySelectorAll('.tree-zoom button'); zi.onclick=()=>zoom(1.25); zo.onclick=()=>zoom(0.8);
+  sc.addEventListener('wheel',e=>{ if(!e.ctrlKey) return; e.preventDefault(); zoom(Math.exp(-e.deltaY*0.01)); },{passive:false});
+  sc.addEventListener('mousedown',e=>{
+    if(e.button!==0||e.target.closest('.tree-node,.sr-selectable')) return;
+    const d={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+    const mv=ev=>{ sc.scrollLeft=d.l-(ev.clientX-d.x); sc.scrollTop=d.t-(ev.clientY-d.y); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+  });
+}
+function srFmt(q,v){ return v?srScaleOf(q.k)[v-1]:'(no answer)'; }
+function srChanged(q,x,y){ return x!=null&&y!=null&&x!==y; }   // unanswered (skipped) questions are not compared
+function srPrevStep(){ if(SR.p>0){ SR.p--; srRender(); } }
+async function srPostRound(round,reports){
+  try{
+    const r=await fetch('/api/save-selfreport',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({participant_id:S.participantId,condition:S.studyCondition||S.condition,round,
+        reports:reports.map(r=>({node_id:r.node_id,answers:Object.assign({},r.answers)}))})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+function srChgStep(i,j){
+  const n=SR.ideas[i], q=SR.QS[j], x=SR.a1[n.id][q.k], y=SR.a2[n.id][q.k];
+  return srChanged(q,x,y)?{t:'chg',i,j,qtext:q.text,old:srFmt(q,x),nw:srFmt(q,y)}:null;
+}
+async function srNext(){
+  if(SR.busy) return;
+  if(SR.p<SR.steps.length-1){ SR.p++; srRender(); return; }
+  // end of a phase
+  const snap={phase:SR.phase,round:SR.round,steps:SR.steps,p:SR.steps.length-1};
+  if(SR.phase==='infl'){
+    SR.busy=true;
+    SR.ideas.forEach(n=>{ n.influencedBy=Object.keys(SR.infl[n.id]).map(oid=>({from_idea_node_id:oid,from_idea_number:SR.ideas.findIndex(x=>x.id===oid)+1,checked:SR.infl[n.id][oid].sel.length>0,selected:SR.infl[n.id][oid].sel})); });
+    const ok=await syncNow();   // stored with the node itself (ideagit_nodes.influenced_by)
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    SR.hist.push(snap); SR.phase='r1'; SR.round=1; SR.p=0; SR.steps=SR.qSteps('r1'); srRender();
+  } else if(SR.phase==='r1'){
+    SR.busy=true;
+    const ok=await srPostRound(1,SR.ideas.map(n=>({node_id:n.id,answers:SR.a1[n.id]})));
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    SR.hist.push(snap); SR.phase='reflect'; SR.p=0; SR.steps=[{t:'intro',k:'reflect'}].concat(SR.ideas.map((n,i)=>({t:'reflect',i}))); srRender();
+  } else if(SR.phase==='reflect'){
+    SR.hist.push(snap); SR.phase='r2'; SR.round=2; SR.p=0; SR.steps=SR.qSteps('r2'); srRender();
+  } else if(SR.phase==='r2'){
+    SR.busy=true;
+    const ok=await srPostRound(2,SR.ideas.map((n,i)=>({node_id:n.id,answers:Object.assign({},SR.a2[n.id],{changed_questions:SR.QS.filter(q=>srChanged(q,SR.a1[n.id][q.k],SR.a2[n.id][q.k])).map(q=>q.k)})})));
+    SR.busy=false;
+    if(!ok){ toast('Could not save your responses. Check your connection and try again.','var(--red)'); return; }
+    S.selfReportRounds={round1:SR.a1,round2:SR.a2};
+    // reflection on every changed answer, after the whole second round
+    const chg=[]; SR.ideas.forEach((n,i)=>SR.QS.forEach((q,j)=>{ const c=srChgStep(i,j); if(c) chg.push(c); }));
+    if(!chg.length){ srFinish(); return; }
+    SR.hist.push(snap); SR.phase='chg'; SR.p=0; SR.steps=[{t:'intro',k:'chg'}].concat(chg); srRender();
+  } else srFinish();
+}
+function srFinish(){
+  document.getElementById('self-report-modal').style.display='none';
+  hideTreeTooltip();
+  toast('Your responses have been saved. Thank you!','var(--green)');
+}
+function closeSelfReport(){ document.getElementById('self-report-modal').style.display='none'; hideTreeTooltip(); }
+
+// ── Dotted "inspired by" lines: routed around nodes, notes and existing edges, drawn as smooth curves ──
+function _roundPath(pts,r){
+  let d=`M${pts[0].x},${pts[0].y}`;
+  for(let i=1;i<pts.length-1;i++){
+    const p=pts[i-1],c=pts[i],n=pts[i+1], l1=Math.hypot(c.x-p.x,c.y-p.y)||1, l2=Math.hypot(n.x-c.x,n.y-c.y)||1, rr=Math.min(r,l1/2,l2/2);
+    d+=` L${c.x+(p.x-c.x)*rr/l1},${c.y+(p.y-c.y)*rr/l1} Q${c.x},${c.y} ${c.x+(n.x-c.x)*rr/l2},${c.y+(n.y-c.y)*rr/l2}`;
+  }
+  const e=pts[pts.length-1]; return d+` L${e.x},${e.y}`;
+}
+// pairs: [{from:nodeId,to:nodeId}] — nodes are found by data-node-id inside nodesEl; k = current zoom scale of the drawing
+function drawInfluenceLines(svg,nodesEl,pairs,k){
+  k=k||1; if(!pairs.length||!svg||!nodesEl) return;
+  svg.style.overflow='visible';
+  const NS='http://www.w3.org/2000/svg', C=8, o=svg.getBoundingClientRect();
+  const rel=el=>{ const r=el.getBoundingClientRect(); return {l:(r.left-o.left)/k,t:(r.top-o.top)/k,r:(r.right-o.left)/k,b:(r.bottom-o.top)/k}; };
+  const obs=[...nodesEl.querySelectorAll('.tree-node,.node-note,.tree-node-final,.work-badge,.sr-current-badge,.sr-group-label')].map(rel);
+  if(!obs.length) return;
+  const cols=Math.ceil((Math.max(...obs.map(r=>r.r))+90)/C), rows=Math.ceil((Math.max(...obs.map(r=>r.b))+90)/C), N=cols*rows;
+  const pen=new Uint8Array(N), mark=(arr,x,y,rad)=>{ const cx=Math.floor(x/C), cy=Math.floor(y/C);
+    for(let a=-rad;a<=rad;a++) for(let b=-rad;b<=rad;b++){ const X=cx+a,Y=cy+b; if(X>=0&&Y>=0&&X<cols&&Y<rows) arr[Y*cols+X]=1; } };
+  svg.querySelectorAll('path.edge').forEach(p=>{ const L=p.getTotalLength(); for(let s=0;s<=L;s+=4){ const q=p.getPointAtLength(s); mark(pen,q.x,q.y,1); } });
+  const cellRange=(r,pad)=>({x0:Math.max(0,Math.floor((r.l-pad)/C)),x1:Math.min(cols-1,Math.floor((r.r+pad)/C)),y0:Math.max(0,Math.floor((r.t-pad)/C)),y1:Math.min(rows-1,Math.floor((r.b+pad)/C))});
+  const build=pad=>{ const blk=new Uint8Array(N); obs.forEach(r=>{ const c=cellRange(r,pad); for(let y=c.y0;y<=c.y1;y++) for(let x=c.x0;x<=c.x1;x++) blk[y*cols+x]=1; }); return blk; };
+  const ring=(r,pad,blk)=>{ const a=cellRange(r,pad+C), b=cellRange(r,pad), out=[];
+    for(let y=a.y0;y<=a.y1;y++) for(let x=a.x0;x<=a.x1;x++){ const inner=x>=b.x0&&x<=b.x1&&y>=b.y0&&y<=b.y1; if(!inner&&!blk[y*cols+x]) out.push(y*cols+x); } return out; };
+  const DX=[1,0,-1,0], DY=[0,1,0,-1];
+  const astar=(blk,src,tgt,tr)=>{
+    const g=new Float32Array(N*4).fill(Infinity), came=new Int32Array(N*4).fill(-1), isT=new Uint8Array(N); tgt.forEach(i=>{ isT[i]=1; });
+    const heap=[], push=(f,s)=>{ heap.push([f,s]); let i=heap.length-1; while(i>0){ const p=(i-1)>>1; if(heap[p][0]<=heap[i][0]) break; [heap[p],heap[i]]=[heap[i],heap[p]]; i=p; } };
+    const pop=()=>{ const top=heap[0], last=heap.pop(); if(heap.length){ heap[0]=last; let i=0; for(;;){ let l=2*i+1,r=l+1,m=i; if(l<heap.length&&heap[l][0]<heap[m][0]) m=l; if(r<heap.length&&heap[r][0]<heap[m][0]) m=r; if(m===i) break; [heap[m],heap[i]]=[heap[i],heap[m]]; i=m; } } return top; };
+    const h=i=>{ const x=i%cols, y=(i/cols)|0; return Math.max(tr.x0-x,0,x-tr.x1)+Math.max(tr.y0-y,0,y-tr.y1); };
+    src.forEach(i=>{ for(let d=0;d<4;d++){ g[i*4+d]=0; push(h(i),i*4+d); } });
+    let guard=0;
+    while(heap.length&&guard++<900000){
+      const [,s]=pop(), i=s>>2, d=s&3, gi=g[s];
+      if(isT[i]){ const path=[]; for(let c=s;c>=0;c=came[c]) path.push(c>>2); return path.reverse(); }
+      for(let nd=0;nd<4;nd++){
+        const x=(i%cols)+DX[nd], y=((i/cols)|0)+DY[nd]; if(x<0||y<0||x>=cols||y>=rows) continue;
+        const j=y*cols+x; if(blk[j]&&!isT[j]) continue;
+        const ng=gi+1+(pen[j]?7:0)+(nd!==d?1.5:0), t=j*4+nd; if(ng<g[t]){ g[t]=ng; came[t]=s; push(ng+h(j),t); }
+      }
+    }
+    return null;
+  };
+  const clampPt=(r,p)=>({x:Math.max(r.l,Math.min(r.r,p.x)),y:Math.max(r.t,Math.min(r.b,p.y))});
+  pairs.forEach(pr=>{
+    const ef=nodesEl.querySelector(`[data-node-id="${pr.from}"]`), et=nodesEl.querySelector(`[data-node-id="${pr.to}"]`); if(!ef||!et) return;
+    const rf=rel(ef), rt=rel(et); let pts=null;
+    for(const pad of [8,3]){
+      const blk=build(pad), src=ring(rf,pad,blk), tgt=ring(rt,pad,blk); if(!src.length||!tgt.length) continue;
+      const path=astar(blk,src,tgt,cellRange(rt,pad)); if(!path) continue;
+      const cp=path.map(i=>({x:((i%cols)+0.5)*C,y:(((i/cols)|0)+0.5)*C}));
+      const corner=[cp[0]]; for(let i=1;i<cp.length-1;i++){ const a=cp[i-1],b=cp[i],c=cp[i+1]; if((b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x)!==0) corner.push(b); } corner.push(cp[cp.length-1]);
+      pts=[clampPt(rf,corner[0]),...corner,clampPt(rt,corner[corner.length-1])];
+      cp.forEach(p=>mark(pen,p.x,p.y,1));   // later lines keep away from this one
+      break;
+    }
+    const a={x:(rf.l+rf.r)/2,y:(rf.t+rf.b)/2}, b={x:(rt.l+rt.r)/2,y:(rt.t+rt.b)/2};
+    const d=pts?_roundPath(pts,24):`M${a.x},${a.y} Q${(a.x+b.x)/2},${Math.min(a.y,b.y)-80} ${b.x},${b.y}`;
+    const p=document.createElementNS(NS,'path'); p.setAttribute('d',d); p.setAttribute('class','edge-infl'); svg.appendChild(p);
+    const ends=[pts?pts[0]:a, pts?pts[pts.length-1]:b];
+    ends.forEach((e,ei)=>{
+      if(pr.arrow&&ei===0){      // arrow runs from the inspiring idea into the idea being reported on
+        const nx=pts&&pts[1]?pts[1]:b, dx=e.x-nx.x, dy=e.y-nx.y, L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L, px=-uy, py=ux, S1=13, S2=7;
+        const poly=document.createElementNS(NS,'polygon');
+        poly.setAttribute('points',`${e.x},${e.y} ${e.x-ux*S1+px*S2},${e.y-uy*S1+py*S2} ${e.x-ux*S1-px*S2},${e.y-uy*S1-py*S2}`);
+        poly.setAttribute('class','infl-dot'); svg.appendChild(poly); return;
+      }
+      const c=document.createElementNS(NS,'circle'); c.setAttribute('cx',e.x); c.setAttribute('cy',e.y); c.setAttribute('r',4.5); c.setAttribute('class','infl-dot'); svg.appendChild(c); });
+  });
+}
+
+// Mirrors the main Idea Tree, for one idea (plus, optionally, the trees of the ideas that inspired it, shown to the right with dotted lines)
+function renderSrTree(gid, currentNodeId, selMode, selSet, infl){
   const nodesEl=document.getElementById('sr-tree-nodes');
   const svg=document.getElementById('sr-tree-svg');
   if(!nodesEl||!svg) return;
-  nodesEl.innerHTML=''; svg.innerHTML='';
-  const gNodes=S.nodes.filter(n=>n.groupId===gid&&n.type!=='feedback'&&n.type!=='clarification');
-  if(!gNodes.length) return;
-  const savedGid=S.currentGroupId, savedNid=S.currentNodeId;
-  S.currentGroupId=gid;
-  const pos=computeLayout(gid);
-  S.currentGroupId=savedGid;
-  const vals=Object.values(pos); if(!vals.length) return;
-  const maxX=Math.max(...vals.map(p=>p.x))+100, maxY=Math.max(...vals.map(p=>p.y))+70;
-  const inner=document.getElementById('sr-tree-inner');
-  if(inner){ inner.style.width=maxX+'px'; inner.style.height=maxY+'px'; }
-  svg.style.width=maxX+'px'; svg.style.height=maxY+'px';
+  nodesEl.innerHTML=''; svg.innerHTML=''; hideTreeTooltip();
+  const W=165,H=62, lineage=new Set(getPath(currentNodeId).map(n=>n.id));
+  const mainNum=(SR&&SR.ideas?SR.ideas.findIndex(i=>i.id===currentNodeId):-1)+1;
+  let groups=[{gid,main:true,num:mainNum,label:'Idea '+mainNum}].concat((infl||[]).map(x=>({gid:x.gid,ids:x.ids,label:x.label+' (inspiration)',num:parseInt(String(x.label).replace(/\D/g,''),10)||99})));
+  groups.sort((a,b)=>a.num-b.num);   // left to right in idea-number order, even if the idea being reported on sits in the middle
+  const multi=groups.length>1, frames=[];
   svg.innerHTML=`<defs><marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/></marker></defs>`;
-  const W=145,H=56;
-  gNodes.forEach(node=>{
-    if(!node.parentId) return;
-    const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
-    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
-    p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+24} ${tp.x},${tp.y-24} ${tp.x},${tp.y}`);
-    p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
+  let right=0, maxY=0; const pairs=[];
+  groups.forEach(g=>{
+    const gNodes=S.nodes.filter(n=>n.groupId===g.gid&&n.type!=='feedback'&&n.type!=='clarification'); if(!gNodes.length) return;
+    const savedGid=S.currentGroupId; S.currentGroupId=g.gid; const pos0=computeLayout(g.gid,190); S.currentGroupId=savedGid;
+    const vals=Object.values(pos0); if(!vals.length) return;
+    const dx=(right===0)?0:right+60+W/2-Math.min(...vals.map(p=>p.x));
+    const startIdx=nodesEl.children.length;
+    const lin=new Set(); if(!g.main) g.ids.forEach(id=>getPath(id).forEach(y=>lin.add(y.id)));
+    const pos={}; Object.keys(pos0).forEach(id=>{ pos[id]={x:pos0[id].x+dx,y:pos0[id].y}; });
+    right=Math.max(right,Math.max(...Object.values(pos).map(p=>p.x))+W/2+8+180+10);   // clear of the side notes
+    maxY=Math.max(maxY,Math.max(...Object.values(pos).map(p=>p.y))+90);
+    gNodes.forEach(node=>{
+      if(!node.parentId) return;
+      const fp=pos[node.parentId],tp=pos[node.id]; if(!fp||!tp) return;
+      const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d',`M${fp.x},${fp.y+H} C${fp.x},${fp.y+H+66} ${tp.x},${tp.y-66} ${tp.x},${tp.y}`);
+      p.setAttribute('class','edge'); p.setAttribute('marker-end','url(#arr2)'); svg.appendChild(p);
+    });
+    gNodes.forEach(node=>{
+      const p=pos[node.id]; if(!p) return;
+      const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
+                node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
+      const tagColor=node.tag==='ai-generated'?'var(--blue)':node.tag==='user-created'?'var(--yellow-dk)':
+                     node.tag==='manual-modification'?'var(--amber)':'var(--blue)';
+      const isCurrent=g.main&&node.id===currentNodeId&&selMode!=='any';   // no 'reporting on this idea' badge while picking inspirations
+      const el=document.createElement('div'); el.dataset.nodeId=node.id;
+      el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
+      el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}`+
+        `<div class="tree-node-inner tree-node-compact" style="height:${H}px">`+
+        (isCurrent?'<div class="sr-current-ring"></div>':'')+
+        `<div class="tree-node-type" style="color:${tagColor}">${nodeTagHtml(node)}</div></div>`+
+        (node.isFinalized?'<div class="tree-node-final">Finalized</div>':'');
+      if(!g.main&&g.ids&&g.ids.has(node.id)) pairs.push({from:currentNodeId,to:node.id,arrow:true});   // dotted line only, no tick
+      if(!g.main&&!selMode) el.style.pointerEvents='none';
+      if(selMode==='ro'){ if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected'); }
+      else if(selMode){
+        const ai=node.tag==='ai-generated'||node.tag==='ai-modification';
+        if((selMode!=='any'&&!(g.main?lineage:lin).has(node.id))||(selMode==='ai'&&!ai)) el.classList.add('sr-dim');
+        else{ el.classList.add('sr-selectable'); if(selSet&&selSet.has(node.id)) el.classList.add('sr-selected');
+          el.onclick=()=>srToggle(node.id,node.title||node.body||'',el); }
+      }
+      nodesEl.appendChild(el);
+      addSideNote(nodesEl,node,p.x+W/2+8,p.y);
+    });
+    if(multi){
+      // box = everything this tree drew (nodes, "Finalized" tags and the side notes), measured from the page
+      const base=nodesEl.getBoundingClientRect(), kk=(base.width/(nodesEl.offsetWidth||base.width))||1;
+      let gl=Infinity,gr=-Infinity,gb=-Infinity;
+      for(let ci=startIdx;ci<nodesEl.children.length;ci++){
+        const ce=nodesEl.children[ci]; [ce,...ce.querySelectorAll('.tree-node-final,.tree-node-inner,.sr-current-badge')].forEach(x=>{ const r=x.getBoundingClientRect(); if(!r.width) return;
+          gl=Math.min(gl,(r.left-base.left)/kk); gr=Math.max(gr,(r.right-base.left)/kk); gb=Math.max(gb,(r.bottom-base.top)/kk); });
+      }
+      if(!isFinite(gl)){ gl=Math.min(...Object.values(pos).map(p=>p.x))-W/2; gr=gl+W+8+180; gb=Math.max(...Object.values(pos).map(p=>p.y))+H+30; }
+      gl-=14; gr+=14; gb+=28;
+      const fr=document.createElement('div'); fr.className='tree-group-frame'+(g.main?'':' tree-group-frame-other'); fr.style.cssText=`left:${gl}px;top:-34px;width:${gr-gl}px;height:${gb+34}px`; nodesEl.appendChild(fr);
+      const lb=document.createElement('div'); lb.className='sr-group-label'+(g.main?' sr-group-label-main':''); lb.textContent=g.label;
+      lb.style.cssText=`left:${gl+10}px;top:${gb-24}px`; nodesEl.appendChild(lb);
+      right=Math.max(right,gr+10); maxY=Math.max(maxY,gb+4);
+    }
   });
-  gNodes.forEach(node=>{
-    const p=pos[node.id]; if(!p) return;
-    const tc=node.isFinalized?'t-finalized':node.tag==='ai-generated'?'t-ai-create':
-              node.tag==='user-created'?'t-creation':node.tag==='manual-modification'?'t-manual':'t-ai-mod';
-    const typeColor=node.isFinalized?'var(--green)':tc==='t-ai-create'?'var(--blue)':
-                    tc==='t-creation'?'var(--yellow-dk)':tc==='t-manual'?'var(--amber)':'var(--blue)';
-    const el=document.createElement('div');
-    const isCurrent = node.id === currentNodeId;
-    el.className=`tree-node ${tc}${isCurrent?' sr-current':''}`; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.width=W+'px';
-    el.innerHTML=`${isCurrent?'<div class="sr-current-badge">Reporting on this idea \u2193</div>':''}<div class="tree-node-inner" style="padding:7px 9px">${isCurrent?'<div class="sr-current-ring"></div>':''}<div class="tree-node-type" style="color:${typeColor};font-size:0.45rem">${node.isFinalized?'Finalized':node.type}</div><div class="tree-node-title" style="font-size:0.55rem">${esc(node.title||'(untitled)')}</div></div>`;
-    nodesEl.appendChild(el);
-  });
-}
-function srSubTab(tab){
-  _srSubTab=tab;
-  document.getElementById('sr-tab-chat')?.classList.toggle('sr-sub-active',tab==='chat');
-  document.getElementById('sr-tab-tree')?.classList.toggle('sr-sub-active',tab==='tree');
-  const finalized=S.nodes.filter(n=>n.isFinalized);
-  srRenderContent(finalized[_srCurrentIdea]);
-}
-function srToggleB(show){ const el=document.getElementById('sr-q-b'); if(el) el.style.display=show?'block':'none'; }
-function toggleOtherBox(cb){ const ta=document.getElementById('ai-for-other'); if(ta){ ta.style.display=cb.checked?'block':'none'; if(cb.checked) ta.focus(); } }
-function srUpdateStep(){
-  const tot=S.nodes.filter(n=>n.isFinalized).length;
-  const el=document.getElementById('sr-step-indicator'); if(el) el.textContent=`Idea ${_srPage+1} of ${tot}`;
-}
-function srShowPage(n){
-  _srPage=n;
-  const _tot=S.nodes.filter(nd=>nd.isFinalized).length;
-  for(let i=0;i<_tot;i++){ const el=document.getElementById(`sr-page-${i}`); if(el) el.style.display='none'; }
-  const t=document.getElementById(`sr-page-${n}`); if(t) t.style.display='flex';
-  const f=S.nodes.filter(nd=>nd.isFinalized);
-  srSelectIdea(n,f);
-  srUpdateStep();
-}
-function srNext(){ const total=S.nodes.filter(n=>n.isFinalized).length; if(_srPage<total-1) srShowPage(_srPage+1); }
-function srPrev(){ if(_srPage>0) srShowPage(_srPage-1); }
-async function srSubmit(){
-  const finalized=S.nodes.filter(n=>n.isFinalized); // all finalized, no cap
-  // Validate all fields are filled before allowing submission
-  const hasEmpty=finalized.some((_,i)=>{
-    const ta=document.getElementById(`sr-ai-use-${i}`);
-    return !ta||!ta.value.trim();
-  });
-  if(hasEmpty){ toast('Please fill in all fields before submitting.'); return; }
-
-  const aiUses=finalized.map((_,i)=>{
-    const ta=document.getElementById(`sr-ai-use-${i}`);
-    return ta?ta.value.trim():'';
-  });
-
-  const btn=document.querySelector('.sr-foot .btn-green');
-  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
-
-  // Attach each answer to its idea, and clear any answer left on an idea that is no longer finalized
-  S.nodes.forEach(n=>{ n.selfReportAiUse=''; });
-  finalized.forEach((n,i)=>{ n.selfReportAiUse=aiUses[i]; });
-  S.selfReportData={ finalized, aiUses }; // kept so the form is prefilled if reopened
-
-  const ok=await syncNow();
-  if(!ok){
-    if(btn){ btn.disabled=false; btn.textContent='Submit Self-Reports'; }
-    toast('Could not save your responses. Check your connection and try again.','var(--red)');
-    return;
-  }
-  document.getElementById('self-report-modal').style.display='none';
-  toast('Your responses have been saved. Thank you!','var(--green)');
-}
-function closeSelfReport(){
-  document.getElementById('self-report-modal').style.display='none';
+  const inner=document.getElementById('sr-tree-inner');
+  if(inner){ inner.style.width=right+'px'; inner.style.height=maxY+'px'; }
+  svg.style.width=right+'px'; svg.style.height=maxY+'px';
+  drawInfluenceLines(svg,nodesEl,pairs,1);
 }
 
 // Called when a node is unfinalized — marks it so it stays visible in the list
@@ -578,12 +1336,40 @@ function markUnfinalized(nodeId){
   queueSync();
 }
 
-// ── Tree node labels + hover tooltip (used when hoverMode is on) ──
-function nodeTagLabel(node){
-  const t=node.tag;
-  return t==='ai-generated'?'AI Creation':t==='user-created'?'Manual Creation':
-         t==='manual-modification'?'Manual Modification':'AI Modification';
+// ── Landing page (app3 / app4): collect the participant ID ─────
+function initLanding(){
+  const input=document.getElementById('participant-id-input');
+  const btn=document.getElementById('btn-begin');
+  if(!input||!btn) return;
+  input.addEventListener('input',()=>{ btn.disabled=!input.value.trim(); });
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter') beginStudy(); });
+  input.focus();
 }
+function beginStudy(){
+  const input=document.getElementById('participant-id-input');
+  const id=(input&&input.value||'').trim();
+  if(!id) return;
+  S.participantId=id;
+  document.getElementById('page-landing').style.display='none';
+  document.getElementById('page-ideation').style.display='flex';
+  if(typeof onStudyBegin==='function') onStudyBegin();
+}
+
+// ── Tree node labels + hover tooltip (used when hoverMode is on) ──
+// A prompt counts as custom when the participant changed the default one
+function isCustomPrompt(node){
+  if(node.tag==='ai-modification') return (node.userPrompt||'').trim()!==DEFAULT_EDIT_PROMPT;
+  if(node.tag==='ai-generated') return (node.extras||[]).some(x=>x.type==='custom_prompt');
+  return false;
+}
+function nodeTagParts(node){
+  const t=node.tag, ai=(t==='ai-generated'||t==='ai-modification');
+  const main=t==='ai-generated'?'Created with AI':t==='user-created'?'Created yourself':t==='manual-modification'?'Edited yourself':'Edited with AI';
+  return {main,note:ai?(isCustomPrompt(node)?'(custom prompt)':'(default prompt)'):'',cls:ai?(isCustomPrompt(node)?'pc-custom':'pc-default'):''};
+}
+function nodeTagLabel(node){ const p=nodeTagParts(node); return p.main+(p.note?' '+p.note:''); }
+function nodeTagHtml(node){ const p=nodeTagParts(node); return esc(p.main)+(p.note?`<span class="pc-note ${p.cls}">${p.note}</span>`:''); }
+function nodeTagColor(node){ return node.tag==='user-created'?'var(--yellow-dk)':node.tag==='manual-modification'?'var(--amber)':'var(--blue)'; }
 function _treeTooltipEl(){
   let t=document.getElementById('tree-tooltip');
   if(!t){
@@ -594,7 +1380,9 @@ function _treeTooltipEl(){
 }
 function showTreeTooltip(node,e){
   const t=_treeTooltipEl();
-  t.innerHTML=`<div class="tree-tooltip-title">${esc(node.title||'(untitled)')}</div><div class="tree-tooltip-body">${esc(node.body||'')}</div>`;
+  const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+  const bodyHtml=parent?diffHighlightBody(parent.body,node.body):esc(node.body||'');
+  t.innerHTML=`<div class="tree-tooltip-body">${bodyHtml}</div>`;
   t.style.display='block';
   moveTreeTooltip(e);
 }
@@ -610,11 +1398,9 @@ function hideTreeTooltip(){
   const t=document.getElementById('tree-tooltip'); if(t) t.style.display='none';
 }
 
-// ── Saving to the database ─────────────────────────────────────
-// Every change is saved through the server; only ideas that changed since the last
-// confirmed save are sent. Saving switches on once the participant's saved work has
-// loaded (S.username is set), so nothing can be written over it before then.
-let _syncTimer=null, _retryTimer=null, _saveWarned=false, _expiredShown=false, _syncChain=Promise.resolve(true);
+// ── Database sync (saved through the server into Postgres) ─────
+// Only runs once a participant ID has been entered, so app1/app2 are unaffected.
+let _syncTimer=null, _retryTimer=null, _saveWarned=false, _syncChain=Promise.resolve(true);
 const _synced={}; // node_id -> JSON of the last version the server confirmed
 
 function nodeToRow(n){
@@ -622,39 +1408,32 @@ function nodeToRow(n){
     node_id:n.id, group_id:n.groupId, parent_id:n.parentId||null,
     type:n.type, tag:n.tag, title:n.title||'', body:n.body||'',
     is_finalized:!!n.isFinalized, user_prompt:n.userPrompt||'', ai_response:n.aiResponse||'',
-    extras:n.extras||[], meta:n.meta||{}, self_report_ai_use:n.selfReportAiUse||'', created_at_ms:n.ts,
+    extras:n.extras||[], self_report_ai_use:n.selfReportAiUse||'', created_at_ms:n.ts,
+    influenced_by:n.influencedBy||null,
   };
 }
-function loginUrl(){ return '/login?next='+encodeURIComponent(location.pathname); }
-function consentUrl(){ return '/consent?next='+encodeURIComponent('/'+S.app); }
-function sessionExpired(){
-  if(_expiredShown) return; _expiredShown=true;
-  toast('Your session has expired. Taking you to the login page…','var(--amber)');
-  setTimeout(()=>{ location.href=loginUrl(); },3500);
-}
-async function _doSync(keepalive){
-  if(!S.username) return true;
+async function _doSync(){
+  if(!S.participantId) return true;
   const changed=S.nodes.map(nodeToRow).filter(r=>_synced[r.node_id]!==JSON.stringify(r));
   if(!changed.length) return true;
   try{
     const res=await fetch('/api/save-nodes',{
-      method:'POST', headers:{'Content-Type':'application/json'}, keepalive:!!keepalive,
-      body:JSON.stringify({app:S.app, nodes:changed}),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({participant_id:S.participantId, condition:S.studyCondition||S.condition, nodes:changed}),
     });
-    if(res.status===401){ sessionExpired(); return false; }
     if(!res.ok) throw new Error('HTTP '+res.status);
     changed.forEach(r=>{ _synced[r.node_id]=JSON.stringify(r); });
     return true;
   }catch(e){ console.error('Save failed:',e); return false; }
 }
 // Saves are chained so an older snapshot can never overwrite a newer one.
-function syncNow(keepalive){
+function syncNow(){
   clearTimeout(_syncTimer);
-  _syncChain=_syncChain.then(()=>_doSync(keepalive),()=>_doSync(keepalive));
+  _syncChain=_syncChain.then(_doSync,_doSync);
   return _syncChain;
 }
 function queueSync(){
-  if(!S.username) return;
+  if(!S.participantId) return;
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(retrySync,500);
 }
@@ -666,65 +1445,560 @@ function retrySync(){
     _retryTimer=setTimeout(retrySync,5000);
   });
 }
-// Save anything still pending when the tab is hidden or closed
-function flushSave(){ if(S.username) syncNow(true); }
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushSave(); });
-window.addEventListener('pagehide',flushSave);
 
-// ── Loading saved work, so a participant can pick up where they left off ──
-function rowToNode(r){
-  return {
-    id:r.node_id, parentId:r.parent_id||null, groupId:r.group_id, type:r.type, tag:r.tag,
-    title:r.title||'', body:r.body||'', userPrompt:r.user_prompt||'', aiResponse:r.ai_response||'',
-    extras:Array.isArray(r.extras)?r.extras:[], isFinalized:!!r.is_finalized,
-    ts:r.created_at?new Date(r.created_at).getTime():Date.now(), meta:r.meta||{},
-    selfReportAiUse:r.self_report_ai_use||'', updatedAtMs:r.updated_at?new Date(r.updated_at).getTime():0,
-  };
+// ============================================================
+//  Shared AI-chat / idea logic (conditions 3 & 4 — app3.js/app4.js
+//  only set S.condition, instructions text, and the startup hook).
+//  app4 has a tree panel and app3 doesn't; hasTree() detects which.
+// ============================================================
+function hasTree(){ return !!document.getElementById('tree-nodes'); }
+function nodeLabel(node){
+  if(node.title) return node.title;
+  const b=node.body||''; return b.length>48 ? b.slice(0,48)+'…' : b;
 }
-function showLoadError(message){
-  const el=document.getElementById('page-loading'); if(!el) return;
-  el.innerHTML='<div class="loading-error"><p>'+esc(message)+'</p><button class="btn btn-primary" onclick="initApp()">Try again</button></div>';
+
+// Word-level diff: renders newBody as-is, wrapping words that are new
+// (not present in the same relative position in oldBody) in <strong>.
+// Removed words are simply not shown — newBody is what's displayed either way.
+function diffHighlightBody(oldBody,newBody){
+  const oldT=(oldBody||'').split(/(\s+)/), newT=(newBody||'').split(/(\s+)/);
+  const n=oldT.length, m=newT.length;
+  const dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--)
+    dp[i][j]=oldT[i]===newT[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0,out='';
+  while(j<m){
+    if(i<n && oldT[i]===newT[j] && dp[i][j]===dp[i+1][j+1]+1){ out+=esc(newT[j]); i++; j++; }
+    else if(i<n && dp[i+1][j]>=dp[i][j+1]){ i++; }
+    else { out+=(/^\s+$/.test(newT[j])?newT[j]:'<strong>'+esc(newT[j])+'</strong>'); j++; }
+  }
+  return out;
 }
-async function initApp(){
-  const loading=document.getElementById('page-loading');
-  if(loading) loading.innerHTML='<span class="spinner" aria-hidden="true"></span><span>Loading your ideas…</span>';
+
+function refreshUI(){
+  renderIdeasPanel('ideas-list',selectIdea);
+  if(hasTree()) renderAllTrees();
+  updateFinalizedCounter();
+  syncFinalizedBubbles();
+}
+
+function startIdeation(){
+  S.challenge=FIXED_CHALLENGE;
+  S.nodes=[]; S.currentNodeId=null; S.currentGroupId=null;
+  initChallengeBanner();
+  if(hasTree()) initTreePanOn('tree-area','tree-canvas');
+  showChatInitial(); updateFinalizedCounter(); refreshUI();
+}
+
+let _replyToNodeId=null;
+// The idea version the participant replied to (edit / clarify buttons act on it); otherwise the current idea
+function replyTarget(){ return S.nodes.find(n=>n.id===_replyToNodeId)||curNode(); }
+
+function selectIdea(nodeId){
+  const node=S.nodes.find(n=>n.id===nodeId); if(!node) return;
+  clearReply();
+  S.currentNodeId=nodeId; S.currentGroupId=node.groupId;
+  showChatActive(); updateChatHeader(); rebuildChat(nodeId); refreshUI();
+}
+
+// ── Chat display ──────────────────────────────────────────────
+let _chatMode=null;   // inline composer open under the idea: 'edit-self' | 'edit-ai' | 'clarify'
+const DEFAULT_EDIT_PROMPT='Edit the current idea to provide more details';
+
+function showChatInitial(){
+  document.getElementById('chat-initial').style.display='flex'; document.getElementById('chat-active').style.display='none';
+  setNewIdeaButtonsVisible(false);
+  _chatMode=null; clearReply(); chooseCreate(null);
+}
+function showChatActive(){
+  document.getElementById('chat-initial').style.display='none'; document.getElementById('chat-active').style.display='flex';
+  setNewIdeaButtonsVisible(true);
+}
+// "+ New Idea" only makes sense once an idea is loaded
+function setNewIdeaButtonsVisible(show){
+  document.querySelectorAll('.btn-new-idea').forEach(b=>{ b.style.display=show?'':'none'; });
+}
+function setChatThinking(on){
+  document.getElementById('chat-thinking').style.display=on?'flex':'none';
+  const inp=document.getElementById('chat-input'); if(inp) inp.disabled=on;
+  ['chat-actions-bar','chat-actions-bar2'].forEach(i=>{ const act=document.getElementById(i); if(act) act.classList.toggle('busy',on); });
+}
+function updateChatHeader(){ renderChatActions(); }
+
+// The five action buttons sit in a bar at the top of the chat panel (two rows);
+// the inline composer for the chosen action opens under the newest bubble.
+// The action buttons (and the edit box) sit in the message flow: right under the message that was replied to,
+// otherwise right under the last message.
+function ensureActionsDock(){
+  const msgs=document.getElementById('chat-messages'); if(!msgs||!document.getElementById('chat-dock')) return null;
+  let d=document.getElementById('chat-actions-dock');
+  if(!d||d.parentNode!==msgs){
+    if(d) d.remove();
+    d=document.createElement('div'); d.id='chat-actions-dock'; d.className='chat-actions-dock';
+    d.innerHTML='<div class="chat-actions-bar" id="chat-actions-bar"></div><div class="chat-actions-bar2" id="chat-actions-bar2"></div>'; msgs.appendChild(d);
+  }
+  return d;
+}
+function placeActionsDock(){
+  const d=ensureActionsDock(); if(!d) return null;
+  const msgs=d.parentNode; let anchor=null;
+  if(_replyToNodeId) anchor=[...msgs.querySelectorAll('.idea-bubble')].find(b=>b.dataset.nodeId===_replyToNodeId)||null;
+  if(!anchor){ const kids=[...msgs.children].filter(c=>c!==d); anchor=kids[kids.length-1]||null; }
+  if(anchor){ if(anchor.nextSibling!==d) anchor.after(d); } else if(msgs.lastChild!==d) msgs.appendChild(d);
+  return d;
+}
+// "Currently selected idea": the version replied to, or else the latest one
+function updateSelectedChip(){
+  markReplyTarget();   // the selected idea is marked in the chat itself (red box), the bottom bar is no longer used
+  const ind=document.getElementById('reply-indicator'); if(!ind) return;
+  ind.style.display='none'; return;
+  const cur=curNode(), n=replyTarget();
+  if(!cur||!n){ ind.style.display='none'; return; }
+  ind.style.display='flex';
+  const lab=document.getElementById('reply-label'), txt=document.getElementById('reply-text');
+  if(lab) lab.textContent='Currently selected idea · '+nodeTagLabel(n);
+  const t=(n.body||'').replace(/\s+/g,' ').trim(); if(txt) txt.textContent=t.slice(0,140)+(t.length>140?'…':'');
+  const x=ind.querySelector('.reply-clear-btn'); if(x) x.style.display=_replyToNodeId?'':'none';
+}
+function renderChatActions(){
+  const dock=ensureActionsDock();
+  const bar=document.getElementById('chat-actions-bar'), wrap=dock||document.getElementById('chat-messages');
+  if(wrap){ const old=wrap.querySelector('#chat-actions'); if(old) old.remove(); }
+  const node=curNode();
+  if(dock) dock.style.display=node?'':'none';
+  if(bar){
+    bar.innerHTML=''; const bar2=document.getElementById('chat-actions-bar2'); if(bar2) bar2.innerHTML='';
+    if(node){
+      const mk=(label,cls,fn,mode,target)=>{
+        const b=document.createElement('button');
+        b.className='btn btn-sm chat-action-btn '+cls+(mode&&_chatMode===mode?' active':''); b.textContent=label; b.onclick=fn; (target||bar).appendChild(b);
+      };
+      mk('Edit the idea yourself','btn-edit-self',()=>openChatComposer('edit-self'),'edit-self');
+      mk('Edit the idea using AI','btn-edit-ai',()=>openChatComposer('edit-ai'),'edit-ai');
+      // mk('Ask AI to clarify the idea','btn-outline',()=>openChatComposer('clarify'),'clarify');   // hidden for now
+      const tg=replyTarget()||node;     // finalize / discard follow the idea version you replied to
+      mk(tg.isFinalized?'Unfinalize the idea':'Finalize the idea',tg.isFinalized?'btn-outline':'btn-finalize',()=>finalizeCurrentIdea(tg));
+      mk('Discard the current idea','btn-discard',()=>discardNode(tg.id));
+      mk('+ New Idea','btn-newidea',()=>startNewIdea());
+    }
+  }
+  if(node&&_chatMode&&wrap){
+    const box=document.createElement('div'); box.id='chat-actions'; box.className='chat-actions';
+    box.appendChild(buildChatComposer(_chatMode,replyTarget()||node));
+    wrap.appendChild(box);
+  }
+  placeActionsDock(); updateSelectedChip();
+  fitActionButtons(); requestAnimationFrame(()=>{ fitActionButtons(); fitPromptLabels(); }); fitPromptLabels();
+}
+// One line per button: shrink the shared font size until every label fits.
+// Prompt-box captions stay on one line: shrink the font only if needed.
+function fitPromptLabels(){
+  document.querySelectorAll('.generate-prompt-title').forEach(l=>{
+    if(!l.clientWidth) return;
+    let fs=17; l.style.fontSize=fs+'px';
+    while(fs>10&&l.scrollWidth>l.clientWidth+1){ fs-=0.5; l.style.fontSize=fs+'px'; }
+  });
+}
+function fitActionButtons(){
+  const bs=[...document.querySelectorAll('#chat-actions-bar .chat-action-btn, #chat-actions-bar2 .chat-action-btn')]; if(!bs.length||!bs[0].clientWidth) return;
+  let fs=15; const set=()=>bs.forEach(b=>b.style.fontSize=fs+'px'); set();
+  while(fs>9&&bs.some(b=>b.scrollWidth>b.clientWidth+1)){ fs-=0.5; set(); }
+}
+window.addEventListener('resize',()=>{ try{fitActionButtons(); fitPromptLabels();}catch(e){} });
+// A default prompt is shown in gray and turns black as soon as the participant edits it
+function markDefault(ta){ ta.classList.add('is-default'); ta.addEventListener('input',()=>ta.classList.remove('is-default'),{once:true}); }
+function buildChatComposer(mode,node){
+  const c=document.createElement('div'); c.className='chat-composer';
+  const label=document.createElement('label'); label.className='generate-prompt-title';
+  const ta=document.createElement('textarea'); ta.className='field-textarea'; ta.id='chat-composer-text'; ta.rows=5;
+  const err=document.createElement('p'); err.className='field-error'; err.id='chat-composer-error'; err.style.display='none';
+  const row=document.createElement('div'); row.className='chat-composer-row';
+  const go=document.createElement('button');
+  const cancel=document.createElement('button'); cancel.className='btn btn-outline btn-sm'; cancel.textContent='Cancel';
+  cancel.onclick=()=>{ _chatMode=null; renderChatActions(); };
+  if(mode==='edit-self'){
+    label.textContent='Edit the idea below, then save your edit.'; ta.value=node.body;
+    go.className='btn btn-amber btn-sm'; go.textContent='Save edit'; go.onclick=submitSelfEdit;
+  } else if(mode==='edit-ai'){
+    label.innerHTML='Here is a prompt to edit the idea using AI.<br><span class="prompt-hint">You can change the prompt in any way you want.</span>'; ta.value=DEFAULT_EDIT_PROMPT; markDefault(ta);
+    go.className='btn btn-blue2 btn-sm'; go.textContent='Edit the idea using AI'; go.onclick=submitAIEdit;
+  } else {
+    label.innerHTML='Here is a prompt to ask AI to clarify the idea.<br><span class="prompt-hint">You can change the prompt in any way you want.</span>'; ta.value='Explain the idea'; ta.placeholder='Type your question…'; markDefault(ta);
+    go.className='btn btn-blue2 btn-sm'; go.textContent='Ask AI'; go.onclick=submitClarify;
+  }
+  row.appendChild(go); row.appendChild(cancel);
+  c.appendChild(label); c.appendChild(ta); c.appendChild(err); c.appendChild(row);
+  return c;
+}
+function openChatComposer(mode){
+  _chatMode=(_chatMode===mode)?null:mode;
+  renderChatActions();
+  const box=document.getElementById('chat-actions'); if(box&&box.scrollIntoView) box.scrollIntoView({block:'nearest'});
+  const ta=document.getElementById('chat-composer-text'); if(ta) ta.focus();
+}
+function setComposerError(msg){ const el=document.getElementById('chat-composer-error'); if(el){ el.textContent=msg; el.style.display=msg?'block':'none'; } }
+function submitSelfEdit(){
+  const body=document.getElementById('chat-composer-text').value.trim();
+  const parent=replyTarget(); if(!parent) return;
+  if(!body){ setComposerError('Please describe your idea.'); return; }
+  if(body===parent.body){ setComposerError('No changes detected. Please edit the idea before saving.'); return; }
+  _chatMode=null; clearReply();
+  const node=mkNode({type:'modification',tag:'manual-modification',title:'',body,parentId:parent.id,userPrompt:'[Manual modification]'});
+  addNode(node); updateChatHeader(); rebuildChat(node.id); refreshUI();
+  toast('Idea updated');
+  offerFinalizeNew(parent,node);
+}
+function submitAIEdit(){
+  const msg=document.getElementById('chat-composer-text').value.trim();
+  if(!msg){ setComposerError('Please enter a prompt.'); return; }
+  _chatMode=null; renderChatActions(); processMessage(msg,'modification');
+}
+function submitClarify(){
+  const msg=document.getElementById('chat-composer-text').value.trim();
+  if(!msg){ setComposerError('Please type your question.'); return; }
+  _chatMode=null; renderChatActions(); processMessage(msg,'clarification');
+}
+
+// Rebuilds the full chat for nodeId, then scrolls to where that idea's own
+// body appears (its creation/edit point) rather than the bottom of any
+// trailing feedback/clarification messages.
+const threadMode=()=>S.condition==='AI-Assisted Ideation';   // AI-only: one chat window per idea, all branches in it
+function appendNodeBlock(wrap,node,quoteOf){
+  if(node.type==='creation') wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='ai-generated'?'ai-created':'manual-created'));
+  else if(node.type==='modification'){
+    if(node.userPrompt) wrap.appendChild(makeMsgBubble('user',node.userPrompt==='[Manual modification]'?'[Edited yourself]':node.userPrompt,node.id,null,quoteOf));
+    wrap.appendChild(makeIdeaBubble(node,nodeTagLabel(node),node.tag==='manual-modification'?'manual':'modified'));
+  }
+  node.extras.forEach((ex,idx)=>{
+    if(ex.userPrompt) wrap.appendChild(makeMsgBubble('user',ex.userPrompt,node.id,idx));
+    if(ex.type==='feedback') wrap.appendChild(makeFeedbackBubble(ex.aiResponse,node.id,idx));
+    else if(ex.aiResponse) wrap.appendChild(makeMsgBubble('assistant',ex.aiResponse,node.id,idx));
+  });
+}
+// One idea's linear history (root → nodeId). Used by the self-report.
+function buildChatInto(wrap,nodeId){ getPath(nodeId).forEach(node=>appendNodeBlock(wrap,node,null)); }
+// The whole chat of one idea, every branch, in the order things happened (like a messaging app).
+// A message that branches from an older version carries a quote of the version it replied to.
+function threadTail(gid){
+  return S.nodes.filter(n=>n.groupId===gid&&(n.type==='creation'||n.type==='modification')).reduce((m,n)=>(!m||n.ts>=m.ts)?n:m,null);
+}
+function buildThreadInto(wrap,gid){
+  let prev=null;
+  S.nodes.filter(n=>n.groupId===gid).sort((a,b)=>a.ts-b.ts).forEach(node=>{
+    const par=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+    appendNodeBlock(wrap,node,(par&&prev&&par.id!==prev.id)?par:null);
+    if(node.type==='creation'||node.type==='modification') prev=node;
+  });
+}
+function makeQuote(par){
+  const el=document.createElement('div'); el.className='msg-quote'; el.title='Go to the message you replied to';
+  const t=(par.body||'').replace(/\s+/g,' ').trim();
+  el.innerHTML=`<div class="msg-quote-label">${esc(nodeTagLabel(par))}</div><div class="msg-quote-text">${esc(t.slice(0,90)+(t.length>90?'…':''))}</div>`;
+  el.addEventListener('click',ev=>{ ev.stopPropagation(); jumpToNode(par.id); });
+  return el;
+}
+function jumpToNode(id){
+  const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${id}"]`); if(!b) return;
+  b.scrollIntoView({behavior:'smooth',block:'center'});
+  b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(()=>b.classList.remove('flash'),1500);
+}
+function jumpToReply(){ if(_replyToNodeId) jumpToNode(_replyToNodeId); }
+// Finalized versions are green in the chat, like finalized nodes in the idea tree
+function syncFinalizedBubbles(){
+  if(!threadMode()) return;
+  document.querySelectorAll('#chat-messages .idea-bubble').forEach(el=>{
+    const n=S.nodes.find(x=>x.id===el.dataset.nodeId); el.classList.toggle('finalized',!!(n&&n.isFinalized));
+  });
+}
+function rebuildChat(nodeId){
+  const wrap=document.getElementById('chat-messages'); if(!wrap) return; wrap.innerHTML=''; bindChatClickSelect();
+  const nd=S.nodes.find(n=>n.id===nodeId), tail=(threadMode()&&nd)?threadTail(nd.groupId):null;
+  if(tail) buildThreadInto(wrap,nd.groupId); else buildChatInto(wrap,nodeId);
+  addReplyButtons(wrap);
+  renderChatActions(); markReplyTarget();
+  const target=wrap.querySelector(`.idea-bubble[data-node-id="${nodeId}"]`);
+  if(target&&!(tail&&tail.id===nodeId)) target.scrollIntoView({block:'start'}); else wrap.scrollTop=wrap.scrollHeight;
+}
+
+function makeIdeaBubble(node,label,cls){
+  const el=document.createElement('div'); el.className='idea-bubble'+(cls?' '+cls:'')+(threadMode()&&node.isFinalized?' finalized':''); el.dataset.nodeId=node.id;
+  const parent=node.parentId?S.nodes.find(n=>n.id===node.parentId):null;
+  const bodyHtml=(!threadMode()&&node.type==='modification'&&parent)?diffHighlightBody(parent.body,node.body):esc(node.body);
+  el.innerHTML=`
+    <div class="idea-bubble-label">${esc(label)}</div>
+    <div class="idea-bubble-body">${bodyHtml}</div>`;
+  return el;
+}
+function makeMsgBubble(role,content,nodeId,extraIdx=null,quoteNode=null){
+  const el=document.createElement('div'); el.className='chat-msg '+role; el.dataset.nodeId=nodeId||'';
+  const clean=role==='assistant'?stripMarkdown(content):content;
+  const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
+  const eidx=extraIdx!==null?`,'${extraIdx}'`:'null';
+  if(role==='user'||role==='assistant'){
+    el.innerHTML=`<span class="bubble-content">${esc(clean)}</span>`;
+    if(role==='user'&&quoteNode) el.insertBefore(makeQuote(quoteNode),el.firstChild);
+  } else { el.textContent=clean; }
+  return el;
+}
+function makeFeedbackBubble(content,nodeId,extraIdx){
+  const el=document.createElement('div'); el.className='feedback-bubble'; el.dataset.nodeId=nodeId||'';
+  const clean=stripMarkdown(content);
+  const preview=esc(clean.slice(0,40)+(clean.length>40?'…':''));
+  el.innerHTML=`
+    <div class="feedback-bubble-label">AI Feedback</div><span class="bubble-content">${esc(clean)}</span>`;
+  return el;
+}
+function appendToChat(el){
+  const w=document.getElementById('chat-messages'); if(!w) return;
+  w.appendChild(el);
+  addReplyButtons(el);
+  placeActionsDock();
+  w.scrollTop=w.scrollHeight;
+}
+
+function markReplyTarget(){
+  document.querySelectorAll('#chat-messages .reply-target').forEach(e=>e.classList.remove('reply-target'));
+  const sel=replyTarget(); if(sel){ const b=document.querySelector(`#chat-messages .idea-bubble[data-node-id="${sel.id}"]`); if(b) b.classList.add('reply-target'); }
+  document.querySelectorAll('#chat-messages .bubble-reply-btn').forEach(btn=>{
+    btn.textContent=(_replyToNodeId&&btn.parentElement.dataset.nodeId===_replyToNodeId)?'✕ Cancel reply':'↩ Reply';
+  });
+}
+// Replying: the idea version is outlined in the chat, and a quote of it sits right above the edit box
+function setReplyTo(nodeId){
+  _replyToNodeId=nodeId;
+  markReplyTarget();
+  renderChatActions();      // buttons, the edit box and the "currently selected" bar now refer to the version replied to
+  const d=document.getElementById('chat-actions-dock'); if(d) d.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const ta=document.getElementById('chat-composer-text')||document.getElementById('chat-input'); if(ta) ta.focus({preventScroll:true});
+}
+function clearReply(){
+  const had=!!_replyToNodeId; _replyToNodeId=null;
+  markReplyTarget();
+  if(had) renderChatActions(); else updateSelectedChip();
+}
+// Clicking any message in the chat selects its idea (same as the Reply button)
+function bindChatClickSelect(){
+  const w=document.getElementById('chat-messages'); if(!w||w._selBound||window.TREE_STACK) return; w._selBound=true;
+  w.addEventListener('click',ev=>{
+    if(ev.target.closest('button,textarea,input,a,.msg-quote,.chat-actions-dock')) return;
+    const el=ev.target.closest('[data-node-id]'); if(!el||!w.contains(el)) return;
+    if(window.getSelection&&String(window.getSelection()).length>0) return;
+    const id=el.dataset.nodeId; if(!id||_replyToNodeId===id) return;
+    setReplyTo(id);
+  });
+}
+// Every idea bubble in the live chat gets a "Reply" button; replying selects that idea version for the edit buttons
+function addReplyButtons(root){
+  if(!root||window.TREE_STACK) return;
+  const list=root.matches&&root.matches('.idea-bubble')?[root]:[...root.querySelectorAll('.idea-bubble')];
+  list.forEach(el=>{
+    const id=el.dataset.nodeId; if(!id||el.querySelector(':scope > .bubble-reply-btn')) return;
+    const b=document.createElement('button'); b.className='bubble-reply-btn'; b.type='button'; b.textContent=(_replyToNodeId===id)?'✕ Cancel reply':'↩ Reply';
+    b.onclick=ev=>{ ev.stopPropagation(); if(_replyToNodeId===id) clearReply(); else setReplyTo(id); };
+    el.appendChild(b);
+  });
+}
+
+// ── Create an idea (inline in the AI Chat panel, no popups) ────
+// Shows the "with AI" prompt box or the "without AI" writing box on demand.
+function chooseCreate(mode){
+  const ai=document.getElementById('create-ai-box'), self=document.getElementById('create-self-box');
+  if(ai) ai.style.display=mode==='ai'?'flex':'none';
+  if(self) self.style.display=mode==='self'?'flex':'none';
+  const big=document.querySelector('#newidea-modal .a5-modal-big'); if(big) big.classList.toggle('has-choice',!!mode);   // popup is only as tall as the two buttons until one is chosen
+  const bAI=document.getElementById('btn-create-ai'), bSelf=document.getElementById('btn-create-self');
+  if(bAI) bAI.classList.toggle('active',mode==='ai');
+  if(bSelf) bSelf.classList.toggle('active',mode==='self');
+  if(mode==='ai'){ startAICreate(); fitPromptLabels(); }   // fills in the default prompt
+  if(mode==='self'){ const ta=document.getElementById('create-body'); if(ta){ ta.value=''; ta.focus(); } }
+}
+function submitManualCreate(){
+  const ta=document.getElementById('create-body'); const body=ta?ta.value.trim():'';
+  if(!body){ toast('Please describe your idea.'); return; }
+  const node=mkNode({type:'creation',tag:'user-created',title:'',body}); addNode(node);
+  showChatActive(); updateChatHeader(); rebuildChat(node.id); refreshUI();
+}
+
+// Generate with AI: the default prompt can be edited, and is checked against the
+// challenge first (on-topic, single idea). The format instructions sent to the AI
+// are never shown to the participant.
+let _pendingGenerate=null;
+const GENERATE_LABEL='Generate';
+function startAICreate(){
+  const {system,editable,hiddenSuffix}=PROMPTS.generateIdea(S.challenge,existingSummary());
+  _pendingGenerate={system,hiddenSuffix,editable};
+  const ta=document.getElementById('generate-prompt-text'); if(ta){ ta.value=editable; markDefault(ta); }
+  setGeneratePromptError('');
+  const btn=document.getElementById('btn-generate-confirm');
+  if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
+}
+function setGeneratePromptError(msg){
+  const el=document.getElementById('generate-prompt-error'); if(!el) return;
+  el.textContent=msg; el.style.display=msg?'block':'none';
+}
+async function confirmGenerateConfirm(){
+  const edited=document.getElementById('generate-prompt-text').value.trim();
+  if(!edited){ setGeneratePromptError('Please enter a prompt.'); return; }
+  const {system,hiddenSuffix}=_pendingGenerate||{};
+  const custom=edited!==((_pendingGenerate||{}).editable||'');
+  const btn=document.getElementById('btn-generate-confirm');
+  setGeneratePromptError('');
+  if(btn){ btn.disabled=true; btn.textContent='Checking prompt…'; }
+
   try{
-    const meRes=await fetch('/api/me');
-    if(meRes.status===401){ location.href=loginUrl(); return; }
-    if(!meRes.ok) throw new Error('HTTP '+meRes.status);
-    const me=await meRes.json();
-    if(!me.consented){ location.href=consentUrl(); return; }
-    const res=await fetch('/api/load-nodes?app='+encodeURIComponent(S.app));
-    if(res.status===401){ location.href=loginUrl(); return; }
-    if(res.status===403){ location.href=consentUrl(); return; }
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const {nodes}=await res.json();
-    S.nodes=nodes.map(rowToNode);
-    S.nodes.forEach(n=>{ _synced[n.id]=JSON.stringify(nodeToRow(n)); }); // already saved
-    S.username=me.username;
+    const {system:vSys,user:vUser}=PROMPTS.validateIdeaPrompt(S.challenge,edited);
+    const verdict=(await callClaude([{role:'user',content:vUser}],vSys)).trim();
+    if(!/^VALID/i.test(verdict)){
+      const reason=verdict.replace(/^INVALID:?\s*/i,'').trim();
+      setGeneratePromptError(reason?`Please enter a valid prompt: ${reason}`:'Please enter a valid prompt for this design challenge.');
+      if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
+      return;
+    }
   }catch(e){
-    console.error('Could not load saved work:',e);
-    showLoadError('We could not load your saved ideas. Please check your connection and try again.');
-    return; // never start with an empty workspace when saved work may exist
+    setGeneratePromptError('Could not check your prompt. Please try again.');
+    if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
+    return;
   }
-  document.getElementById('page-loading').style.display='none';
-  document.getElementById('page-ideation').style.display='flex';
-  const u=document.getElementById('nav-user'); if(u) u.textContent=S.username;
-  onStudyReady(S.nodes.length>0);
-}
-// Re-open the idea that was worked on last (the most recently saved one)
-function restoreWorkspace(){
-  const withReport=S.nodes.filter(n=>n.isFinalized&&n.selfReportAiUse);
-  if(withReport.length){ // so the self-report form is prefilled if reopened
-    const fin=S.nodes.filter(n=>n.isFinalized);
-    S.selfReportData={finalized:fin, aiUses:fin.map(n=>n.selfReportAiUse||'')};
+
+  _pendingGenerate=null;
+  showChatActive();
+  const wrap=document.getElementById('chat-messages'); wrap.innerHTML='';
+  appendToChat(makeMsgBubble('system-note','Generating idea…'));
+  setChatThinking(true);
+  try{
+    const text=await callClaude([{role:'user',content:edited+hiddenSuffix}],system);
+    const json=parseAIJSON(text);
+    wrap.innerHTML='';
+    const node=mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited});
+    if(custom) node.extras.push({type:'custom_prompt',ts:Date.now()});   // saved with the node, so its label stays "(custom prompt)"
+    addNode(node);
+    updateChatHeader(); rebuildChat(node.id); refreshUI();
+  }catch(e){
+    wrap.innerHTML=''; showChatInitial(); chooseCreate('ai');
+    const ta=document.getElementById('generate-prompt-text'); if(ta) ta.value=edited;
+    setGeneratePromptError('Could not generate an idea: '+e.message);
   }
-  const latest=S.nodes.slice().sort((a,b)=>(b.updatedAtMs-a.updatedAtMs)||(b.ts-a.ts))[0];
-  if(latest) selectIdea(latest.id);
+  finally{
+    setChatThinking(false);
+    if(btn){ btn.disabled=false; btn.textContent=GENERATE_LABEL; }
+  }
 }
-async function logout(){
-  const ok=await syncNow();
-  if(!ok&&!confirm('Some of your latest changes could not be saved. Log out anyway?')) return;
-  try{ await fetch('/api/logout',{method:'POST'}); }catch(e){}
-  location.href='/login';
+
+// ── Finalize / new idea ───────────────────────────────────────
+function finalizeCurrentIdea(n){
+  const node=(n&&n.id&&n.body!==undefined)?n:curNode(); if(!node) return;
+  if(node.isFinalized){
+    askConfirm({title:'Unfinalize this idea?',message:'Are you sure you want to unfinalize this idea?',
+      buttons:[{label:'Cancel',cls:'btn-outline',onClick:()=>{}},{label:'Yes, unfinalize',cls:'btn-finalize',onClick:()=>doFinalizeIdea(node)}]});
+    return;
+  }
+  const hasNewer=S.nodes.some(k=>k.parentId===node.id&&k.type!=='feedback'&&k.type!=='clarification');
+  askConfirm({title:'Finalize this idea?',
+    message:(hasNewer?'This is not the latest version of the idea. ':'')+'Are you sure you want to confirm this idea?',
+    buttons:[{label:'Cancel',cls:'btn-outline',onClick:()=>{}},{label:'Yes, finalize',cls:'btn-finalize',onClick:()=>doFinalizeIdea(node)}]});
+}
+function doFinalizeIdea(node){
+  _chatMode=null;
+  if(node.isFinalized){ markUnfinalized(node.id); } else { node.isFinalized=true; }
+  updateChatHeader(); updateFinalizedCounter(); refreshUI();
+  if(node.isFinalized) checkThreeDone();
+  queueSync();
+  toast(node.isFinalized?'Idea finalized':'Idea unfinalized','var(--green)');
+}
+function startNewIdea(){
+  offerFinalizeThen(()=>{ showChatInitial(); S.currentNodeId=null; document.getElementById('chat-messages').innerHTML=''; refreshUI(); });
+}
+
+// ── Chat send ─────────────────────────────────────────────────
+function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChatMessage(); } }
+function sendChatMessage(){
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim(); if(!msg) return;
+  if(!S.currentNodeId){ toast('Create an idea first.'); return; }
+  if(msg.toLowerCase()==='finalize'){ inp.value=''; inp.style.height=''; finalizeCurrentIdea(); return; }
+  // Intercept requests to generate a new idea — direct to the button
+  if(isNewIdeaRequest(msg)){
+    inp.value=''; inp.style.height='';
+    appendToChat(makeMsgBubble('user',msg,''));
+    appendToChat(makeMsgBubble('assistant','To start a new idea, please use the “+ New Idea” button at the top of the chat panel. This keeps each idea tracked separately in the system.',''));
+    return;
+  }
+  inp.value=''; inp.style.height='';
+  const type=classifyMsg(msg);
+  if(type) processMessage(msg,type);
+  else processMessageAIClassify(msg); // keyword match was ambiguous — ask the AI to decide
+}
+
+// ── AI-decided classification (used only when keywords can't tell) ──
+async function processMessageAIClassify(msg){
+  const parentId=_replyToNodeId||S.currentNodeId;
+  const parent=S.nodes.find(n=>n.id===parentId)||S.nodes.find(n=>n.id===S.currentNodeId);
+  setChatThinking(true);
+  let type='clarification';
+  try{
+    const sys=PROMPTS.classifyIntent(parent.body,S.challenge,msg);
+    const text=await callClaude([{role:'user',content:msg}],sys);
+    const t=text.trim().toLowerCase();
+    type = t.includes('modification')?'modification' : t.includes('feedback')?'feedback' : 'clarification';
+  }catch(e){ /* default to clarification on error */ }
+  processMessage(msg,type);
+}
+
+// Everything exchanged about the current node since it was created (feedback +
+// clarification answers), so a later "do this for me" reply has the context.
+function buildRecentContext(parent){
+  if(!parent||!parent.extras.length) return '';
+  const lines=parent.extras.filter(ex=>ex.aiResponse).map(ex=>{
+    const label=ex.type==='feedback'?'Feedback given':'Answered';
+    return (ex.userPrompt?`User asked: "${ex.userPrompt}"\n`:'')+`${label}: "${ex.aiResponse}"`;
+  });
+  return '\n\nRecent conversation about this idea (for context):\n'+lines.join('\n\n');
+}
+
+async function processMessage(msg,type){
+  const parentId=_replyToNodeId||S.currentNodeId;
+  const parent=S.nodes.find(n=>n.id===parentId)||S.nodes.find(n=>n.id===S.currentNodeId);
+  clearReply();
+  // Replying to an earlier version: show that version's own chat first, so the new messages follow it
+  // (and not the later versions that came after it)
+  if(parent.id!==S.currentNodeId){
+    S.currentNodeId=parent.id; S.currentGroupId=parent.groupId;
+    if(!threadMode()){ rebuildChat(parent.id); refreshUI(); }   // AI-only keeps every branch in one chat, so nothing to redraw
+  }
+  const tail=threadMode()?threadTail(parent.groupId):null;
+  appendToChat(makeMsgBubble('user',msg,parent.id,null,(tail&&tail.id!==parent.id)?parent:null));
+  setChatThinking(true);
+  try{
+    if(type==='modification'){
+      const recentContext=buildRecentContext(parent);
+      const {system,user}=PROMPTS.modifyIdeaChat(parent.body,S.challenge,msg,recentContext);
+      const text=await callClaude([{role:'user',content:user}],system);
+      const json=parseAIJSON(text);
+      json.body=await enforceWords(json.body,msg);
+      const node=mkNode({parentId:parent.id,type:'modification',tag:'ai-modification',
+        body:json.body,userPrompt:msg,aiResponse:JSON.stringify(json)});
+      addNode(node); appendToChat(makeIdeaBubble(node,nodeTagLabel(node),'modified'));
+      updateChatHeader(); refreshUI();
+      offerFinalizeNew(parent,node);
+    } else {
+      const history=buildAPIHistory(parent.id);
+      let aiText='';
+      if(type==='feedback'){
+        const {system,user}=PROMPTS.feedbackChat(parent.body,S.challenge,msg);
+        aiText=await callClaude([...history,{role:'user',content:user}],system);
+        const idx=parent.extras.length;
+        parent.extras.push({type:'feedback',userPrompt:msg,aiResponse:aiText,ts:Date.now()}); summarizeQuestion(parent,parent.extras[parent.extras.length-1]);
+        appendToChat(makeFeedbackBubble(aiText,parent.id,idx));
+        queueSync();
+      } else {
+        const sys=PROMPTS.clarificationChat(parent.body,S.challenge);
+        aiText=await callClaude([...history,{role:'user',content:msg}],sys);
+        const idx=parent.extras.length;
+        parent.extras.push({type:'clarification',userPrompt:msg,aiResponse:aiText,ts:Date.now()}); summarizeQuestion(parent,parent.extras[parent.extras.length-1]);
+        appendToChat(makeMsgBubble('assistant',aiText,parent.id,idx));
+        queueSync();
+      }
+    }
+  }catch(e){ appendToChat(makeMsgBubble('assistant','Error: '+e.message)); }
+  finally{ setChatThinking(false); }
 }

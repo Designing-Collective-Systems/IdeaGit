@@ -1,16 +1,13 @@
 // ============================================================
-//  IdeaGit variant 2 - Postgres storage
+//  IdeaGit variant 2 (Idea Tree only) - Postgres storage
 //
-//  ideagit2_users : one row per account (login details, the app they used
-//                   last, and their one-time consent)
-//  ideagit2_nodes : one row per idea version, owned by a user and tagged with
-//                   the app it was made in (study_condition: AI_only = app1,
-//                   IdeaGit = app2); self-reports are stored on finalized ideas.
-//                   Participants can use both apps; work is kept per app.
+//  ideagit2_users         : one row per participant. `username` holds the automatically assigned PID
+//                           (P0001, P0002, ...); consent name/time and the finish time live on the same row.
+//  ideagit2_nodes         : one row per idea version, owned by a user (their saved work)
+//  ideagit2_final_answers : the three end-of-task answers for each finalized idea
 //
-//  The table names carry a "2" so variant 2 can never collide with
-//  variant 1's ideagit_nodes table, even if both share one database.
-//  The connection comes from DATABASE_URL (set by the Heroku add-on).
+//  The table names carry a "2" so this variant never collides with variant 1's
+//  tables if both share one database. The connection comes from DATABASE_URL.
 // ============================================================
 
 const { Pool } = require('pg');
@@ -32,8 +29,8 @@ const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS ideagit2_users (
     id             SERIAL      PRIMARY KEY,
     username       TEXT        NOT NULL,
-    password_hash  TEXT        NOT NULL,
-    last_app       TEXT        CHECK (last_app IN ('app1', 'app2')),
+    password_hash  TEXT        NOT NULL DEFAULT '',   -- unused: there are no logins
+    last_app       TEXT,
     consented      BOOLEAN     NOT NULL DEFAULT FALSE,
     consent_name   TEXT,
     consented_at   TIMESTAMPTZ,
@@ -42,8 +39,7 @@ const CREATE_TABLES_SQL = `
   );
   CREATE UNIQUE INDEX IF NOT EXISTS ideagit2_users_username_lower
     ON ideagit2_users (lower(username));
-  -- for databases created before last_app existed
-  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS last_app TEXT CHECK (last_app IN ('app1', 'app2'));
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;   -- set when the participant submits the end-of-task questions
 
   CREATE TABLE IF NOT EXISTS ideagit2_nodes (
     user_id             INTEGER     NOT NULL REFERENCES ideagit2_users(id),
@@ -65,10 +61,20 @@ const CREATE_TABLES_SQL = `
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, node_id)
   );
+
+  CREATE TABLE IF NOT EXISTS ideagit2_final_answers (
+    user_id      INTEGER     NOT NULL REFERENCES ideagit2_users(id),
+    node_id      TEXT        NOT NULL,
+    ai_use       TEXT        NOT NULL DEFAULT '',   -- Did you use AI to ideate? If yes, how? If no, why not?
+    explored     TEXT        NOT NULL DEFAULT '',   -- Did you explore multiple ideas? Why?
+    refined      TEXT        NOT NULL DEFAULT '',   -- Did you refine your idea? Why?
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, node_id)
+  );
 `;
 
 const USER_COLS =
-  'id, username, password_hash, last_app, consented, consent_name, consented_at';
+  'id, username, last_app, consented, consent_name, consented_at, finished_at';
 
 const UPSERT_NODE_SQL = `
   INSERT INTO ideagit2_nodes (
@@ -108,27 +114,28 @@ async function initDb() {
     return;
   }
   await pool.query(CREATE_TABLES_SQL);
-  console.log('Postgres ready (tables ideagit2_users, ideagit2_nodes).');
+  console.log('Postgres ready (tables ideagit2_users, ideagit2_nodes, ideagit2_final_answers).');
 }
 
 // ── Users ────────────────────────────────────────────────────
-async function createUser(username, passwordHash, lastApp) {
-  const { rows } = await pool.query(
-    `INSERT INTO ideagit2_users (username, password_hash, last_app)
-     VALUES ($1, $2, $3) RETURNING ${USER_COLS}`,
-    [username, passwordHash, lastApp]
-  );
-  return rows[0];
+// Creates a new anonymous participant and gives it the next PID (P0001, P0002, ...).
+// The id comes from a Postgres sequence, so two people arriving at the same instant can never
+// get the same one; the PID is built from that id inside the same statement.
+async function createParticipant() {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const { rows } = await pool.query(
+        `WITH n AS (SELECT nextval(pg_get_serial_sequence('ideagit2_users', 'id')) AS id)
+         INSERT INTO ideagit2_users (id, username, password_hash)
+         SELECT id, 'P' || lpad(id::text, 4, '0'), '' FROM n
+         RETURNING ${USER_COLS}`
+      );
+      return rows[0];
+    } catch (err) {
+      if (err.code !== '23505' || attempt === 4) throw err; // PID text already used by an old row: take the next number
+    }
+  }
 }
-
-async function getUserByUsername(username) {
-  const { rows } = await pool.query(
-    `SELECT ${USER_COLS} FROM ideagit2_users WHERE lower(username) = lower($1)`,
-    [username]
-  );
-  return rows[0] || null;
-}
-
 async function getUserById(id) {
   const { rows } = await pool.query(
     `SELECT ${USER_COLS} FROM ideagit2_users WHERE id = $1`,
@@ -137,17 +144,6 @@ async function getUserById(id) {
   return rows[0] || null;
 }
 
-// Remembers the app a participant used last. It is only the default destination when
-// they log in without a study link; it never restricts which app they can open.
-async function setLastApp(id, app) {
-  await pool.query('UPDATE ideagit2_users SET last_app = $2 WHERE id = $1', [id, app]);
-}
-
-async function touchLogin(id) {
-  await pool.query('UPDATE ideagit2_users SET last_login_at = NOW() WHERE id = $1', [id]);
-}
-
-// Consent is one-time: the first signature and its timestamp are kept.
 async function recordConsent(id, fullName) {
   const { rows } = await pool.query(
     `UPDATE ideagit2_users
@@ -208,8 +204,79 @@ async function loadNodes(userId, condition) {
   return rows;
 }
 
+// ── End-of-task answers ──────────────────────────────────────
+async function loadFinalAnswers(userId) {
+  const { rows } = await pool.query(
+    'SELECT node_id, ai_use, explored, refined FROM ideagit2_final_answers WHERE user_id = $1', [userId]);
+  return rows;
+}
+// Saves the answers for some ideas (only ideas that belong to this user); finish = also stamp finished_at
+async function saveFinalAnswers(userId, answers, finish) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const own = new Set((await client.query('SELECT node_id FROM ideagit2_nodes WHERE user_id = $1', [userId])).rows.map(r => r.node_id));
+    let saved = 0;
+    for (const a of answers) {
+      if (!own.has(a.node_id)) continue;
+      await client.query(
+        `INSERT INTO ideagit2_final_answers (user_id, node_id, ai_use, explored, refined, updated_at)
+         VALUES ($1,$2,$3,$4,$5,NOW())
+         ON CONFLICT (user_id, node_id) DO UPDATE SET
+           ai_use = EXCLUDED.ai_use, explored = EXCLUDED.explored, refined = EXCLUDED.refined, updated_at = NOW()`,
+        [userId, a.node_id, a.ai_use, a.explored, a.refined]);
+      saved++;
+    }
+    if (finish) await client.query('UPDATE ideagit2_users SET finished_at = COALESCE(finished_at, NOW()) WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+    return saved;
+  } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+}
+
+// ── Researcher (admin) side ──────────────────────────────────
+async function listUsers() {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.username AS pid, u.consented, u.consent_name, u.consented_at, u.created_at, u.finished_at,
+            COUNT(n.node_id)::int AS nodes,
+            COUNT(n.node_id) FILTER (WHERE n.is_finalized)::int AS finalized,
+            (SELECT COUNT(*)::int FROM ideagit2_final_answers f WHERE f.user_id = u.id) AS answered
+       FROM ideagit2_users u LEFT JOIN ideagit2_nodes n ON n.user_id = u.id
+      GROUP BY u.id ORDER BY u.id`);
+  return rows;
+}
+async function exportNodes() {
+  const { rows } = await pool.query(
+    `SELECT u.username AS pid, n.node_id, n.group_id, n.parent_id, n.type, n.tag, n.title, n.body, n.is_finalized,
+            n.user_prompt, n.ai_response, n.extras, n.meta, n.created_at, n.updated_at
+       FROM ideagit2_nodes n JOIN ideagit2_users u ON u.id = n.user_id
+      ORDER BY u.id, n.created_at NULLS LAST, n.node_id`);
+  return rows;
+}
+async function exportAnswers() {
+  const { rows } = await pool.query(
+    `SELECT u.username AS pid, f.node_id, n.body AS idea, n.is_finalized, f.ai_use, f.explored, f.refined, f.updated_at, u.finished_at
+       FROM ideagit2_final_answers f
+       JOIN ideagit2_users u ON u.id = f.user_id
+       LEFT JOIN ideagit2_nodes n ON n.user_id = f.user_id AND n.node_id = f.node_id
+      ORDER BY u.id, n.created_at NULLS LAST, f.node_id`);
+  return rows;
+}
+// Removes one account and everything stored for it
+async function deleteUser(userId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM ideagit2_final_answers WHERE user_id = $1', [userId]);
+    const n = (await client.query('DELETE FROM ideagit2_nodes WHERE user_id = $1', [userId])).rowCount;
+    await client.query('DELETE FROM ideagit2_users WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+    return n;
+  } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+}
+
 module.exports = {
   initDb, dbConfigured,
-  createUser, getUserByUsername, getUserById, setLastApp, touchLogin, recordConsent,
-  saveNodes, loadNodes,
+  createParticipant, getUserById, recordConsent,
+  saveNodes, loadNodes, loadFinalAnswers, saveFinalAnswers,
+  listUsers, exportNodes, exportAnswers, deleteUser,
 };

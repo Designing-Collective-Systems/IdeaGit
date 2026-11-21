@@ -125,13 +125,9 @@
   <h2 id="confirm-title">Thank you</h2>
   <p id="confirm-message"></p>
   <button class="btn btn-primary" id="btn-start" style="display:none" onclick="goToStudy()">Start →</button>
-  <button class="btn btn-outline" id="btn-logout" style="display:none" onclick="logoutNow()">Log out</button>
 </div>
 
 <script>
-// The study link the participant came through, carried over from login
-const NEXT = new URLSearchParams(location.search).get('next') || '';
-
 const nameInput   = document.getElementById('signature-name');
 const hint        = document.getElementById('signature-hint');
 const signBtn     = document.getElementById('btn-sign');
@@ -161,9 +157,9 @@ async function handleSign() {
     const res = await fetch('/api/consent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: fullName, next: NEXT }),
+      body: JSON.stringify({ full_name: fullName }),
     });
-    if (res.status === 401) { window.location.href = '/login' + (NEXT ? '?next=' + encodeURIComponent(NEXT) : ''); return; }
+    if (res.status === 401) { window.location.href = '/'; return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('Server responded ' + res.status));
     showConfirmation(
@@ -183,11 +179,6 @@ function handleDecline() {
     'No problem.',
     'You have chosen not to participate in this study. Please contact your instructor for information about the alternative assignment.'
   );
-  document.getElementById('btn-logout').style.display = 'inline-flex';
-}
-
-function logoutNow() {
-  fetch('/api/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; });
 }
 
 let _startUrl = null;

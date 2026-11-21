@@ -30,6 +30,7 @@
   --border:#d1d5db;--border2:#9ca3af;
   --text:#111827;--text2:#6b7280;--text3:#9ca3af;
   --blue:#2563eb;--blue-dk:#1d4ed8;--blue-lt:#eff6ff;--blue-mid:#bfdbfe;
+  --blue2:#0369a1;--blue2-dk:#075985;
   --green:#16a34a;--green-dk:#15803d;--green-lt:#f0fdf4;--green-mid:#bbf7d0;
   --amber:#d97706;--amber-dk:#b45309;--amber-lt:#fffbeb;--amber-mid:#fde68a;
   --yellow:#ca8a04;--yellow-dk:#a16207;--yellow-lt:#fefce8;--yellow-mid:#fde047;
@@ -50,6 +51,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .btn-green{background:var(--green);color:#fff}.btn-green:not(:disabled):hover{background:var(--green-dk)}
 .btn-amber{background:var(--amber);color:#fff}.btn-amber:not(:disabled):hover{background:var(--amber-dk)}
 .btn-teal{background:var(--teal);color:#fff}.btn-teal:not(:disabled):hover{background:#0f766e}
+.btn-blue2{background:var(--blue2);color:#fff}.btn-blue2:not(:disabled):hover{background:var(--blue2-dk)}
 .btn-purple-solid{background:var(--purple);color:#fff}.btn-purple-solid:not(:disabled):hover{background:#6d28d9}
 
 /* Forms */
@@ -58,6 +60,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .field-input,.field-textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:1rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s}
 .field-input:focus,.field-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .field-textarea{resize:vertical;min-height:80px;line-height:1.6}
+.field-error{font-size:0.8636rem;color:var(--red);margin-top:6px;line-height:1.5}
 
 /* Setup */
 #page-setup{height:100vh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:28px}
@@ -87,12 +90,13 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;background:var(--surface);min-height:0}
 .panel:last-child{border-right:none}
 .panel-header{min-height:56px;padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:0.8182rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);background:var(--surface2);flex-shrink:0}
+.panel-header .btn{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
 .panel-header-sub{margin-left:auto;font-size:0.7273rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:140px}
 
 /* Process tree */
 .tree-area{flex:1;position:relative;overflow:hidden;cursor:grab;background:var(--bg);min-height:0}
 .tree-area.dragging{cursor:grabbing}
-.tree-canvas{position:absolute;top:0;left:0;transform-origin:0 0}
+.tree-canvas{position:absolute;top:12px;left:0;transform-origin:0 0}
 .tree-canvas svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
 .tree-canvas>div{position:relative}
 .tree-node{position:absolute;width:165px;transform:translate(-50%,0);cursor:pointer;user-select:none}
@@ -134,7 +138,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 
 /* Ideas list */
 .ideas-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--bg);min-height:0}
-.ideas-section-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding:6px 4px 2px}
+.ideas-section-label{font-size:0.6818rem;font-weight:700;letter-spacing:.03em;color:var(--text3);padding:6px 4px 2px}
 .ideas-empty{position:relative;display:flex;flex-direction:column;height:100%;color:var(--text3);font-size:0.8636rem;text-align:center;box-sizing:border-box;padding:16px}
 .idea-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .idea-card:hover{box-shadow:var(--shadow2)}
@@ -190,7 +194,7 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .idea-bubble-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;color:var(--text2)}
 .idea-bubble-title{font-size:1rem;font-weight:700;margin-bottom:5px}
 .idea-bubble-body{font-size:0.8636rem;line-height:1.65;color:var(--text2)}
-.feedback-bubble{align-self:flex-start;max-width:96%;background:var(--green-lt);border:1.5px solid var(--green-mid);border-radius:var(--r);padding:12px 14px;position:relative}
+.feedback-bubble{align-self:flex-start;max-width:96%;background:var(--green-lt);border:1.5px solid var(--green-mid);border-radius:var(--r);padding:12px 14px;position:relative;font-size:0.9091rem;line-height:1.6}
 .feedback-bubble-label{font-size:0.6818rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;color:var(--green)}
 
 /* Reply button on bubbles */
@@ -217,12 +221,13 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .classify-option input[type="radio"]{margin-top:2px;accent-color:var(--blue);width:16px;height:16px}
 
 .chat-input-row{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
-.chat-input-row textarea{flex:1;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:0.9091rem;resize:none;min-height:72px;max-height:180px;outline:none;transition:border-color .15s;line-height:1.5}
+.chat-input-row textarea{flex:1;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:clamp(0.6rem,1.15vw + 0.35rem,0.9091rem);resize:none;min-height:72px;max-height:180px;outline:none;transition:border-color .15s;line-height:1.5}
 .chat-input-row textarea:focus{border-color:var(--blue)}
 
 /* Modals */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center}
-.modal{background:var(--surface);border-radius:var(--r2);box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(520px,92vw);overflow:hidden}
+.modal{background:var(--surface);border-radius:var(--r2);box-shadow:0 8px 40px rgba(0,0,0,.2);width:min(640px,94vw);overflow:hidden}
+.modal.modal-generate{width:min(820px,96vw)}
 .modal-head{padding:18px 20px;border-bottom:1px solid var(--border);font-size:1.0909rem;font-weight:700;display:flex;align-items:center}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:16px}
 .modal-foot{padding:14px 20px;border-top:1px solid var(--border);background:var(--surface2);display:flex;justify-content:flex-end;gap:10px}
@@ -243,20 +248,18 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .sr-other-textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:0.9091rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;resize:vertical;min-height:80px;line-height:1.6;margin-top:8px}
 .sr-other-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .sr-page-title{font-size:1.2273rem;font-weight:700;flex-shrink:0}
-.sr-idea-title-inline{font-weight:400;font-size:1rem}
 .sr-question{display:flex;flex-direction:column;gap:10px}
 .sr-q-label{font-size:0.9091rem;font-weight:600;color:var(--text);line-height:1.5}
 .sr-options{display:flex;flex-direction:column;gap:8px}
 .sr-option{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.9091rem;line-height:1.5}
 .sr-option input{margin-top:3px;accent-color:var(--blue);flex-shrink:0;width:16px;height:16px}
 .sr-foot{display:flex;gap:10px;justify-content:flex-end;padding-top:8px;flex-shrink:0}
-.sr-chat-history{display:flex;flex-direction:column;gap:10px;font-size:0.8182rem}
-.sr-idea-bubble{background:var(--blue-lt);border:1.5px solid var(--blue-mid);border-radius:var(--r);padding:10px 12px;line-height:1.6}
-.sr-msg-user{align-self:flex-end;background:var(--blue);color:#fff;border-radius:var(--r);padding:8px 12px;max-width:85%}
-.sr-msg-ai{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;max-width:90%;line-height:1.6}
+.sr-chat-history{display:flex;flex-direction:column;gap:10px}
+/* read-only report view - no reply affordance needed on reused chat bubbles */
+#sr-idea-display .bubble-reply-btn{display:none}
 
 /* Toasts */
-.toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast-wrap{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px}
 .toast{background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--r);font-size:0.8636rem;box-shadow:var(--shadow2);animation:fadeIn .2s ease;white-space:nowrap}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
@@ -401,8 +404,8 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 }
 
 /* ── Landing page (participant ID) ─────────────────────────── */
-#page-landing{height:100vh;display:flex;padding:24px;background:var(--bg);overflow-y:auto}
-.landing-card{margin:auto;width:fit-content;min-width:min(520px,92vw);max-width:96vw;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
+#page-landing{height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+.landing-card{width:fit-content;min-width:min(520px,92vw);max-width:96vw;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
   box-shadow:var(--shadow2);padding:40px;display:flex;flex-direction:column;gap:18px}
 .landing-title{font-size:2.1rem;font-weight:700;letter-spacing:-.4px;color:var(--blue);line-height:1.15}
 .landing-tagline{font-size:min(1.05rem,1.8vw);line-height:1.6;color:var(--text);white-space:nowrap}
@@ -433,25 +436,485 @@ html,body{height:100%;overflow:hidden;font-family:'Selawik',system-ui,-apple-sys
 .tree-node.current.t-manual .tree-node-compact{background:var(--amber-lt);border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,119,6,.22)}
 .tree-node.current.t-finalized .tree-node-compact{background:var(--green-lt);border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.20)}
 
-/* ── Login / registration (landing page) ────────────────────── */
-.auth-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-top:4px}
-.auth-tab{background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 14px;
-  font-family:inherit;font-size:1rem;font-weight:600;color:var(--text2);cursor:pointer}
-.auth-tab:hover{color:var(--text)}
-.auth-tab.is-active{color:var(--blue);border-bottom-color:var(--blue)}
-.auth-tab:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
-.auth-form{display:flex;flex-direction:column;gap:14px}
-.auth-form[hidden]{display:none}
-.field-group{display:flex;flex-direction:column;gap:6px}
-.field-hint{font-size:0.8rem;color:var(--text2)}
-.auth-message{min-height:1.4em;margin:0;font-size:0.95rem;line-height:1.5}
-.auth-message.is-error{color:var(--red);font-weight:600}
-.auth-message.is-notice{color:var(--text)}
+/* ── Instructions modal: grid mirrors the actual panel layout ────── */
+.instructions-heading{text-align:center;font-weight:700;font-size:1.05em;margin-bottom:14px}
+.instructions-grid{display:grid;gap:14px}
+.instructions-grid-2{grid-template-columns:1fr 1fr}
+.instructions-grid-3{grid-template-columns:1fr 1fr 1fr}
+.instructions-col{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;line-height:1.55;text-align:center;white-space:nowrap;font-size:clamp(0.6rem,1.6vw,0.8636rem)}
+@media(max-width:640px){.instructions-grid-2,.instructions-grid-3{grid-template-columns:1fr}}
 
-/* ── Loading saved work / signed-in user ────────────────────── */
+/* ── Design challenge summary box (Current Ideas panel) ──────────── */
+.challenge-summary-box{flex-shrink:0;margin:12px 14px 0;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)}
+.challenge-summary-title{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:8px}
+.challenge-summary-box p{font-size:0.8636rem;line-height:1.55;color:var(--text2);margin:0 0 6px}
+.challenge-summary-box p:last-child{margin-bottom:0}
+
+/* ── Generate-with-AI, embedded inline in the AI Chat panel ───────── */
+.generate-inline{padding:20px;width:100%;box-sizing:border-box;height:100%;justify-content:flex-start;align-items:stretch;text-align:left}
+.generate-inline-field{width:100%;flex:1;display:flex;flex-direction:column;min-height:0}
+.generate-prompt-title{display:block;text-align:left;font-size:0.8182rem;font-weight:600;color:var(--text2)}
+.generate-prompt-textarea{width:100%;flex:1;min-height:220px;box-sizing:border-box}
+#btn-generate-confirm{margin-top:auto;align-self:center}
+
+/* ── Small instruction line above the ideas list / process tree ──── */
+.panel-instruction-inline{flex-shrink:0;margin:10px 14px 6px;font-size:0.75rem;color:var(--text3);font-style:italic}
+/* Inside the Idea Tree panel the canvas is absolutely positioned, so this needs
+   its own stacking to sit above it rather than being pushed down in normal flow. */
+#tree-instruction{position:absolute;top:8px;left:0;right:0;z-index:5;margin:0;padding:6px 14px;background:var(--bg)}
+
+/* ============================================================
+   IdeaForest (app3 / app4) layout + new components
+   ============================================================ */
+:root{--cols3:1fr 1fr 1fr;--cols2:1fr 1fr}
+.ai-three-col.ideation-grid{grid-template-columns:var(--cols3)}
+.ai-two-col.ideation-grid{grid-template-columns:var(--cols2)}
+.btn-red{background:var(--red);color:#fff}.btn-red:not(:disabled):hover{background:#b91c1c}
+
+/* Summary popup: full-width band whose columns line up with the panels below, arrows pointing down at them */
+#instructions-modal{align-items:flex-start;padding-top:68px;box-sizing:border-box}
+.modal.instructions-wide{width:100vw;max-width:100vw;min-width:0;border-radius:0 0 var(--r2) var(--r2)}
+.instructions-wide .modal-body{padding:0}
+.instructions-wide .instructions-body li{white-space:normal}
+.instructions-grid{gap:0}
+.instructions-grid-3{grid-template-columns:var(--cols3)}
+.instructions-grid-2{grid-template-columns:var(--cols2)}
+.instructions-col{background:none;border:none;border-right:1px solid var(--border);border-radius:0;white-space:normal;font-size:0.86rem;text-align:left;padding:14px 12px 8px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.instructions-col:last-child{border-right:none}
+.instr-text{align-self:stretch;line-height:1.5}
+.instr-arrow{font-size:2.4rem;line-height:1;color:var(--blue)}
+
+/* Details popup: compact so it never needs scrolling */
+.modal.modal-details{width:min(860px,96vw)}
+.modal-details .modal-head{padding:12px 20px}
+.modal-details .modal-foot{padding:10px 20px}
+.details-body{padding:14px 22px;gap:8px;font-size:0.9rem;line-height:1.5}
+.details-body p,.details-body ol{margin:0}
+.details-body ol{padding-left:20px}
+
+/* Sub-header rows + design challenge summary (same look as the AI Chat panel) */
+.panel-subheader{flex-shrink:0;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:0.8182rem;font-weight:600;color:var(--text2)}
+.challenge-bubble{flex-shrink:0;margin:12px 14px 4px;padding:12px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r)}
+.challenge-bubble p{font-size:0.8636rem;line-height:1.55;color:var(--text);margin:0 0 6px}
+.challenge-bubble p:last-child{margin-bottom:0}
+
+/* Current Ideas categories */
+.ideas-section-empty{font-size:0.8182rem;color:var(--text3);font-style:italic;margin:0;padding:2px 4px 8px}
+.ai-ideas .idea-card-badge{text-transform:none;letter-spacing:0}
+
+/* Create an idea: with / without AI, inline in the chat panel */
+.create-heading{font-weight:600;margin:0}
+.create-choice{display:flex;gap:12px;width:100%}
+.create-choice .btn{flex:1}
+.create-choice .btn.active{box-shadow:0 0 0 3px rgba(37,99,235,.25)}
+.create-composer{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;width:100%}
+.create-composer>.btn{align-self:center}
+
+/* Action buttons + inline composers under the newest chat bubble */
+.chat-actions{flex-shrink:0;display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.chat-actions.busy{opacity:.5;pointer-events:none}
+.chat-actions-hint{font-size:0.8182rem;color:var(--text2);margin:0}
+.chat-actions-row{display:flex;flex-wrap:wrap;gap:8px}
+.chat-actions-row .btn.active{box-shadow:0 0 0 3px rgba(37,99,235,.25)}
+.chat-composer{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r)}
+.chat-composer .field-textarea{min-height:110px}
+.chat-composer-row{display:flex;gap:8px}
+
+/* Idea Tree: skeleton, discard button, node tints that match the chat bubbles */
+.tree-skeleton{position:absolute;top:16px;left:24px;opacity:.6;pointer-events:none}
+.tree-skeleton svg{display:block}
+.tree-node-discard{position:absolute;top:3px;right:3px;width:20px;height:20px;padding:0;border:none;border-radius:50%;background:rgba(0,0,0,.08);color:var(--text2);font-size:14px;line-height:1;cursor:pointer;opacity:0;transition:opacity .15s}
+.tree-node:hover .tree-node-discard{opacity:1}
+.tree-node-discard:hover{background:var(--red);color:#fff}
+.tree-node.t-creation .tree-node-compact{background:var(--yellow-lt)}
+.tree-node.t-manual .tree-node-compact{background:var(--amber-lt)}
+.tree-node.t-ai-create .tree-node-compact,.tree-node.t-ai-mod .tree-node-compact{background:var(--blue-lt)}
+
+/* Self-report: ideas are completed in order; "Idea N of M" is the title */
+.sr-idea-tab.sr-locked{opacity:.45;cursor:not-allowed}
+.sr-right-header .sr-step-indicator{font-size:1.2273rem;font-weight:700;color:var(--text)}
+
+/* Summary arrows (left / down / right) and two-line descriptions */
+.instr-text{min-height:3em}
+.instr-arrow-left{align-self:flex-start}
+.instr-arrow-right{align-self:flex-end}
+
+/* Action buttons: a bar at the top of the chat panel, two rows, all the same size */
+.chat-actions-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:48px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-actions-bar:empty{display:none}
+.chat-actions-bar.busy{opacity:.5;pointer-events:none}
+.chat-action-btn{width:100%;height:100%;min-height:0;padding:4px 8px;box-sizing:border-box;font-size:0.82rem;white-space:normal;line-height:1.2;justify-content:center;text-align:center}
+.chat-action-btn.active{box-shadow:0 0 0 3px rgba(37,99,235,.25)}
+
+/* Idea Tree: empty skeleton nodes + outline around the current idea's tree */
+.tree-ghost{pointer-events:none;cursor:default}
+.tree-ghost .tree-node-inner{background:transparent;border:1.5px dashed var(--border2);box-shadow:none;opacity:.6}
+.edge-ghost{stroke-dasharray:5 4;opacity:.6}
+.tree-group-frame{position:absolute;border:2px solid var(--blue);border-radius:10px;pointer-events:none}
+.modal.instructions-wide{width:min(1100px,92vw);max-width:92vw;margin:0 auto;border-radius:var(--r2)}
+.instructions-col{font-size:0.84rem}
+.chat-action-btn.btn-red{background:#f3d9d9;color:#8f3b3b;border:1px solid #e4b9b9}
+.chat-action-btn.btn-red:not(:disabled):hover{background:#ecc8c8}
+
+.edge-label{position:absolute;transform:translate(-50%,-50%);max-width:118px;font-size:10px;line-height:1.2;text-align:center;color:var(--text2);background:var(--surface,#fff);padding:1px 4px;border-radius:4px;pointer-events:none}
+.tree-nudge{position:absolute;font-size:11.5px;line-height:1.3;text-align:center;color:var(--text2);padding:0 8px;box-sizing:border-box;pointer-events:none}
+
+.tree-nudge{left:auto;font-size:14px;font-weight:600;line-height:1.35;color:var(--blue);background:#eff6ff;border:2px solid var(--blue);border-radius:8px;padding:8px 10px;margin-left:10px;height:62px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.chat-action-btn{white-space:nowrap;padding:4px 6px}
+
+.tree-nudge{color:#c2410c;background:#fff7ed;border-color:#f97316}
+#tree-area,.tree-node,.edge-label,.tree-nudge,#sr-tree-inner{user-select:none;-webkit-user-select:none}
+.sr-opt{display:flex;align-items:center;gap:8px;font-size:0.95rem;cursor:pointer}
+.chat-action-btn{font-size:14px}
+
+.nav-logo,.landing-title{display:flex;align-items:center;gap:8px}
+.landing-title{justify-content:flex-start;gap:12px}
+.brand-icon{height:1.5em;width:auto;aspect-ratio:auto;object-fit:contain;flex-shrink:0;display:block}
+.brand-icon-lg{height:1.35em}
+.chat-action-btn{transition:none !important}
+.chat-actions-bar{gap:6px;padding:10px 10px}
+.chat-action-btn{padding:2px 3px}
+
+.instr-text{color:#000 !important}
+.instructions-col{color:#000}
+
+.generate-prompt-title{font-size:1.05rem}
+.generate-prompt-title strong{font-weight:800;color:var(--text)}
+.generate-prompt-textarea,.chat-composer .field-textarea{font-size:1rem}
+.create-composer{margin-top:24px}
+
+.chat-actions-bar{grid-auto-rows:30px;padding:4px 10px;gap:6px}
+.chat-actions-bar2{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:30px;gap:6px;padding:8px 10px 0;flex-shrink:0}
+.chat-actions-bar2:empty{display:none}
+.chat-actions-bar2.busy{opacity:.5;pointer-events:none}
+.chat-action-btn{padding:0 3px}
+
+.node-note{position:absolute;font-size:10.5px;line-height:1.3;color:var(--text);pointer-events:none;user-select:none;-webkit-user-select:none}
+.node-note div+div{margin-top:3px}
+.tree-group-frame-other{border-color:var(--border2,#cbd5e1)}
+.sr-q-sub{font-weight:500;font-size:0.85rem;color:var(--text2)}
+.sr-idea-tab{color:#000 !important;font-size:1.1rem !important}
+
+.modal.instructions-wide{width:fit-content;max-width:96vw}
+.instr-text{text-wrap:balance;text-align:left}
+.generate-prompt-title{white-space:nowrap;overflow:hidden}
+.tree-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;z-index:5;cursor:default}
+.tree-zoom button{width:32px;height:32px;border:1px solid var(--border2,#cbd5e1);background:var(--surface,#fff);border-radius:8px;font-size:20px;line-height:1;cursor:pointer;color:var(--text)}
+.tree-zoom button:hover{background:var(--surface2)}
+.panel-subheader{height:46px;box-sizing:border-box;display:flex;align-items:center;padding-top:0;padding-bottom:0}
+.chat-actions-bar{height:46px;box-sizing:border-box;align-content:center;padding-top:0;padding-bottom:0}
+
+.tree-node-final{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;padding:0 6px;font-size:0.8rem;font-weight:700;color:var(--green);background:var(--bg);border-radius:4px;white-space:nowrap;line-height:1.3}
+
+/* ── app5: idea tree only ───────────────────────────────── */
+.app5{height:100vh;overflow:hidden}
+.a5-head{display:flex;height:120px;border-bottom:1px solid var(--border);background:var(--surface)}
+.a5-left{flex:0 0 46%;display:flex;flex-direction:column;min-width:0}
+.a5-row{height:60px;min-height:0;box-sizing:border-box;flex-shrink:0;padding-top:0;padding-bottom:0;flex-wrap:nowrap}
+.a5-left .top-nav.a5-row{overflow:hidden;gap:8px}
+.a5-left .nav-actions{gap:6px}
+.a5-left .nav-actions .btn{padding:6px 9px;font-size:0.8rem;white-space:nowrap}
+.a5-left .nav-logo{white-space:nowrap}
+.a5-summary{flex:1;min-width:0;box-sizing:border-box;height:120px;overflow:auto;padding:6px 16px;background:var(--surface2);border-left:1px solid var(--border);font-size:0.76rem;line-height:1.3;color:var(--text)}
+.a5-summary-title{font-weight:700;font-size:0.8rem;margin-bottom:2px;color:var(--text2)}
+.a5-summary ol{margin:0;padding-left:18px}
+.a5-summary li{margin:0 0 2px}
+.a5-tree{height:calc(100vh - 121px);border-right:none;position:relative}
+.a5-tree .tree-area{height:100%}
+.a5-hint{position:absolute;top:0;left:0;right:0;z-index:3;background:transparent;border:none;justify-content:center;pointer-events:none;height:auto;padding:10px 16px}
+.node-pop{position:fixed;z-index:3000;gap:10px;padding:10px;background:var(--surface);border:1.5px solid var(--border2,#cbd5e1);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.node-pop-col{display:flex;flex-direction:column;gap:8px}
+.node-pop-btn{width:190px;height:34px;white-space:nowrap;justify-content:center}
+.a5-modal{width:min(720px,92vw);max-height:90vh;display:flex;flex-direction:column}
+.a5-modal .chat-composer{border:none;background:none;padding:0}
+.a5-modal .chat-composer .field-textarea{min-height:200px;font-size:1rem}
+.a5-modal-big{width:min(1000px,94vw);height:min(760px,90vh)}
+.a5-modal-big .modal-body{flex:1;overflow:auto;display:flex;flex-direction:column}
+.a5-modal-big .generate-inline{display:flex;flex-direction:column;gap:14px;flex:1}
+.a5-modal-big .create-composer{margin-top:10px}
+.a5-modal-big .generate-prompt-textarea{min-height:300px}
+.a5-ask{width:min(820px,94vw);height:min(760px,90vh)}
+.a5-ask .modal-body{flex:1;min-height:0;overflow:hidden;padding:0}
+.a5-ask-msgs{height:100%;overflow-y:auto}
+.a5-ask-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--border);align-items:flex-end}
+.a5-ask-row .field-textarea{flex:1;min-height:56px;font-size:1rem}
+.a5-left{flex:0 0 54%}
+.a5-summary{font-size:0.72rem;line-height:1.22;padding:5px 14px}
+.a5-summary-title{font-size:0.76rem;margin-bottom:1px}
+.a5-hint{top:auto;bottom:10px;padding:6px 16px}
+.a5-summary{font-size:0.7rem;line-height:1.18;padding:4px 12px}
+.a5-summary li{margin:0}
+.a5-summary-title{margin-bottom:0}
+.a5-summary{padding:3px 12px}
+
+/* ── app5 v2: tree 2/3 + side column 1/3 ────────────────── */
+.a5-nav{height:60px;min-height:0;box-sizing:border-box;padding-top:0;padding-bottom:0;flex-wrap:nowrap}
+.a5-main{display:flex;height:calc(100vh - 61px)}
+.a5-main>.a5-tree{flex:0 0 66.6667%;height:100%;min-width:0}
+.a5-main .a5-tree .tree-area{flex:1;height:auto}
+.a5-hint{top:auto;bottom:10px;left:0;right:0}
+.a5-side{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--border)}
+.a5-box{display:flex;flex-direction:column;min-height:0;border-bottom:1px solid var(--border)}
+.a5-box-grow{flex:1}
+.a5-box-body{padding:14px 18px;font-size:1.05rem;line-height:1.55;color:var(--text);overflow:auto;min-height:0}
+.a5-box-body ol{margin:0;padding-left:22px}
+.a5-box-body li{margin-bottom:8px}
+.a5-empty{color:var(--text2);font-style:italic}
+.a5-cur-tag{font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px}
+.a5-cur-body{font-size:1.15rem;line-height:1.6;white-space:pre-wrap}
+
+/* bigger popups everywhere in app5 */
+body.app5 #modal-confirm .modal{max-width:720px}
+body.app5 .modal-details{width:min(1000px,94vw);max-width:94vw}
+body.app5 .a5-modal{width:min(1100px,95vw);max-height:92vh}
+body.app5 .a5-modal-big{width:min(1280px,97vw);height:min(900px,95vh)}
+body.app5 .a5-ask{width:min(1100px,95vw);height:min(900px,95vh)}
+.node-pop{padding:14px;gap:14px}
+.node-pop-col{gap:10px}
+.node-pop-btn{width:250px !important;height:46px !important;font-size:1.05rem !important}
+body.app5 .node-note{font-size:12px;line-height:1.3}
+
+/* app5 v3: normal fonts, popups always fit the screen */
+body.app5 .modal{min-width:min(680px,94vw);max-height:92vh;display:flex;flex-direction:column}
+body.app5 .modal-body{overflow:auto;min-height:0}
+body.app5 .a5-modal .chat-composer .field-textarea{min-height:min(420px,48vh);font-size:1rem}
+body.app5 .a5-modal-big{height:min(900px,92vh)}
+body.app5 .a5-modal-big .generate-prompt-textarea{min-height:120px;font-size:1rem}
+body.app5 .a5-modal-big .create-composer{flex:1;min-height:0}
+body.app5 .a5-ask{height:min(900px,92vh)}
+body.app5 .a5-ask-row .field-textarea{min-height:60px;font-size:1rem}
+.a5-box-body{font-size:0.86rem;line-height:1.5;padding:12px 16px}
+.a5-box-body li{margin-bottom:6px}
+.a5-cur-body{font-size:0.86rem;line-height:1.5}
+.node-pop-btn{font-size:0.95rem !important}
+.a5-tree{position:relative}
+.a5-start{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--surface);overflow:auto;padding:24px 32px;box-sizing:border-box;flex-direction:column}
+.a5-start .generate-inline{display:flex;flex-direction:column;gap:14px;flex:1;max-width:900px;width:100%;margin:0 auto}
+.a5-start .create-composer{margin-top:10px;flex:1;min-height:0}
+.a5-start .generate-prompt-textarea{min-height:140px;font-size:1rem}
+
+/* app5 v4 */
+.a5-box-last{border-bottom:none;border-top:1px solid var(--border)}
+.a5-box-grow{border-bottom:none}
+.a5-hint{top:8px !important;bottom:auto !important;font-size:1.15rem;font-weight:600;color:var(--text)}
+body.app5 .tree-canvas{top:52px}
+
+/* default prompts are gray until edited */
+.is-default,.field-textarea.is-default,textarea.is-default{color:#8b93a1 !important}
+/* self-report: 'Reporting on this idea' = red outline, black text, no fill */
+.sr-current-badge{background:transparent !important;color:#000 !important;border:2px solid #dc2626;border-radius:8px !important;font-size:.85rem !important;padding:2px 10px !important;box-shadow:none !important;top:-2.1rem !important}
+
+/* app5: always-visible action column (top right of the tree panel) + 'Working on this idea' bubble */
+.a5-actions{position:absolute;top:10px;right:12px;z-index:6;flex-direction:column;gap:8px;padding:10px;background:var(--surface);border:1.5px solid var(--border2,#cbd5e1);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.a5-actions .node-pop-btn{width:250px !important;height:42px !important;font-size:0.95rem !important}
+body.app5 .a5-hint{right:290px !important}
+.work-badge{position:absolute;left:0;top:-2.1rem;background:var(--bg,#fff);color:#000;border:2px solid #dc2626;border-radius:8px;font-size:.85rem;font-weight:400;white-space:nowrap;padding:2px 10px;z-index:6}
+
+/* details popup always fits the screen (scrolls inside if needed) */
+.modal.modal-details{max-height:92vh;display:flex;flex-direction:column}
+.modal-details .modal-body{overflow:auto;min-height:0}
+/* app3: summary of the design challenge sits at the bottom of the ideas panel */
+.a3-summary{flex-shrink:0;border-top:1px solid var(--border)}
+.a3-summary .challenge-bubble{margin:10px 14px 12px}
+
+/* app5 v5: toolbar row, hint row, scrolling stacked trees */
+.a5-toolbar{display:none;gap:8px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.a5-toolbar .a5-tb-btn{flex:1 1 auto;min-width:auto;min-height:44px;padding:6px 6px;font-size:0.95rem;line-height:1.15;white-space:nowrap;justify-content:center;text-align:center}
+.a5-hintrow{flex-shrink:0;padding:8px 16px;text-align:left;font-size:1.05rem;font-weight:500;color:var(--text);background:var(--bg)}
+body.app5 .a5-tree .tree-area{flex:1;min-height:0;position:relative;overflow:hidden;cursor:default}
+.tree-scroll{position:absolute;inset:0;overflow:auto;cursor:grab}
+.tree-scroll.dragging{cursor:grabbing}
+body.app5 .tree-canvas{top:8px}
+.tree-scroll .tree-canvas{position:absolute;left:0}
+
+.top-nav .nav-export{margin-left:auto}
+
+/* ai-only: Reply button on every chat bubble; the replied-to idea version is outlined */
+.bubble-reply-btn{display:block !important;position:static !important;margin:8px 0 0 auto;font-size:0.8rem;padding:3px 9px}
+.chat-msg.user .bubble-reply-btn{background:rgba(255,255,255,.25);color:#fff}
+.idea-bubble.reply-target{outline:3px solid var(--blue);outline-offset:2px}
+
+/* ── /view: read-only viewer ───────────────────────────── */
+#page-select{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+#page-select select.field-input{width:100%;margin-bottom:14px}
+.v-main{display:flex;height:calc(100vh - 61px)}
+.v-main>.a5-tree{flex:1 1 0;height:100%;min-width:0}
+.v-main .a5-tree .tree-area{flex:1;height:auto}
+.v-side{flex:0 0 min(460px,46vw);min-width:0;display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--border)}
+.v-side-body{flex:1;overflow:auto;padding:16px 18px;font-size:0.95rem;line-height:1.55}
+.v-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.v-badge{border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:0.8rem;font-weight:600;background:var(--surface2)}
+.v-badge-green{border-color:var(--green-mid);background:var(--green-lt);color:var(--green)}
+.v-badge-red{border-color:#fca5a5;background:#fef2f2;color:#b91c1c}
+.v-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:0.9rem;color:var(--text2)}
+.v-row strong{color:var(--text)}
+.v-h{margin:16px 0 6px;font-size:0.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)}
+.v-h small{text-transform:none;letter-spacing:0;font-weight:400}
+.v-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.v-text{font-size:1rem}
+.v-q{margin-bottom:6px}
+.v-prev{margin-top:14px}.v-prev summary{cursor:pointer;color:var(--text2);margin-bottom:6px}
+
+.v-source{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 8px;font-size:0.95rem;color:var(--text2)}
+.v-upload{cursor:pointer}
+.sr-selectable{cursor:pointer}
+.sr-dim{opacity:.35;pointer-events:none}
+/* self-report: full-screen page, left panel = same size as the main Idea Tree panel */
+#self-report-modal{background:var(--bg);align-items:stretch;justify-content:stretch}
+#self-report-modal .self-report-modal{width:100vw;height:100vh;border-radius:0;box-shadow:none}
+#self-report-modal .sr-left{width:50%}
+#sr-idea-display{position:relative;padding:0;overflow:hidden}
+#self-report-modal .sr-page{padding:20px 32px}
+/* self-report selection mark: green circle with a white tick, top right */
+.sr-selected:not(.tree-node){position:relative}
+.sr-selected::after{content:"\2713";position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;background:#16a34a;color:#fff;font-size:15px;font-weight:700;line-height:24px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35);z-index:6;pointer-events:none}
+/* ai-only: same 2/3 + 1/3 split as the Idea Tree version; one row of action buttons */
+.two-col.ideation-grid.ai-two-col{grid-template-columns:2fr 1fr}
+.chat-actions-bar{grid-template-columns:repeat(4,1fr)}
+.chat-actions-bar .chat-action-btn{white-space:nowrap;padding-left:4px;padding-right:4px}
+.v-sr{width:100%;border-collapse:collapse;font-size:0.95rem}
+.v-sr th,.v-sr td{border:1px solid var(--border);padding:6px 10px;text-align:left}
+.v-sr th{background:var(--surface2);font-weight:600}
+.v-sr-diff{font-weight:700}
+.edge-infl{fill:none;stroke:#7c3aed;stroke-width:2.5;stroke-dasharray:1 6;stroke-linecap:round;pointer-events:none}
+.infl-dot{fill:#7c3aed;pointer-events:none}
+.sr-group-label{position:absolute;font-size:0.8rem;font-weight:700;color:#7c3aed;white-space:nowrap}
+
+
+/* ── ai-only: one chat per idea, WhatsApp-style replies ───────────── */
+.chat-dock{flex-shrink:0;display:flex;flex-direction:column;background:var(--surface)}
+.chat-dock .chat-actions{margin:0;padding:12px 16px 14px;border-top:1px solid var(--border)}
+.chat-dock .reply-indicator{align-items:flex-start;gap:8px;padding:10px 16px 0;background:var(--surface);border-top:1px solid var(--border);color:var(--text)}
+.chat-dock .reply-indicator + .chat-actions{border-top:none;padding-top:8px}
+.reply-quote{flex:1;min-width:0;cursor:pointer;background:var(--blue-lt);border-left:4px solid var(--blue);border-radius:6px;padding:7px 12px}
+.reply-quote:hover{background:var(--blue-mid)}
+.reply-quote-label{font-size:0.75rem;font-weight:700;color:var(--blue);margin-bottom:2px}
+.reply-quote-text{font-size:0.8636rem;line-height:1.4;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chat-dock .reply-clear-btn{margin:0;padding:4px 8px;font-size:1.1rem;line-height:1}
+.idea-bubble.reply-target{outline:3px solid var(--blue);outline-offset:2px;box-shadow:0 0 0 7px rgba(37,99,235,.14);margin-top:10px}
+.idea-bubble.reply-target::before{content:"\21A9  Replying to this message";position:absolute;top:-14px;left:14px;background:var(--blue);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:99px;z-index:2}
+.idea-bubble.flash{animation:bubbleFlash 1.4s ease-out}
+@keyframes bubbleFlash{0%,50%{box-shadow:0 0 0 6px rgba(37,99,235,.38)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
+.msg-quote{cursor:pointer;margin:0 0 8px;padding:6px 10px;border-left:4px solid #fff;border-radius:6px;background:rgba(255,255,255,.2);font-size:0.8182rem;line-height:1.4}
+.msg-quote:hover{background:rgba(255,255,255,.3)}
+.msg-quote-label{font-weight:700;font-size:0.72rem;margin-bottom:1px}
+.msg-quote-text{opacity:.92;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.idea-bubble.finalized{background:var(--green-lt);border-color:var(--green)}
+.idea-bubble.finalized .idea-bubble-label{color:var(--green)}
+
+/* self-report (AI-only): tag on the finalized version being rated, since the whole chat is shown */
+.idea-bubble.sr-this-idea::before{content:"Idea being rated";position:absolute;top:-11px;left:14px;background:var(--green);color:#fff;font-size:0.68rem;font-weight:700;padding:2px 9px;border-radius:99px;z-index:2}
+
+
+/* ── Buttons: duller finalize / discard, tree-node coloured edit buttons, prominent + New Idea ── */
+.btn-finalize{background:#5f8f7a;color:#fff}.btn-finalize:not(:disabled):hover{background:#4f7c68}
+.btn-discard{background:#b5817b;color:#fff}.btn-discard:not(:disabled):hover{background:#a2706a}
+.btn-edit-self{background:var(--amber-lt);color:var(--amber-dk);border:1.5px solid var(--amber-mid)}.btn-edit-self:not(:disabled):hover{background:var(--amber-mid)}
+.btn-edit-ai{background:var(--blue-lt);color:var(--blue);border:1.5px solid var(--blue-mid)}.btn-edit-ai:not(:disabled):hover{background:var(--blue-mid)}
+.chat-action-btn.btn-finalize,.chat-action-btn.btn-discard,.a5-tb-btn.btn-finalize,.a5-tb-btn.btn-discard{border:1.5px solid transparent}
+.btn.btn-newidea,.panel-header .btn.btn-newidea{background:#5b5fc7;color:#fff;border:none;padding:11px 24px;font-size:1.05rem;font-weight:600;box-shadow:0 1px 4px rgba(91,95,199,.35)}
+.btn.btn-newidea:not(:disabled):hover,.panel-header .btn.btn-newidea:not(:disabled):hover{background:#4c50b3}
+/* new-idea popup: only as tall as the two buttons until one is chosen */
+.a5-modal-big:not(.has-choice),body.app5 .a5-modal-big:not(.has-choice){height:auto}
+
+/* ── self-report: one page per idea, landing pages, influence cards ── */
+.sr-q-block{display:flex;flex-direction:column;gap:9px;padding:14px 18px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);flex-shrink:0}
+.sr-intro{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;overflow:auto}
+.sr-intro-card{max-width:760px;width:100%;display:flex;flex-direction:column;gap:18px}
+.sr-intro-title{font-size:1.7rem;font-weight:700;margin:0;color:var(--text)}
+.sr-intro-p{font-size:1.15rem;line-height:1.65;color:var(--text2);margin:0}
+.sr-intro-card .sr-foot{padding-top:10px}
+.sr-infl-wrap{display:flex;gap:24px;flex:1;min-height:0}
+.sr-infl-this{width:34%;flex-shrink:0;overflow:auto;align-self:flex-start;max-height:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px}
+.sr-infl-list{flex:1;min-width:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:8px 12px 8px 4px}
+.sr-infl-card{position:relative;border:2px solid var(--border);border-radius:var(--r);background:#fff;padding:12px 18px;cursor:pointer;transition:border-color .15s,background .15s}
+.sr-infl-card:hover{border-color:var(--blue)}
+.sr-infl-card.sr-selected{border-color:var(--green);background:var(--green-lt)}
+.sr-infl-num{font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:5px}
+.sr-infl-body{font-size:1rem;line-height:1.6;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
+/* longer labels such as "Edited with AI (custom prompt)" wrap inside the node */
+.tree-node-inner.tree-node-compact .tree-node-type{white-space:normal;line-height:1.2}
+
+/* ai-only action buttons: same height and spacing as the Idea Tree toolbar */
+.chat-actions-bar{height:auto;grid-auto-rows:44px;padding:8px 12px;gap:8px;align-content:normal}
+.chat-action-btn{min-height:44px}
+
+.btn.btn-skip{margin-right:auto;background:transparent;border:none;color:var(--text3);text-decoration:underline;padding:8px 4px}
+.btn.btn-skip:hover{color:var(--text)}
+
+/* ── round 3 changes ── */
+.btn-discard{background:#c0524b;color:#fff}.btn-discard:not(:disabled):hover{background:#a9443e}
+.tree-node.t-finalized .tree-node-compact{background:#c6efd3;border-color:var(--green)}
+.tree-node.current.t-finalized .tree-node-compact{background:#c6efd3}
+.pc-note{display:block;font-size:.85em;font-weight:600;line-height:1.15}
+.pc-default{color:#92400e}.pc-custom{color:#db2777}
+.bubble-reply-btn{font-size:.98rem !important;padding:8px 18px !important;background:var(--blue-lt) !important;color:var(--blue) !important;border:1.5px solid var(--blue-mid,#93c5fd) !important;border-radius:8px !important;font-weight:600}
+.bubble-reply-btn:hover{background:#dbeafe !important}
+.chat-msg.user .bubble-reply-btn{background:#fff !important;color:var(--blue) !important}
+.sr-idea-tab.sr-tab-off{color:#9ca3af !important;background:#f1f2f4 !important;opacity:.8}
+.idea-bubble.sr-this-idea,.idea-bubble.sr-focus{margin-top:38px;scroll-margin-top:40px}
+.idea-bubble.sr-this-idea::before{content:"Reporting on this idea \2193" !important;background:transparent !important;color:#000 !important;border:2px solid #dc2626;border-radius:8px !important;font-size:.85rem !important;font-weight:600 !important;padding:2px 10px !important;top:-34px !important;left:6px !important}
+.sr-intro-card{max-width:1100px}
+.sr-intro-greet{font-size:1.5rem;font-weight:700;margin:0;color:var(--text)}
+.sr-intro-step{font-size:1rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:-8px}
+.sr-intro-p{font-size:1.25rem}
+.sr-intro-p strong{color:var(--text)}
+/* AI chat: action buttons at the bottom, like a chat window */
+.chat-dock .chat-actions-bar{display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:44px;gap:8px;padding:8px 12px 10px;border-top:1px solid var(--border);border-bottom:none;background:var(--surface2);height:auto;align-content:normal}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(-n+3){grid-column:span 2}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(n+4){grid-column:span 3}
+.chat-dock .chat-actions-bar:empty{display:none}
+.chat-dock .chat-actions-bar.busy{opacity:.5;pointer-events:none}
+
+.pc-default{color:#92400e}
+.tree-node.t-finalized .tree-node-compact,.tree-node.current.t-finalized .tree-node-compact{background:#e3f4ea;border-color:var(--green)}
+.sr-intro-title{font-size:1.5rem;line-height:1.4}
+
+/* AI chat: all five action buttons in one row */
+.chat-dock .chat-actions-bar{grid-template-columns:repeat(5,1fr);gap:6px}
+.chat-dock .chat-actions-bar .chat-action-btn:nth-child(n){grid-column:span 1;white-space:nowrap;padding-left:4px;padding-right:4px}
+
+/* ── round 5 ── */
+.tree-group-frame{border:2px dashed #93b4f0}
+.tree-group-frame-other{border-color:#cbd5e1}
+.sr-group-label{color:#6b7280}.sr-group-label-main{color:#2563eb}
+.sr-intro-p ol,.sr-intro-ol{margin:8px 0 0 0;padding-left:1.6em}
+.sr-intro-ol li{margin:4px 0}
+.sr-why{font-size:1.25rem}
+.sr-why summary{cursor:pointer;font-weight:700;color:var(--blue);padding:2px 0;list-style:none}
+.sr-why summary::before{content:"\25B8  ";}
+.sr-why[open] summary::before{content:"\25BE  ";}
+.sr-why summary:hover{text-decoration:underline}
+.sr-why .sr-intro-p{margin-top:8px}
+.sr-foot .btn-primary,.sr-foot .btn-outline{font-size:1.15rem;padding:12px 30px;min-height:48px;border-radius:10px}
+.sr-infl-leftcol{width:34%;flex-shrink:0;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
+.sr-infl-leftcol .sr-infl-this{width:auto;max-height:none;overflow:visible}
+.sr-infl-rightcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0}
+.sr-infl-title{font-size:1.05rem;font-weight:700;color:var(--text)}
+.sr-infl-log{display:flex;flex-direction:column;gap:6px}
+.sr-infl-log-line{font-size:1rem;font-weight:600;color:#15803d;background:var(--green-lt);border:1px solid var(--green);border-radius:8px;padding:6px 12px}
+.prompt-hint{display:inline-block;margin-top:4px;font-size:1.2em;font-weight:700;color:var(--text)}
+.idea-bubble.finalized::after{content:"Finalized";position:absolute;top:9px;right:12px;background:var(--green);color:#fff;font-size:.72rem;font-weight:700;padding:2px 10px;border-radius:99px}
+.idea-bubble.reply-target::before{content:"\21A9  Selected idea"}
+.chat-actions-dock{align-self:stretch;display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+.chat-actions-dock .chat-actions-bar{display:grid;grid-template-columns:repeat(5,1fr);grid-auto-rows:44px;gap:6px;padding:0;border:none;background:transparent;height:auto}
+.chat-actions-dock .chat-actions-bar .chat-action-btn{white-space:nowrap;padding-left:4px;padding-right:4px}
+.chat-actions-dock .chat-actions{border:none;padding:0;background:transparent}
+.chat-dock .reply-indicator{border-top:1px solid var(--border)}
+.chat-dock .reply-quote-label{font-weight:700}
+.chat-dock .reply-indicator{padding-bottom:10px}
+
+/* AI-only chat: the selected idea carries the same red box as "Working on this idea" in the idea tree */
+.idea-bubble.reply-target{outline:2px solid var(--blue) !important;outline-offset:2px;box-shadow:none !important;margin-top:40px}
+.idea-bubble.reply-target::before{content:"Working on this idea \2193" !important;position:absolute;top:-36px !important;left:2px !important;background:transparent !important;color:#000 !important;border:2px solid #dc2626;border-radius:8px !important;font-size:.85rem !important;font-weight:600 !important;padding:2px 10px !important}
+.idea-bubble.reply-target::before{white-space:nowrap !important;width:max-content}
+
+
+/* ── Variant 2: loading screen, account bar, end-of-task questions ── */
 #page-loading{height:100vh;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--text2);font-size:1rem}
-.spinner{width:18px;height:18px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:ig-spin .8s linear infinite}
-@keyframes ig-spin{to{transform:rotate(360deg)}}
 .loading-error{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:420px}
 .nav-account{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .nav-user{font-size:0.85rem;color:var(--text2);padding:0 4px}
+.fq-lead{font-size:1rem;color:var(--text2);line-height:1.5;margin:0}
+.fq-text{width:100%;min-height:120px;resize:vertical;font-size:1rem;line-height:1.5;box-sizing:border-box}
+#self-report-modal .sr-right .sr-page{padding-bottom:28px}

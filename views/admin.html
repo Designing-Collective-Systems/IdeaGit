@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IdeaGit admin</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f4f6fa;color:#1a2233}
+  main{max-width:1100px;margin:0 auto;padding:28px 20px}
+  h1{margin:0 0 4px;font-size:1.6rem} p.sub{margin:0 0 20px;color:#5b6577}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  a.btn,button{font:inherit;font-size:.95rem;padding:9px 16px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}
+  button.del{background:#fff;color:#b42318;border-color:#b42318;padding:5px 12px;font-size:.85rem}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde3ee;border-radius:8px;overflow:hidden;font-size:.92rem}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #e8ecf4} th{background:#eef2f9;font-weight:600}
+  .muted{color:#7a8496}
+</style>
+</head>
+<body><main>
+<h1>IdeaGit admin</h1>
+<p class="sub">Participants, data downloads, and deletion.</p>
+<div class="bar">
+  <a class="btn" href="/admin/ideas.csv">Download all ideas (CSV)</a>
+  <a class="btn" href="/admin/answers.csv">Download end-of-task answers (CSV)</a>
+  <button onclick="load()" style="background:#fff;color:#2563eb">Refresh</button>
+</div>
+<table><thead><tr><th>PID</th><th>Consent name</th><th>Ideas</th><th>Finalized</th><th>Answered</th><th>Finished</th><th>Opened</th><th></th></tr></thead>
+<tbody id="rows"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody></table>
+<script>
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=d=>d?new Date(d).toLocaleString():'';
+async function load(){
+  const r=await fetch('/admin/api/users'); const j=await r.json(); const tb=document.getElementById('rows');
+  if(!j.users.length){ tb.innerHTML='<tr><td colspan="8" class="muted">No participants yet.</td></tr>'; return; }
+  tb.innerHTML=j.users.map(u=>`<tr><td>${esc(u.pid)}</td><td>${esc(u.consent_name)}</td><td>${u.nodes}</td><td>${u.finalized}</td><td>${u.answered}</td><td>${u.finished_at?'✓ '+esc(fmt(u.finished_at)):''}</td><td>${esc(fmt(u.created_at))}</td><td><button class="del" onclick="del(${u.id},'${esc(u.pid).replace(/'/g,'')}')">Delete</button></td></tr>`).join('');
+}
+async function del(id,name){
+  if(!confirm('Permanently delete "'+name+'" and all of their ideas and answers? This cannot be undone.')) return;
+  const r=await fetch('/admin/api/delete-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  if(r.ok) load(); else alert('Could not delete.');
+}
+load();
+</script>
+</main></body></html>
