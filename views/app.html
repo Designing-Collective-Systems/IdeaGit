@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>IdeaGit</title>
+  <title>IdeaForest</title>
   <link rel="stylesheet" href="/styles.css"/>
 </head>
 <body>
 <div id="page-loading" role="status"><span class="spinner" aria-hidden="true"></span><span>Loading your ideas…</span></div>
 <div id="page-ideation" style="display:none" class="app5">
   <nav class="top-nav a5-nav">
-    <div class="nav-logo" style="cursor:default">IdeaGit</div>
+    <div class="nav-logo" style="cursor:default">IdeaForest</div>
     <div class="nav-actions">
       <span class="nav-finalized-count" id="nav-finalized-count" style="display:none"></span>
       <button class="btn btn-green btn-sm" onclick="handleDone()">Done with Task</button>
-      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaGit</button>
+      <button class="btn btn-outline btn-sm" onclick="openInstructions()">Summary of IdeaForest</button>
       <button class="btn btn-outline btn-sm" onclick="openDetailsModal()">Details about the design challenge</button>
     </div>
   </nav>
@@ -106,7 +106,7 @@
 </div>
 <div class="modal-overlay" id="instructions-modal" style="display:none" onclick="if(event.target===this)closeInstructions()">
   <div class="modal instructions-wide">
-    <div class="modal-head" id="instructions-head">IdeaGit</div>
+    <div class="modal-head" id="instructions-head">IdeaForest</div>
     <div class="modal-body">
       <div id="instructions-content" class="instructions-body"></div>
     </div>

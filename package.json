@@ -1,7 +1,7 @@
 {
   "name": "ideagit-v2",
   "version": "2.0.0",
-  "description": "IdeaGit variant 2: accounts, one-time consent and resumable sessions",
+  "description": "IdeaForest variant 2: Idea Tree only, anonymous PIDs, one-time consent",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -1,5 +1,5 @@
 // ============================================================
-//  IdeaGit variant 2 (Idea Tree only) - Express server
+//  IdeaForest variant 2 (Idea Tree only) - Express server
 //
 //  No logins. Opening the site creates a new anonymous participant with the next PID
 //  (P0001, P0002, ...) that the user never sees; a signed cookie ties the browser to it.
@@ -194,7 +194,7 @@ function requireAdmin(req, res, next) {
   const a = crypto.createHash('sha256').update(given).digest();
   const b = crypto.createHash('sha256').update(pw).digest();
   if (!crypto.timingSafeEqual(a, b)) {
-    res.set('WWW-Authenticate', 'Basic realm="IdeaGit admin"');
+    res.set('WWW-Authenticate', 'Basic realm="IdeaForest admin"');
     return res.status(401).send('Authentication required.');
   }
   next();
@@ -283,5 +283,5 @@ app.use((err, req, res, next) => {
 db.initDb()
   .catch(err => console.error('Could not initialise the database:', err.message))
   .finally(() => {
-    app.listen(PORT, () => console.log(`IdeaGit v2 running on port ${PORT}`));
+    app.listen(PORT, () => console.log(`IdeaForest v2 running on port ${PORT}`));
   });

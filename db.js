@@ -1,5 +1,5 @@
 // ============================================================
-//  IdeaGit variant 2 (Idea Tree only) - Postgres storage
+//  IdeaForest variant 2 (Idea Tree only) - Postgres storage
 //
 //  ideagit2_users         : one row per participant. `username` holds the automatically assigned PID
 //                           (P0001, P0002, ...); consent name/time and the finish time live on the same row.

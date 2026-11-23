@@ -1,4 +1,4 @@
-# IdeaGit – variant 2 (Idea Tree only)
+# IdeaForest – variant 2 (Idea Tree only)
 
 Flow: **open the site → consent form → Idea Tree (`/app`)**. There are no logins.
 Each new visitor is automatically given the next PID (`P0001`, `P0002`, …) in the database; the user never sees it.

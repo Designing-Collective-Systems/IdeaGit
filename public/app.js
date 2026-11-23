@@ -1,5 +1,5 @@
 // ============================================================
-//  IdeaGit (variant 2) — Idea Tree only. Reuses shared.js; sign-in, saving and the end-of-task questions are added at the bottom.
+//  IdeaForest (variant 2) — Idea Tree only. Reuses shared.js; sign-in, saving and the end-of-task questions are added at the bottom.
 //  Reuses shared.js; everything specific to this layout is overridden here.
 // ============================================================
 S.condition = "AI-Assisted Structured Ideation";
@@ -12,7 +12,7 @@ window.TREE_NO_SKELETON = true;   // no grey placeholder nodes in the idea tree
 window.SHOW_IDEA_SUMMARY = true;   // creation nodes get a short summary of the idea beside them
 document.body.classList.add('app5');   // self-reports show only the idea tree
 
-window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaGit has two panels';
+window.CONDITION_INSTRUCTIONS_TITLE = 'IdeaForest has two panels';
 window.CONDITION_INSTRUCTIONS = `
   <div class="instructions-grid instructions-grid-2">
     <div class="instructions-col"><div class="instr-text">The left panel where you can create ideas and see how they evolve</div><div class="instr-arrow instr-arrow-left">&#8592;</div></div>
