@@ -10,6 +10,7 @@
 //  tables if both share one database. The connection comes from DATABASE_URL.
 // ============================================================
 
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
@@ -39,6 +40,8 @@ const CREATE_TABLES_SQL = `
   );
   CREATE UNIQUE INDEX IF NOT EXISTS ideagit2_users_username_lower
     ON ideagit2_users (lower(username));
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS session_token TEXT;                 -- random secret held by one browser tab (no cookies)
+  CREATE UNIQUE INDEX IF NOT EXISTS ideagit2_users_session_token ON ideagit2_users (session_token);
   ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;   -- set when the participant submits the end-of-task questions
 
   CREATE TABLE IF NOT EXISTS ideagit2_nodes (
@@ -74,7 +77,7 @@ const CREATE_TABLES_SQL = `
 `;
 
 const USER_COLS =
-  'id, username, last_app, consented, consent_name, consented_at, finished_at';
+  'id, username, last_app, session_token, consented, consent_name, consented_at, finished_at';
 
 const UPSERT_NODE_SQL = `
   INSERT INTO ideagit2_nodes (
@@ -126,15 +129,22 @@ async function createParticipant() {
     try {
       const { rows } = await pool.query(
         `WITH n AS (SELECT nextval(pg_get_serial_sequence('ideagit2_users', 'id')) AS id)
-         INSERT INTO ideagit2_users (id, username, password_hash)
-         SELECT id, 'P' || lpad(id::text, 4, '0'), '' FROM n
-         RETURNING ${USER_COLS}`
+         INSERT INTO ideagit2_users (id, username, password_hash, session_token)
+         SELECT id, 'P' || lpad(id::text, 4, '0'), '', $1 FROM n
+         RETURNING ${USER_COLS}`,
+        [crypto.randomBytes(32).toString('hex')]
       );
       return rows[0];
     } catch (err) {
       if (err.code !== '23505' || attempt === 4) throw err; // PID text already used by an old row: take the next number
     }
   }
+}
+// Looks a participant up by the secret their browser tab holds
+async function getUserByToken(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return null;
+  const { rows } = await pool.query(`SELECT ${USER_COLS} FROM ideagit2_users WHERE session_token = $1`, [token]);
+  return rows[0] || null;
 }
 async function getUserById(id) {
   const { rows } = await pool.query(
@@ -276,7 +286,7 @@ async function deleteUser(userId) {
 
 module.exports = {
   initDb, dbConfigured,
-  createParticipant, getUserById, recordConsent,
+  createParticipant, getUserByToken, getUserById, recordConsent,
   saveNodes, loadNodes, loadFinalAnswers, saveFinalAnswers,
   listUsers, exportNodes, exportAnswers, deleteUser,
 };

@@ -126,11 +126,16 @@
   <button class="btn btn-primary" id="btn-start" style="display:none" onclick="goToStudy()">Start →</button>
 </div>
 
+<script src="/session.js"></script>
 <script>
 const nameInput   = document.getElementById('signature-name');
 const hint        = document.getElementById('signature-hint');
 const signBtn     = document.getElementById('btn-sign');
 const statusMsg   = document.getElementById('status-msg');
+
+// Every tab is its own participant: this creates one (new PID) when the tab has none yet
+const sessionReady = (window.self !== window.top ? Promise.reject(new Error('framed')) : igSession.ensure()).then(me => { if (me.consented) window.location.replace('/app'); });
+sessionReady.catch(e => { if (window.self !== window.top) return; statusMsg.textContent = 'Could not start the session. Please reload the page. (' + e.message + ')'; });
 
 function isValidFullName(v) {
   const trimmed = v.trim().replace(/\s+/g, ' ');
@@ -153,12 +158,13 @@ async function handleSign() {
   statusMsg.textContent = 'Recording your consent…';
 
   try {
+    await sessionReady;
     const res = await fetch('/api/consent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ full_name: fullName }),
     });
-    if (res.status === 401) { window.location.href = '/'; return; }
+    if (res.status === 401) { window.location.reload(); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('Server responded ' + res.status));
     showConfirmation(

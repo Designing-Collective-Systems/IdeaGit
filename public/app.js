@@ -201,7 +201,7 @@ function renderCurrentIdea(){
 // ── Instructions: "at least one idea" ──
 // (the instruction texts in app.html were updated; this keeps the in-app summary consistent)
 
-// ── Saving: participants (anonymous, identified only by a PID the server assigns) save through the session cookie ──
+// ── Saving: participants (anonymous, identified only by a PID the server assigns) save through this tab's session token (see session.js) ──
 let _expiredShown=false;
 function nodeToRow(n){
   return {
@@ -255,6 +255,7 @@ function showLoadError(message){
   el.innerHTML='<div class="loading-error"><p>'+esc(message)+'</p><button class="btn btn-primary" onclick="initApp()">Try again</button></div>';
 }
 async function initApp(){
+  if(!igSession.has()){ location.href='/'; return; }   // a tab without a participant goes through the consent page first
   const loading=document.getElementById('page-loading');
   if(loading) loading.innerHTML='<span class="spinner" aria-hidden="true"></span><span>Loading your ideas…</span>';
   let me;

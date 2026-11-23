@@ -1,13 +1,14 @@
 // ============================================================
 //  IdeaForest variant 2 (Idea Tree only) - Express server
 //
-//  No logins. Opening the site creates a new anonymous participant with the next PID
-//  (P0001, P0002, ...) that the user never sees; a signed cookie ties the browser to it.
+//  No logins and no cookies. Every browser TAB that opens the site becomes a new anonymous
+//  participant with the next PID (P0001, P0002, ...) that the user never sees; the tab keeps a
+//  random secret in sessionStorage and sends it as a header.
 //  Flow: consent form -> Idea Tree at /app. The PID is linked to the consent name/time,
-//  the ideas and the end-of-task answers. Reloading keeps the same PID (same cookie).
+//  the ideas and the end-of-task answers. Reloading the same tab keeps its PID; opening a new tab gives a new one.
 //  The Anthropic API key stays in Heroku's environment variables.
 //
-//  Environment variables: DATABASE_URL, ANTHROPIC_API_KEY, SESSION_SECRET,
+//  Environment variables: DATABASE_URL, ANTHROPIC_API_KEY,
 //  ADMIN_PASSWORD (for /admin), optional CLAUDE_MODEL.
 // ============================================================
 
@@ -29,61 +30,20 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 const asyncH = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// ── Sessions: a signed cookie holding the user id and an expiry ─────────
-const COOKIE = 'ig2_session';
-const SESSION_DAYS = 7;   // how long a signed cookie is accepted
-const SECRET = process.env.SESSION_SECRET ||
-  crypto.createHash('sha256').update('ideagit-v2|' + (process.env.DATABASE_URL || 'local-dev')).digest('hex');
-if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
-  console.warn('SESSION_SECRET is not set - using a key derived from DATABASE_URL. Set SESSION_SECRET on Heroku for a dedicated key.');
-}
-
-const sign = value => crypto.createHmac('sha256', SECRET).update(value).digest('base64url');
-
-function makeToken(userId) {
-  const payload = Buffer.from(JSON.stringify({ u: userId, e: Date.now() + SESSION_DAYS * 864e5 })).toString('base64url');
-  return payload + '.' + sign(payload);
-}
-function readToken(token) {
-  if (!token) return null;
-  const [payload, sig] = token.split('.');
-  if (!payload || !sig) return null;
-  const a = Buffer.from(sig), b = Buffer.from(sign(payload));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  try {
-    const d = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return d.e > Date.now() ? d.u : null;
-  } catch { return null; }
-}
-function parseCookies(header) {
-  const out = {};
-  (header || '').split(';').forEach(part => {
-    const i = part.indexOf('=');
-    if (i > 0) { try { out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch {} }
-  });
-  return out;
-}
-function startSession(req, res, userId) {
-  res.cookie(COOKIE, makeToken(userId), {
-    httpOnly: true, sameSite: 'lax', secure: req.secure, path: '/', // session cookie: lasts until the browser is closed
-  });
-}
-
-// Loads the logged-in user (if any) for every request after the static files
+// ── Participants are identified per browser TAB, without cookies ───────
+// Each tab asks /api/start for a new participant and keeps the random secret it receives in its own
+// sessionStorage. It sends that secret in the X-Participant-Token header on every API call.
+// A new tab has an empty sessionStorage, so it gets a new participant (new PID).
 app.use(asyncH(async (req, res, next) => {
   req.user = null;
-  const userId = readToken(parseCookies(req.headers.cookie)[COOKIE]);
-  if (userId && db.dbConfigured()) req.user = await db.getUserById(userId);
+  const token = req.get('X-Participant-Token');
+  if (token && db.dbConfigured()) req.user = await db.getUserByToken(token);
   next();
 }));
 
 // ── Helpers ─────────────────────────────────────────────────
 const CONDITION = 'IdeaForest_TreeOnly';        // value stored in ideagit2_nodes.study_condition
 
-// Where a logged-in user goes next: consent first (once), then the tool
-function destinationFor(user) {
-  return user.consented ? '/app' : '/consent';
-}
 function requireUser(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Your session has ended. Please reload the page.' });
   next();
@@ -237,41 +197,22 @@ function sendView(res, name) {
   res.sendFile(path.join(VIEWS, name + '.html'));
 }
 
-// A new participant (and PID) is created only when someone opens the site without a valid cookie.
-// If concurrent visitors arrive together, each insert takes its own number from a Postgres sequence.
-async function ensureParticipant(req, res) {
-  if (req.user) return req.user;
+// A new participant (and PID) is created each time a tab asks to start. Concurrent tabs each take
+// their own number from a Postgres sequence, so PIDs never collide.
+app.post('/api/start', asyncH(async (req, res) => {
+  if (!db.dbConfigured()) return res.status(503).json({ error: 'The service is not available right now.' });
   const user = await db.createParticipant();
-  startSession(req, res, user.id);
-  req.user = user;
-  return user;
-}
-
-app.get(['/', '/login'], asyncH(async (req, res) => {
-  if (!db.dbConfigured()) return res.status(503).send('The service is not available right now.');
-  const user = await ensureParticipant(req, res);
-  res.redirect(destinationFor(user));
+  res.json({ token: user.session_token, consented: false });   // the PID itself is never sent
 }));
 
-app.get('/consent', asyncH(async (req, res) => {
-  if (!db.dbConfigured()) return res.status(503).send('The service is not available right now.');
-  const user = await ensureParticipant(req, res);
-  if (user.consented) return res.redirect('/app');
-  sendView(res, 'consent');
-}));
-
-// The Idea Tree tool (consent required)
-app.get('/app', (req, res) => {
-  const u = req.user;
-  if (!u) return res.redirect('/');
-  if (!u.consented) return res.redirect('/consent');
-  sendView(res, 'app');
-});
+// The pages are static; the page's script checks the tab's token and redirects as needed
+app.get(['/', '/login', '/consent'], (req, res) => sendView(res, 'consent'));
+app.get('/app', (req, res) => sendView(res, 'app'));
 
 // Old study links (/app1, /app2) now lead to the one remaining condition
 app.get(['/app1', '/app2'], (req, res) => res.redirect('/app'));
 
-app.get('*', (req, res) => res.redirect('/'));
+app.get('*', (req, res) => (path.extname(req.path) ? res.status(404).send('Not found') : res.redirect('/')));   // a missing file (e.g. consent.pdf) must not load the consent page inside itself
 
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid request.' });
