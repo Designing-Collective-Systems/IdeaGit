@@ -87,3 +87,7 @@ body.c-sr-mode .c-tag-edit{display:none}
    leave room on the left so they are never cut off by the edge of the tree panel */
 body.c-sr-mode .tree-scroll .tree-canvas{left:64px}
 body.c-sr-mode #sr-tree-inner{margin-left:56px}
+
+/* note on the start screen when a teammate's idea arrives while someone is still writing their own */
+.c-start-note{background:var(--blue-lt);border:1px solid var(--blue);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:.95rem;color:var(--text)}
+.c-start-note a{color:var(--blue);font-weight:700}

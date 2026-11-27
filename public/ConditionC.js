@@ -284,7 +284,7 @@ window.submitManualCreate = async function(){
   if(!body){ toast('Please describe your idea.'); return; }
   const who=await askContributors('idea'); if(!who) return;
   addNode(stamp(mkNode({type:'creation',tag:'user-created',title:'',body}),who));
-  closeNewIdea(); refreshUI();
+  ta.value=''; chooseCreate(null); closeNewIdea(); refreshUI();
 };
 window.confirmGenerateConfirm = async function(){
   const edited=$('generate-prompt-text').value.trim();
@@ -311,7 +311,7 @@ window.confirmGenerateConfirm = async function(){
     const gen=stamp(mkNode({type:'creation',tag:'ai-generated',body:await enforceWords(json.body,edited),userPrompt:edited}),who);
     if(custom) gen.extras.push({type:'custom_prompt',ts:Date.now()});
     addNode(gen);
-    _pendingGenerate=null; closeNewIdea(); refreshUI();
+    _pendingGenerate=null; $('generate-prompt-text').value=''; chooseCreate(null); closeNewIdea(); refreshUI();
   }catch(e){ setGeneratePromptError('Could not generate an idea: '+e.message); }
   finally{ reset(); }
 };
@@ -402,10 +402,38 @@ window.addEventListener('resize',fitToolbar);
 const _refreshUIBase=window.refreshUI;
 window.refreshUI=function(){
   _refreshUIBase(); renderCurrentIdea();
-  if(S.nodes.length){ hideStart(); } else if(!CSR.on) showStart();
+  if(!S.nodes.length){ if(!CSR.on) showStart(); }
+  else if(draftOpen()){ showStartNote(true); }          // someone is typing an idea: a teammate's new node must not take it away
+  else{ showStartNote(false); hideStart(); }
   renderActions();
-  const nb=$('a5-newbtn'); if(nb) nb.style.display=(S.nodes.length&&!CSR.on)?'':'none';
+  const nb=$('a5-newbtn'); if(nb) nb.style.display=(S.nodes.length&&!CSR.on&&!draftOpen())?'':'none';
 };
+// The create-an-idea box sits on the start screen until the first node exists. If a teammate's node arrives while this
+// member has already chosen "by yourself" / "with AI", the box stays (with a note) until they save or press "View the idea tree".
+function draftOpen(){
+  const st=$('a5-start'); if(!st||st.style.display==='none') return false;
+  const a=$('create-ai-box'), b=$('create-self-box');
+  return !!((a&&a.style.display!=='none')||(b&&b.style.display!=='none'));
+}
+function showStartNote(on){
+  const st=$('a5-start'); if(!st) return; let n=$('c-start-note');
+  if(!on){ if(n) n.remove(); return; }
+  if(n) return;
+  n=document.createElement('div'); n.id='c-start-note'; n.className='c-start-note';
+  n.innerHTML='Your team has added ideas to the tree. Your draft is kept. <a href="#" id="c-start-view">View the idea tree</a> (you can come back to your draft with “+ New Idea”).';
+  st.insertBefore(n,st.firstChild);
+  $('c-start-view').onclick=e=>{ e.preventDefault(); n.remove(); hideStart(); refreshUI(); };
+}
+// Choosing a creation mode again keeps what was already typed
+(function(){
+  const base=window.chooseCreate;
+  window.chooseCreate=function(mode){
+    const ta=$('create-body'), keep=ta?ta.value:'', pt=$('generate-prompt-text'), keepP=pt?pt.value:'', def=(_pendingGenerate||{}).editable;
+    base(mode);
+    if(mode==='self'&&ta&&keep) ta.value=keep;
+    if(mode==='ai'&&pt&&keepP&&keepP!==def){ pt.value=keepP; pt.classList.remove('is-default'); }
+  };
+})();
 let _createBox=null;
 function placeCreate(where){
   if(!_createBox) _createBox=document.querySelector('#newidea-modal .generate-inline');
