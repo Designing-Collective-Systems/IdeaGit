@@ -272,7 +272,7 @@ async function initApp(){
     const {nodes}=await res.json();
     S.nodes=nodes.map(rowToNode);
     S.nodes.forEach(n=>{ _synced[n.id]=JSON.stringify(nodeToRow(n)); }); // already saved
-    try{ const fa=await fetch('/api/final-answers'); if(fa.ok){ const j=await fa.json(); (j.answers||[]).forEach(a=>{ FQ.answers[a.node_id]={ai_use:a.ai_use||'',explored:a.explored||'',refined:a.refined||''}; }); } }catch(e){}
+    try{ const fa=await fetch('/api/final-answers'); if(fa.ok){ const j=await fa.json(); (j.answers||[]).forEach(a=>{ FQ.answers[a.node_id]={ai_use:a.ai_use||'',explored:a.explored||'',refined:a.refined||''}; }); const rf=j.reflections||{}; FQ.refl={learned:rf.learned||'',partner:rf.partner||''}; } }catch(e){}
     S.participantId='session';   // saving switches on only now, so nothing can overwrite saved work before it has loaded
   }catch(e){
     console.error('Could not load saved work:',e);
@@ -299,11 +299,17 @@ document.addEventListener('DOMContentLoaded',initApp);
 // ── "Done with Task": no influence step, self-reports or reflections any more ──
 // Instead: three questions per finalized idea, all on one scrollable page,
 // with the idea tree on the left half and the questions on the right half.
-const FQ={answers:{},ideas:[],i:0,busy:false};
+const FQ={answers:{},ideas:[],i:0,busy:false,refl:{learned:'',partner:''}};
 const FQ_QS=[
-  {k:'ai_use',  text:'Did you use AI to ideate? If yes, how? If no, why not?'},
-  {k:'explored',text:'Did you explore multiple ideas? Why?'},
-  {k:'refined', text:'Did you refine your idea? Why?'},
+  {k:'ai_use',  text:'Did you use AI to ideate? Why/why not?'},
+  {k:'explored',text:'Did you explore multiple ideas? Why/why not?'},
+  {k:'refined', text:'Did you refine your idea? Why/why not?'},
+];
+// After the per-idea questions: a "think and discuss" screen, then two reflection questions, then a copy-to-Canvas screen
+const FQ_THINK='Think about: \u201cWhat did you learn from ideating with AI?\u201d Once you are done thinking, wait for the person next to you to complete the task. Discuss with them to understand what they learned from ideating with AI. Press next once you are done discussing.';
+const FQ_REFL=[
+  {k:'learned',text:'What did you learn from ideating with AI?'},
+  {k:'partner',text:'What did the person next to you learn from ideating with AI?'},
 ];
 window.handleDone=function(){
   offerFinalizeThen(()=>{
@@ -338,7 +344,7 @@ function fqRender(){
     +`<textarea class="field-textarea fq-text" id="fq-${q.k}" rows="5" placeholder="Type your answer here…" oninput="fqChanged()">${esc(a[q.k]||'')}</textarea></div>`).join('');
   document.querySelector('.sr-right').innerHTML=
     `<div class="sr-right-header"><div class="sr-step-indicator">Idea ${FQ.i+1} of ${n}</div></div>`
-    +`<div class="sr-page" style="display:flex"><p class="fq-lead">Please answer these questions about the idea shown on the left. Scroll down to see all of them.</p>${body}`
+    +`<div class="sr-page" style="display:flex"><p class="fq-lead">Please answer these questions about the idea shown on the left.</p>${body}`
     +`<p class="field-error" id="fq-error" style="display:none"></p>`
     +`<div class="sr-foot">${FQ.i>0?'<button class="btn btn-outline" onclick="fqBack()">← Back</button>':'<button class="btn btn-outline" onclick="closeFinalQuestions()">← Back to my ideas</button>'}`
     +`<button class="btn btn-primary" id="fq-go" onclick="fqNext()">${last?'Submit':'Next →'}</button></div></div>`;
@@ -349,7 +355,7 @@ function fqChanged(){ const e=document.getElementById('fq-error'); if(e) e.style
 function fqAnswerRows(){ return FQ.ideas.map(n=>({node_id:n.id,...FQ.answers[n.id]})); }
 async function fqSave(finish){
   const res=await fetch('/api/final-answers',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({answers:fqAnswerRows(),finish:!!finish})});
+    body:JSON.stringify({answers:fqAnswerRows(),reflections:FQ.refl,finish:!!finish})});
   if(res.status===401){ sessionExpired(); throw new Error('session'); }
   if(!res.ok) throw new Error('HTTP '+res.status);
 }
@@ -368,15 +374,47 @@ async function fqNext(){
   }
   if(!last){ FQ.i++; fqRender(); fqSave(false).catch(()=>{}); return; }
   const btn=document.getElementById('fq-go'); FQ.busy=true; btn.disabled=true; btn.textContent='Saving…';
-  try{ await syncNow(); await fqSave(true); fqThanks(); }
+  try{ await syncNow(); await fqSave(false); fqThink(); }
   catch(e){ const er=document.getElementById('fq-error'); er.textContent='We could not save your answers. Please check your connection and press Submit again.'; er.style.display='block'; btn.disabled=false; btn.textContent='Submit'; }
   finally{ FQ.busy=false; }
 }
-function fqThanks(){
+// Screen 1 after the questions: think, then discuss with the person next to you (idea tree stays on the left)
+function fqThink(){
   document.querySelector('.sr-right').innerHTML=
-    `<div class="sr-intro"><div class="sr-intro-card"><h2 class="sr-intro-title">Thank you!</h2>`
-    +`<p class="sr-intro-p">Your ideas and answers have been saved. You may now close this page.</p>`
-    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqReview()">← Review my answers</button></div></div></div>`;
+    `<div class="sr-intro"><div class="sr-intro-card"><h2 class="sr-intro-title" style="font-size:1.9rem;line-height:1.5">${esc(FQ_THINK)}</h2>`
+    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqBackToIdeas()">← Back</button>`
+    +`<button class="btn btn-primary" onclick="fqReflect()">Next →</button></div></div></div>`;
 }
-function fqReview(){ FQ.i=0; fqRender(); }
+function fqBackToIdeas(){ FQ.i=FQ.ideas.length-1; fqRender(); }
+// Screen 2: the two reflection questions
+function fqReflCapture(){ FQ_REFL.forEach(q=>{ const t=document.getElementById('fr-'+q.k); if(t) FQ.refl[q.k]=t.value; }); }
+function fqReflect(){
+  document.querySelector('.sr-right').innerHTML=
+    `<div class="sr-right-header"><div class="sr-step-indicator">Final questions</div></div>`
+    +`<div class="sr-page" style="display:flex">`
+    +FQ_REFL.map((q,x)=>`<div class="sr-q-block"><p class="sr-q-label">${x+1}. ${esc(q.text)}</p>`
+      +`<textarea class="field-textarea fq-text" id="fr-${q.k}" rows="6" placeholder="Type your answer here…" oninput="fqChanged()">${esc(FQ.refl[q.k]||'')}</textarea></div>`).join('')
+    +`<p class="field-error" id="fq-error" style="display:none"></p>`
+    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqReflCapture();fqThink()">← Back</button>`
+    +`<button class="btn btn-primary" id="fr-go" onclick="fqSubmitRefl()">Submit</button></div></div>`;
+}
+async function fqSubmitRefl(){
+  if(FQ.busy) return;
+  fqReflCapture();
+  if(!FQ_REFL.every(q=>(FQ.refl[q.k]||'').trim())){
+    const e=document.getElementById('fq-error'); e.textContent='Please answer both questions before submitting.'; e.style.display='block';
+    FQ_REFL.some(q=>{ const t=document.getElementById('fr-'+q.k); if(!t.value.trim()){ t.focus(); return true; } }); return;
+  }
+  const btn=document.getElementById('fr-go'); FQ.busy=true; btn.disabled=true; btn.textContent='Saving…';
+  try{ await syncNow(); await fqSave(true); fqFinal(); }
+  catch(e){ const er=document.getElementById('fq-error'); er.textContent='We could not save your answers. Please check your connection and press Submit again.'; er.style.display='block'; btn.disabled=false; btn.textContent='Submit'; }
+  finally{ FQ.busy=false; }
+}
+// Screen 3: their two answers + the instruction to copy them into Canvas
+function fqFinal(){
+  document.querySelector('.sr-right').innerHTML=
+    `<div class="sr-intro"><div class="sr-intro-card"><h2 class="sr-intro-title" style="font-size:1.9rem;line-height:1.5">Please copy and paste your two answers into Canvas to receive your participation points.</h2>`
+    +FQ_REFL.map((q,x)=>`<div class="sr-q-block"><p class="sr-q-label">${x+1}. ${esc(q.text)}</p><div class="fq-answer">${esc(FQ.refl[q.k]||'')}</div></div>`).join('')
+    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqReflect()">← Edit my answers</button></div></div></div>`;
+}
 function closeFinalQuestions(){ fqCapture(); fqSave(false).catch(()=>{}); closeSelfReport(); }

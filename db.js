@@ -42,7 +42,9 @@ const CREATE_TABLES_SQL = `
     ON ideagit2_users (lower(username));
   ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS session_token TEXT;                 -- random secret held by one browser tab (no cookies)
   CREATE UNIQUE INDEX IF NOT EXISTS ideagit2_users_session_token ON ideagit2_users (session_token);
-  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;   -- set when the participant submits the end-of-task questions
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS reflect_learned TEXT NOT NULL DEFAULT '';   -- 'What did you learn from ideating with AI?'
+  ALTER TABLE ideagit2_users ADD COLUMN IF NOT EXISTS reflect_partner TEXT NOT NULL DEFAULT '';   -- 'What did the person next to you learn from ideating with AI?'   -- set when the participant submits the end-of-task questions
 
   CREATE TABLE IF NOT EXISTS ideagit2_nodes (
     user_id             INTEGER     NOT NULL REFERENCES ideagit2_users(id),
@@ -68,9 +70,9 @@ const CREATE_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS ideagit2_final_answers (
     user_id      INTEGER     NOT NULL REFERENCES ideagit2_users(id),
     node_id      TEXT        NOT NULL,
-    ai_use       TEXT        NOT NULL DEFAULT '',   -- Did you use AI to ideate? If yes, how? If no, why not?
-    explored     TEXT        NOT NULL DEFAULT '',   -- Did you explore multiple ideas? Why?
-    refined      TEXT        NOT NULL DEFAULT '',   -- Did you refine your idea? Why?
+    ai_use       TEXT        NOT NULL DEFAULT '',   -- Did you use AI to ideate? Why/why not?
+    explored     TEXT        NOT NULL DEFAULT '',   -- Did you explore multiple ideas? Why/why not?
+    refined      TEXT        NOT NULL DEFAULT '',   -- Did you refine your idea? Why/why not?
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, node_id)
   );
@@ -221,7 +223,11 @@ async function loadFinalAnswers(userId) {
   return rows;
 }
 // Saves the answers for some ideas (only ideas that belong to this user); finish = also stamp finished_at
-async function saveFinalAnswers(userId, answers, finish) {
+async function loadReflections(userId) {
+  const { rows } = await pool.query('SELECT reflect_learned AS learned, reflect_partner AS partner FROM ideagit2_users WHERE id = $1', [userId]);
+  return rows[0] || { learned: '', partner: '' };
+}
+async function saveFinalAnswers(userId, answers, finish, reflections) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -237,6 +243,7 @@ async function saveFinalAnswers(userId, answers, finish) {
         [userId, a.node_id, a.ai_use, a.explored, a.refined]);
       saved++;
     }
+    if (reflections) await client.query('UPDATE ideagit2_users SET reflect_learned = $2, reflect_partner = $3 WHERE id = $1', [userId, reflections.learned, reflections.partner]);
     if (finish) await client.query('UPDATE ideagit2_users SET finished_at = COALESCE(finished_at, NOW()) WHERE id = $1', [userId]);
     await client.query('COMMIT');
     return saved;
@@ -252,6 +259,12 @@ async function listUsers() {
             (SELECT COUNT(*)::int FROM ideagit2_final_answers f WHERE f.user_id = u.id) AS answered
        FROM ideagit2_users u LEFT JOIN ideagit2_nodes n ON n.user_id = u.id
       GROUP BY u.id ORDER BY u.id`);
+  return rows;
+}
+async function exportReflections() {
+  const { rows } = await pool.query(
+    `SELECT username AS pid, reflect_learned AS learned_from_ai, reflect_partner AS partner_learned_from_ai, finished_at
+       FROM ideagit2_users WHERE consented ORDER BY id`);
   return rows;
 }
 async function exportNodes() {
@@ -287,6 +300,6 @@ async function deleteUser(userId) {
 module.exports = {
   initDb, dbConfigured,
   createParticipant, getUserByToken, getUserById, recordConsent,
-  saveNodes, loadNodes, loadFinalAnswers, saveFinalAnswers,
+  saveNodes, loadNodes, loadFinalAnswers, saveFinalAnswers, loadReflections, exportReflections,
   listUsers, exportNodes, exportAnswers, deleteUser,
 };

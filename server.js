@@ -95,11 +95,11 @@ app.post('/api/save-nodes', requireConsented, asyncH(async (req, res) => {
 
 // ── End-of-task answers (one set of three per finalized idea) ──
 app.get('/api/final-answers', requireConsented, asyncH(async (req, res) => {
-  res.json({ answers: await db.loadFinalAnswers(req.user.id), finished: !!req.user.finished_at });
+  res.json({ answers: await db.loadFinalAnswers(req.user.id), reflections: await db.loadReflections(req.user.id), finished: !!req.user.finished_at });
 }));
 
 app.post('/api/final-answers', requireConsented, asyncH(async (req, res) => {
-  const { answers, finish } = req.body || {};
+  const { answers, finish, reflections } = req.body || {};
   if (!Array.isArray(answers) || answers.length > 200) {
     return res.status(400).json({ error: 'answers must be an array.' });
   }
@@ -109,7 +109,10 @@ app.post('/api/final-answers', requireConsented, asyncH(async (req, res) => {
     const f = k => String(a[k] ?? '').slice(0, 10000);
     clean.push({ node_id: a.node_id, ai_use: f('ai_use'), explored: f('explored'), refined: f('refined') });
   }
-  const saved = await db.saveFinalAnswers(req.user.id, clean, finish === true);
+  // the two end questions (optional in a request; sent whole each time)
+  const refl = reflections && typeof reflections === 'object'
+    ? { learned: String(reflections.learned ?? '').slice(0, 10000), partner: String(reflections.partner ?? '').slice(0, 10000) } : null;
+  const saved = await db.saveFinalAnswers(req.user.id, clean, finish === true, refl);
   res.json({ ok: true, saved });
 }));
 
@@ -125,7 +128,7 @@ app.post('/api/claude', requireConsented, async (req, res) => {
   try {
     const body = { ...(req.body || {}), model: CLAUDE_MODEL };
     body.max_tokens = Math.min(Number(body.max_tokens) || 4096, 32000);
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,6 +186,9 @@ app.get('/admin/ideas.csv', requireAdmin, asyncH(async (req, res) => {
 app.get('/admin/answers.csv', requireAdmin, asyncH(async (req, res) => {
   const rows = await db.exportAnswers();
   sendCsv(res, 'final_answers.csv', rows, ['pid','node_id','idea','is_finalized','ai_use','explored','refined','updated_at','finished_at']);
+}));
+app.get('/admin/reflections.csv', requireAdmin, asyncH(async (req, res) => {
+  sendCsv(res, 'reflections.csv', await db.exportReflections(), ['pid','learned_from_ai','partner_learned_from_ai','finished_at']);
 }));
 app.post('/admin/api/delete-user', requireAdmin, asyncH(async (req, res) => {
   const id = parseInt((req.body || {}).id, 10);

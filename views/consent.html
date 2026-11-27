@@ -23,7 +23,7 @@
   .consent-header{padding:28px 32px 20px;border-bottom:1px solid var(--border)}
   .consent-header h1{font-size:26px;font-weight:700;letter-spacing:-.3px}
   .consent-header h1 em{font-style:normal;color:var(--blue)}
-  .consent-header p{color:var(--text2);font-size:14.5px;margin-top:6px}
+  .consent-header p{color:var(--text2);font-size:19px;margin-top:8px;line-height:1.5}
 
   .consent-body{padding:28px 32px;display:flex;flex-direction:column;gap:24px}
 
@@ -31,40 +31,50 @@
   .pdf-frame-wrap{border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;
     background:var(--surface2);height:65vh;min-height:420px}
   .pdf-frame-wrap iframe{width:100%;height:100%;border:none;display:block}
-  .pdf-fallback{font-size:13.5px;color:var(--text2);text-align:center;padding:10px}
+  .pdf-fallback{font-size:18px;color:var(--text2);text-align:center;padding:12px}
   .pdf-fallback a{color:var(--blue);font-weight:600;text-decoration:none}
   .pdf-fallback a:hover{text-decoration:underline}
 
   .signature-section{display:flex;flex-direction:column;gap:12px;padding-top:8px;border-top:1px solid var(--border)}
-  .signature-statement{font-size:14.5px;line-height:1.7;color:#1f2937}
+  .signature-statement{font-size:19px;line-height:1.7;color:#1f2937}
   .signature-field{display:flex;flex-direction:column;gap:6px}
-  .signature-field label{font-size:13px;font-weight:600;color:var(--text2);
+  .signature-field label{font-size:17px;font-weight:600;color:var(--text2);
     text-transform:uppercase;letter-spacing:.04em}
   .signature-field input{padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r);
-    font-family:inherit;font-size:17px;color:#111827;background:var(--surface);outline:none;
+    font-family:inherit;font-size:20px;color:#111827;background:var(--surface);outline:none;
     transition:border-color .15s}
   .signature-field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
-  .signature-hint{font-size:12.5px;color:var(--text3)}
+  .signature-hint{font-size:17px;color:var(--text2)}
   .signature-hint.error{color:var(--red);font-weight:600}
 
   .consent-foot{padding:20px 32px;border-top:1px solid var(--border);background:var(--surface2);
     display:flex;justify-content:flex-end;align-items:center;gap:14px}
-  .status-msg{font-size:13.5px;color:var(--text2);margin-right:auto}
+  .status-msg{font-size:18px;color:var(--text2);margin-right:auto}
 
   .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border:none;border-radius:var(--r);
-    font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s}
+    font-family:inherit;font-size:19px;font-weight:600;cursor:pointer;transition:all .15s}
   .btn:disabled{opacity:.4;cursor:not-allowed}
   .btn-primary{background:var(--blue);color:#fff}
   .btn-primary:not(:disabled):hover{background:var(--blue-dk)}
 
-  .decline-link{font-size:13px;color:var(--text3);text-decoration:underline;cursor:pointer;background:none;border:none;font-family:inherit}
-  .decline-link:hover{color:var(--text2)}
+  .decline-link{font-size:19px;font-weight:600;color:var(--text2);text-decoration:underline;cursor:pointer;background:none;border:none;font-family:inherit;padding:12px 8px}
+  .decline-link:hover{color:#111827}
 
   /* Confirmation screen */
   #confirm-screen{display:none;min-height:100vh;align-items:center;justify-content:center;
     flex-direction:column;gap:14px;text-align:center;padding:24px}
-  #confirm-screen h2{font-size:24px}
-  #confirm-screen p{color:var(--text2);max-width:440px}
+  #confirm-screen h2{font-size:36px}
+  #confirm-screen p{color:var(--text2);font-size:24px;line-height:1.5;max-width:720px}
+  #confirm-screen .btn{font-size:26px;padding:18px 52px;margin-top:10px}
+
+  /* Alternative assignment (shown when someone declines) */
+  #decline-screen{display:none;min-height:100vh;align-items:flex-start;justify-content:center;padding:32px 20px}
+  .alt-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow2);width:min(880px,96vw);padding:32px 36px}
+  .alt-card h2{font-size:30px;margin-bottom:12px}
+  .alt-card p,.alt-card li{font-size:20px;line-height:1.65;color:#1f2937}
+  .alt-card ol{margin:14px 0 4px 1.4em;display:flex;flex-direction:column;gap:12px}
+  .alt-card h3{font-size:22px;margin:26px 0 8px}
+  .alt-challenge{background:var(--blue-lt);border:1px solid var(--blue-mid);border-radius:var(--r);padding:16px 20px;margin-top:12px;display:flex;flex-direction:column;gap:12px}
 </style>
 </head>
 <body>
@@ -117,6 +127,25 @@
       </button>
     </div>
 
+  </div>
+</div>
+
+<div id="decline-screen">
+  <div class="alt-card">
+    <h2>You have chosen not to participate in the study.</h2>
+    <p>Please complete the following alternative assignment to receive participation points on Canvas.</p>
+    <ol>
+      <li><strong>Use generative AI:</strong> Use a generative AI tool (e.g., ChatGPT, Claude, or Gemini) to help you develop one design idea that addresses the design challenge.</li>
+      <li><strong>Develop your idea:</strong> Interact with the AI to explore, evaluate, or refine your design idea. You can ask questions, provide feedback, or request changes to the AI's suggestions.</li>
+      <li><strong>Finalize one idea:</strong> Select and describe one design idea that satisfies all three constraints.</li>
+      <li><strong>Submit to Canvas:</strong> Please answer the questions on Canvas. Discuss with the person sitting next to you to answer question two.</li>
+    </ol>
+    <h3>Design Challenge:</h3>
+    <p>Your goal is to develop one design idea with the help of generative AI. Your goal is <strong>NOT</strong> to complete the task as quickly as possible.</p>
+    <div class="alt-challenge">
+      <p><strong>Setup:</strong> You are a designer at a technology company. Your task is to brainstorm ideas for a smartphone feature to reduce the amount of time users spend &ldquo;compulsive scrolling&rdquo;. Compulsive scrolling refers to obsessive, endless scrolling, often performed on social media feeds.</p>
+      <p><strong>Constraints:</strong> Any feature proposed by you should not block the user from using an app and should not delete any app or turn off the phone.</p>
+    </div>
   </div>
 </div>
 
@@ -180,10 +209,9 @@ async function handleSign() {
 }
 
 function handleDecline() {
-  showConfirmation(
-    'No problem.',
-    'You have chosen not to participate in this study. Please contact your instructor for information about the alternative assignment.'
-  );
+  document.getElementById('consent-page').style.display = 'none';
+  document.getElementById('decline-screen').style.display = 'flex';
+  window.scrollTo(0, 0);
 }
 
 let _startUrl = null;

@@ -1,0 +1,1 @@
+node scripts/simulate.js --base https://ideaforest3540-95d40152182c.herokuapp.com/ --students 120 --ideas 3 --finalize 2 --concurrency 120 --strict --admin-password "password123" --max-ai-calls 10000
