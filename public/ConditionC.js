@@ -154,7 +154,7 @@ function handlePoll(d){
   }else{
     hideDone();
     if(!CSR.on) startSelfReport();
-    else if(CSR.stage==='wait'&&(msigChanged||CSR.phaseSeen!==d.phase)) renderSR();
+    else if(CSR.stage==='wait'&&(msigChanged||CSR.phaseSeen!==d.phase)) renderWait();
     CSR.phaseSeen=d.phase;
   }
 }
@@ -548,10 +548,14 @@ function showDeclineToast(){
 }
 
 // ============================================================
-//  8. Questions after the task (each member on their own): influence, then ownership + explanation
+//  8. Questions after the task, each member on their own. Same screens and wording as Condition A:
+//     influence (pick the finalized ideas that influenced this one), then ownership (+ a written explanation).
+//     The full-screen popup is used for the questions; when a member is done, the shared tree with
+//     everyone's dotted influence lines (tagged with PIDs) and the team's progress is shown.
 // ============================================================
-const CSR={on:false,ideas:[],cand:{},askIdx:[],infl:{},own:{},expl:{},stage:'intro-infl',p:0,busy:false,hl:null,phaseSeen:null};
+const CSR={on:false,ideas:[],cand:{},askIdx:[],infl:{},inflSubmitted:false,own:{},expl:{},stage:'intro-infl',p:0,busy:false,hl:null,phaseSeen:null};
 const OWN_Q='To what extent do you feel this idea belongs to you?';
+const idxOf=n=>CSR.ideas.findIndex(x=>x.id===n.id)+1;
 function csrHide(){ ['newidea-modal','node-modal','modal-confirm','c-done-modal','c-contrib-modal','details-modal','instructions-modal'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; }); hideTreeTooltip(); }
 function startSelfReport(){
   if(CSR.on) return; CSR.on=true;
@@ -560,7 +564,7 @@ function startSelfReport(){
   const side=document.querySelector('.a5-side:not(.c-sr)'); if(side) side.style.display='none';
   $('c-sr').style.display='flex'; const bd=$('btn-done'); if(bd) bd.style.display='none';
   const ideas=S.nodes.filter(n=>n.isFinalized).sort((a,b)=>srRootTs(a)-srRootTs(b)||(a.ts||0)-(b.ts||0));
-  CSR.ideas=ideas;
+  CSR.ideas=ideas; SR={ideas};   // renderSrTree (shared.js) numbers the ideas from SR.ideas
   ideas.forEach(n=>{ CSR.cand[n.id]=ideas.filter(o=>srCanInfluence(n,o)).map(o=>o.id); CSR.infl[n.id]=CSR.infl[n.id]||{}; CSR.own[n.id]=0; CSR.expl[n.id]=''; });
   CSR.askIdx=ideas.map((n,i)=>i).filter(i=>CSR.cand[ideas[i].id].length);
   const mine=T.members.find(m=>m.pid===me())||{};
@@ -568,66 +572,114 @@ function startSelfReport(){
   if(!CSR.askIdx.length&&!mine.infl_done) api('/api/c/sr/influence',{code:T.code,pid:me(),picks:[]});   // nothing to ask: counts as answered
   softRefresh(); renderSR();
 }
-const idxOf=n=>CSR.ideas.findIndex(x=>x.id===n.id)+1;
-const stepTotal=()=>CSR.askIdx.length?2:1;
-function csrCard(n,label){ return `<div class="c-sr-idea"><div class="c-sr-num">${label||'Idea '+idxOf(n)}</div><div class="c-sr-text">${esc(n.body||'')}</div></div>`; }
-function csrSetHl(id){ const ch=CSR.hl!==id; CSR.hl=id; decorateNodes(); if(ch&&id) scrollToNode(id); }
+
+// Landing pages (same layout and wording as Condition A)
+const hasInfl=()=>CSR.askIdx.length>0;
+const CSR_INTRO={
+  'intro-infl':{lead:()=>THANKS+' We would like to understand how your team’s ideas may have influenced each other.',
+    what:()=>'For each of the <strong>finalized ideas</strong>, we will ask you to select other finalized idea(s) that influenced it.',
+    how:()=>'Click on the ideas that influenced the idea shown on the left. If none did, simply press Next.',
+    why:()=>'While brainstorming, an idea can be inspired or influenced by another idea. For example, one idea may have shaped how you or your teammates approached another idea, without anyone ever copying the first idea’s text. These influences are not tracked by the tool since they often occur in one’s mind. We are trying to track such influences. You answer on your own; your teammates answer on their own screens.'},
+  'intro-own':{lead:()=>hasInfl()?'Thank you for telling us how some of the ideas were influenced by other ideas! We would like to understand your perception of your team’s ideas.':THANKS+' We would like to understand your perception of your team’s ideas.',
+    what:()=>'We will ask one question about each of the finalized ideas and ask you to briefly explain your answer: <ol class="sr-intro-ol"><li>How much do you feel <strong>the idea belongs to you</strong>?</li></ol>',
+    how:()=>'Choose the option that best describes how you feel, then write a short explanation. There are no right or wrong answers!',
+    why:()=>'We are trying to understand how you perceive your team’s ideation with AI. Things like ownership are difficult to understand from what you did on screen, so we ask you directly. Your answers will help us understand how people’s ideation process influences their perception. You answer on your own; your teammates answer on their own screens.'}
+};
+const stepNo=st=>st==='intro-infl'?1:(hasInfl()?2:1);
+const srRight=()=>document.querySelector('#self-report-modal .sr-right');
+function csrHideLeft(){ $('sr-left').style.display='none'; $('sr-idea-display').innerHTML=''; hideTreeTooltip(); }
+const backBtn=on=>on?'<button class="btn btn-outline" id="c-sr-back">← Back</button>':'';
+
+// everyone's influence picks: the server's rows, with this member's own picks shown at once
+function allInflRows(){
+  const rows=(T.infl||[]).slice();
+  if(!CSR.inflSubmitted) return rows;
+  const others=rows.filter(r=>r.participant_id!==me());
+  CSR.ideas.forEach(n=>Object.keys(CSR.infl[n.id]||{}).forEach(oid=>others.push({node_id:n.id,from_node_id:oid,participant_id:me()})));
+  return others;
+}
+function pidsFor(nid,oid){ return [...new Set(allInflRows().filter(r=>r.node_id===nid&&r.from_node_id===oid).map(r=>r.participant_id))].sort(); }
+
 function renderSR(){
-  const box=$('c-sr'); const N=CSR.ideas.length, st=CSR.stage; let html='', foot='';
-  const askNodes=CSR.askIdx.map(i=>CSR.ideas[i]);
-  if(st==='intro-infl'){
-    csrSetHl(null);
-    html=`<div class="c-sr-card"><div class="c-sr-step">Step 1 of ${stepTotal()}</div>
-      <h2>Thank you for ideating with your team! We would like to understand how your team’s ideas may have influenced each other.</h2>
-      <p><strong>What will you do:</strong> For each finalized idea, you will select the other finalized idea(s) that influenced it.</p>
-      <p><strong>How will you do it:</strong> The idea you are considering is highlighted in the tree on the left. Click on the ideas that influenced it. If none did, simply press Next.</p>
-      <p class="c-sr-why">While brainstorming, an idea can be inspired by another idea without anyone copying its text. The tool cannot see this, so we ask you directly. You answer on your own; the dotted lines on the tree show everyone’s choices with the PID of who picked them.</p></div>`;
-    foot='<button class="btn btn-primary" id="c-sr-next">Next →</button>';
-  }else if(st==='infl'){
-    const n=askNodes[CSR.p]; csrSetHl(n.id);
-    const cards=CSR.cand[n.id].map(oid=>{ const o=CSR.ideas.find(x=>x.id===oid); const on=!!CSR.infl[n.id][oid];
-      return `<div class="c-sr-pick${on?' on':''}" data-oid="${oid}"><div class="c-sr-num">Idea ${idxOf(o)}</div><div class="c-sr-text">${esc(o.body||'')}</div></div>`; }).join('');
-    html=`<div class="c-sr-card"><div class="c-sr-step">Idea ${idxOf(n)} of ${N} · influence</div>
-      <p class="c-sr-q">Please select the ideas below that influenced the origin of this idea. If none, press Next.</p>
-      ${csrCard(n,'Idea you are considering (Idea '+idxOf(n)+')')}
-      <div class="c-sr-sub">Which ideas might have influenced it</div><div class="c-sr-picks">${cards}</div></div>`;
-    foot=`<button class="btn btn-outline" id="c-sr-back">← Back</button><button class="btn btn-primary" id="c-sr-next">Next →</button>`;
-  }else if(st==='intro-own'){
-    csrSetHl(null);
-    html=`<div class="c-sr-card"><div class="c-sr-step">Step ${stepTotal()} of ${stepTotal()}</div>
-      <h2>${CSR.askIdx.length?'Thank you for telling us how the ideas were influenced! ':'Thank you for ideating with your team! '}We would like to understand your perception of your team’s ideas.</h2>
-      <p><strong>What will you do:</strong> For each finalized idea, you will answer one question and briefly explain your answer: <em>${OWN_Q}</em></p>
-      <p><strong>How will you do it:</strong> Choose the option that best describes how you feel, then write a short explanation. There are no right or wrong answers, and your teammates answer on their own.</p></div>`;
-    foot='<button class="btn btn-primary" id="c-sr-next">Next →</button>';
-  }else if(st==='own'){
-    const n=CSR.ideas[CSR.p]; csrSetHl(n.id);
-    const a=CSR.own[n.id];
-    html=`<div class="c-sr-card"><div class="c-sr-step">Idea ${CSR.p+1} of ${N}</div>
-      ${csrCard(n)}
-      <p class="c-sr-q">1. ${OWN_Q}</p>
-      ${SR_LVL.map((l,v)=>`<label class="sr-opt c-sr-opt"><input type="radio" name="c-own" value="${v+1}" ${a===v+1?'checked':''}> ${l}</label>`).join('')}
-      <p class="c-sr-q" style="margin-top:14px">2. Please provide a brief explanation for your answer:</p>
-      <textarea id="c-sr-expl" class="field-textarea" rows="4" placeholder="Type your explanation here…">${esc(CSR.expl[n.id])}</textarea></div>`;
-    foot=`<button class="btn btn-outline" id="c-sr-back">← Back</button><button class="btn btn-primary" id="c-sr-next" disabled>${CSR.p===N-1?'Finish':'Next →'}</button>`;
-  }else{
-    csrSetHl(null);
-    const fin=T.phase==='finished';
-    html=`<div class="c-sr-card"><h2>${fin?'Everyone has finished. Thank you!':'Thank you! Your answers are saved.'}</h2>
-      <p>${esc(THANKS)}</p>
-      ${fin?'':'<p>Waiting for the rest of your team to finish their questions:</p>'}
-      <ul class="c-done-list">${T.members.map(m=>`<li>${m.own_done?'✓':'•'} ${esc(pidLabel(m.pid))}${m.pid===me()?' (you)':''} <span class="c-tagline">${m.own_done?'finished':'answering…'}</span></li>`).join('')}</ul>
-      <p class="c-sr-why">The dotted lines on the tree show which ideas influenced which, tagged with the PID of everyone who selected them.</p></div>`;
-  }
-  box.innerHTML=`<div class="c-sr-scroll">${html}</div>${foot?`<div class="c-sr-foot">${foot}</div>`:''}`;
+  const st=CSR.stage;
+  if(st==='wait'){ $('self-report-modal').style.display='none'; hideTreeTooltip(); CSR.hl=null; renderWait(); return; }
+  $('self-report-modal').style.display='flex';
+  if(st==='intro-infl'||st==='intro-own') return renderIntro(st);
+  if(st==='infl') return renderInfl();
+  renderOwn();
+}
+function renderIntro(st){
+  csrHideLeft(); CSR.hl=null;
+  const I=CSR_INTRO[st], P=(l,t)=>`<div class="sr-intro-p"><strong>${l}:</strong> ${t}</div>`;
+  const back=st==='intro-own'&&hasInfl();
+  srRight().innerHTML=`<div class="sr-intro"><div class="sr-intro-card"><div class="sr-intro-step">Step ${stepNo(st)}</div><h2 class="sr-intro-title">${I.lead()}</h2>`
+    +P('What will you do',I.what())+P('How will you do it',I.how())
+    +`<details class="sr-why"><summary>How will this help our research</summary><div class="sr-intro-p">${I.why()}</div></details>`
+    +`<div class="sr-foot">${backBtn(back)}<button class="btn btn-primary" id="c-sr-next">Next →</button></div></div></div>`;
   wireSR();
+}
+function renderInfl(){
+  csrHideLeft();
+  const n=CSR.ideas[CSR.askIdx[CSR.p]], N=CSR.ideas.length; CSR.hl=n.id;
+  const cards=CSR.cand[n.id].map(oid=>{ const o=CSR.ideas.find(x=>x.id===oid), on=!!CSR.infl[n.id][oid];
+    return `<div class="sr-infl-card sr-selectable${on?' sr-selected':''}" data-oid="${oid}"><div class="sr-infl-num">Idea ${idxOf(o)}</div><div class="sr-infl-body">${esc(o.body||'')}</div></div>`; }).join('');
+  srRight().innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${idxOf(n)} of ${N}</div></div>
+    <div class="sr-page" style="display:flex;min-height:0">
+      <p class="sr-q-label">Please select the ideas on the right that influenced the origin of the idea on the left. If none, press next.</p>
+      <div class="sr-infl-wrap">
+        <div class="sr-infl-leftcol"><div class="sr-infl-title">Idea you are considering</div>
+          <div class="sr-infl-this"><div class="sr-infl-num">Idea ${idxOf(n)}</div><div class="sr-infl-body">${esc(n.body||'')}</div></div>
+          <div class="sr-infl-log" id="sr-infl-log"></div></div>
+        <div class="sr-infl-rightcol"><div class="sr-infl-title">Which ideas might have influenced it</div>
+          <div class="sr-infl-list">${cards}</div></div>
+      </div>
+      <div class="sr-foot">${backBtn(true)}<button class="btn btn-primary" id="c-sr-next">Next →</button></div>
+    </div>`;
+  inflLog(); wireSR();
+}
+function inflLog(){
+  const el=$('sr-infl-log'); if(!el) return; const n=CSR.ideas[CSR.askIdx[CSR.p]];
+  el.innerHTML=CSR.ideas.map(o=>CSR.infl[n.id][o.id]?`<div class="sr-infl-log-line">Idea ${idxOf(o)} influenced Idea ${idxOf(n)}</div>`:'').join('');
+}
+function renderOwn(){
+  const n=CSR.ideas[CSR.p], N=CSR.ideas.length; CSR.hl=n.id;
+  const a=CSR.own[n.id];
+  $('sr-idea-tabs').innerHTML=CSR.ideas.map((x,i)=>`<div class="sr-idea-tab${x.id===n.id?' sr-idea-active':' sr-tab-off'}" style="cursor:default">Idea ${i+1}</div>`).join('');
+  srRight().innerHTML=`<div class="sr-right-header"><div class="sr-step-indicator">Idea ${CSR.p+1} of ${N}</div></div>
+    <div class="sr-page" style="display:flex">
+      <div class="sr-q-block"><p class="sr-q-label">1. ${OWN_Q}</p>
+        ${SR_LVL.map((l,v)=>`<label class="sr-opt"><input type="radio" name="c-own" value="${v+1}" ${a===v+1?'checked':''}> ${l}</label>`).join('')}</div>
+      <div class="sr-q-block"><p class="sr-q-label">2. Please provide a brief explanation for your answer:</p>
+        <textarea id="c-sr-expl" class="field-textarea" rows="5" placeholder="Type your explanation here…">${esc(CSR.expl[n.id])}</textarea></div>
+      <div class="sr-foot">${backBtn(true)}<button class="btn btn-primary" id="c-sr-next" disabled>${CSR.p===N-1?'Finish':'Next →'}</button></div>
+    </div>`;
+  showLeftTree(n); wireSR();
+}
+// left side: the idea's final text and its tree; the ideas that influenced it (anyone's pick) sit beside it with dotted lines tagged by PID
+function showLeftTree(n){
+  hideTreeTooltip();
+  const left=$('sr-left'); left.style.display='flex'; $('sr-sub-tabs').style.display='none';
+  let fb=$('sr-final-banner');
+  if(!fb){ fb=document.createElement('div'); fb.id='sr-final-banner'; fb.style.cssText='flex-shrink:0;max-height:28%;overflow:auto;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:0.95rem;line-height:1.5'; const d=$('sr-idea-display'); d.parentNode.insertBefore(fb,d); }
+  fb.style.display=''; fb.innerHTML=`<strong>Final idea:</strong> ${esc(n.body||'')}`;
+  const rows=allInflRows().filter(r=>r.node_id===n.id);
+  const insp=CSR.ideas.filter(o=>rows.some(r=>r.from_node_id===o.id)).map(o=>({gid:o.groupId,ids:new Set([o.id]),label:'Idea '+idxOf(o),o}));
+  srDraw($('sr-idea-display'),n,null,null,insp);
+  const svg=$('sr-tree-svg'), nodesEl=$('sr-tree-nodes'); if(!svg||!nodesEl) return;
+  const paths=[...svg.querySelectorAll('path.edge-infl')];
+  insp.slice().sort((a,b)=>idxOf(a.o)-idxOf(b.o)).forEach((g,i)=>{   // lines are drawn in idea-number order
+    const p=paths[i]; if(!p) return; const pt=p.getPointAtLength(p.getTotalLength()*0.5);
+    const tag=document.createElement('div'); tag.className='c-infl-tag'; tag.style.left=pt.x+'px'; tag.style.top=pt.y+'px';
+    tag.textContent=pidsFor(n.id,g.o.id).map(pidLabel).join(', '); nodesEl.appendChild(tag);
+  });
 }
 function wireSR(){
   const st=CSR.stage, N=CSR.ideas.length, nx=$('c-sr-next'), bk=$('c-sr-back');
   if(st==='infl'){
-    document.querySelectorAll('.c-sr-pick').forEach(el=>el.onclick=()=>{
+    document.querySelectorAll('.sr-infl-card').forEach(el=>el.onclick=()=>{
       const n=CSR.ideas[CSR.askIdx[CSR.p]], oid=el.dataset.oid;
       if(CSR.infl[n.id][oid]) delete CSR.infl[n.id][oid]; else CSR.infl[n.id][oid]=true;
-      el.classList.toggle('on',!!CSR.infl[n.id][oid]);
+      el.classList.toggle('sr-selected',!!CSR.infl[n.id][oid]); inflLog();
     });
   }
   if(st==='own'){
@@ -639,6 +691,7 @@ function wireSR(){
   if(bk) bk.onclick=()=>{
     if(st==='infl'){ if(CSR.p>0) CSR.p--; else CSR.stage='intro-infl'; }
     else if(st==='own'){ if(CSR.p>0) CSR.p--; else CSR.stage='intro-own'; }
+    else if(st==='intro-own'){ CSR.stage='infl'; CSR.p=CSR.askIdx.length-1; }
     renderSR();
   };
   if(nx) nx.onclick=async()=>{
@@ -650,7 +703,7 @@ function wireSR(){
       const picks=[]; CSR.ideas.forEach(n=>CSR.cand[n.id].forEach(oid=>picks.push({node_id:n.id,from_node_id:oid,checked:!!CSR.infl[n.id][oid]})));
       const r=await api('/api/c/sr/influence',{code:T.code,pid:me(),picks}); CSR.busy=false;
       if(!r.ok){ toast(r.data.error||'Could not save your answers. Please try again.','var(--red)'); nx.disabled=false; return; }
-      CSR.stage='intro-own'; CSR.p=0; renderSR(); pollOnce(); return;
+      CSR.inflSubmitted=true; CSR.stage='intro-own'; CSR.p=0; renderSR(); pollOnce(); return;
     }
     if(st==='intro-own'){ CSR.stage='own'; CSR.p=0; renderSR(); return; }
     if(st==='own'){
@@ -662,4 +715,13 @@ function wireSR(){
       CSR.stage='wait'; renderSR(); pollOnce();
     }
   };
+}
+// After the questions: the shared tree with everyone's dotted lines, and who has finished
+function renderWait(){
+  const fin=T.phase==='finished';
+  $('c-sr').innerHTML=`<div class="c-sr-scroll"><div class="c-sr-card"><h2>${fin?'Everyone has finished. Thank you!':'Thank you! Your answers are saved.'}</h2>
+    <p>${esc(THANKS)}</p>
+    ${fin?'':'<p>Waiting for the rest of your team to finish their questions:</p>'}
+    <ul class="c-done-list">${T.members.map(m=>`<li>${m.own_done?'✓':'•'} ${esc(pidLabel(m.pid))}${m.pid===me()?' (you)':''} <span class="c-tagline">${m.own_done?'finished':'answering…'}</span></li>`).join('')}</ul>
+    <p class="c-sr-why">The dotted lines on the tree show which ideas influenced which, tagged with the PID of everyone who selected them.</p></div></div>`;
 }

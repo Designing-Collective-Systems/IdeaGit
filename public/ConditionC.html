@@ -131,6 +131,19 @@
     <div class="modal-foot" id="confirm-buttons"></div>
   </div>
 </div>
+<div class="modal-overlay" id="self-report-modal" style="display:none">
+  <div class="self-report-modal">
+    <div class="sr-left" id="sr-left">
+      <div class="sr-idea-tabs" id="sr-idea-tabs"></div>
+      <div class="sr-sub-tabs" id="sr-sub-tabs" style="display:none">
+        <button class="sr-sub-tab sr-sub-active" id="sr-tab-chat" onclick="srSubTab('chat')">Chat History</button>
+        <button class="sr-sub-tab" id="sr-tab-tree" onclick="srSubTab('tree')">Idea Tree</button>
+      </div>
+      <div class="sr-content" id="sr-idea-display"></div>
+    </div>
+    <div class="sr-right"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="details-modal" style="display:none" onclick="if(event.target===this)closeDetailsModal()">
   <div class="modal modal-details">
     <div class="modal-head">Details about the design challenge</div>
