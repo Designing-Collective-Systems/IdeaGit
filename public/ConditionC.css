@@ -82,3 +82,8 @@ body.c-sr-mode .c-tag-edit{display:none}
 /* ── Dotted influence lines: PID tag(s) on each link ───────── */
 .c-infl-tag{position:absolute;transform:translate(-50%,-50%);background:#fff;color:#6d28d9;border:1.5px solid #7c3aed;border-radius:99px;
   padding:1px 8px;font-size:11px;font-weight:700;white-space:nowrap;z-index:8;pointer-events:auto;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+/* Dotted influence lines are routed around the nodes and can run along the very edge of the drawing:
+   leave room on the left so they are never cut off by the edge of the tree panel */
+body.c-sr-mode .tree-scroll .tree-canvas{left:64px}
+body.c-sr-mode #sr-tree-inner{margin-left:56px}
