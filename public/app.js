@@ -307,10 +307,9 @@ const FQ_QS=[
 ];
 // After the per-idea questions: a "think and discuss" screen, then two reflection questions, then a copy-to-Canvas screen
 const FQ_THINK=[
-  'Think about: \u201cWhat did you learn from ideating with AI?\u201d',
-  'Once you are done thinking, wait for the person next to you to complete the task.',
+  'Once you are done, wait for the person next to you to complete the task.',
   'Discuss with them to understand what they learned from ideating with AI.',
-  'Press next once you are done discussing.'];   // each entry is shown on its own line
+  'Press next once you are done discussing.'];   // each entry is shown on its own line, under the first question's text box
 const FQ_REFL=[
   {k:'learned',text:'What did you learn from ideating with AI?'},
   {k:'partner',text:'What did the person next to you learn from ideating with AI?'},
@@ -385,9 +384,19 @@ async function fqNext(){
 // Screen 1 after the questions: think, then discuss with the person next to you (idea tree stays on the left)
 function fqThink(){
   document.querySelector('.sr-right').innerHTML=
-    `<div class="sr-intro"><div class="sr-intro-card">${FQ_THINK.map((t,i)=>`<p class="fq-think-line${i===0?' fq-think-first':''}">${esc(t)}</p>`).join('')}`
-    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqBackToIdeas()">← Back</button>`
-    +`<button class="btn btn-primary" onclick="fqReflect()">Next →</button></div></div></div>`;
+    `<div class="sr-right-header"><div class="sr-step-indicator">Final questions</div></div>`
+    +`<div class="sr-page" style="display:flex"><div class="sr-q-block"><p class="sr-q-label">${esc(FQ_REFL[0].text)}</p>`
+    +`<textarea class="field-textarea fq-text" id="fr-learned" rows="6" placeholder="Type your answer here…" oninput="fqChanged()">${esc(FQ.refl.learned||'')}</textarea></div>`
+    +FQ_THINK.map(t=>`<p class="fq-think-line">${esc(t)}</p>`).join('')
+    +`<p class="field-error" id="fq-error" style="display:none"></p>`
+    +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqReflCapture();fqBackToIdeas()">← Back</button>`
+    +`<button class="btn btn-primary" onclick="fqThinkNext()">Next →</button></div></div>`;
+}
+function fqThinkNext(){
+  fqReflCapture();
+  if(!(FQ.refl.learned||'').trim()){ const e=document.getElementById('fq-error'); e.textContent='Please answer the question before continuing.'; e.style.display='block'; document.getElementById('fr-learned').focus(); return; }
+  fqSave(false).catch(()=>{});     // keep the first answer safe; the box on the next page is filled with it
+  fqReflect();
 }
 function fqBackToIdeas(){ FQ.i=FQ.ideas.length-1; fqRender(); }
 // Screen 2: the two reflection questions
