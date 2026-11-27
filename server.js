@@ -9,6 +9,7 @@ const path    = require('path');
 const { initDb, saveNodes, saveSelfReports, dbConfigured, listParticipants, getParticipantNodes, getSelfReports,
         deleteParticipants, saveLanding, getLandingFor, getSettings, setSettings, SETTING_DEFAULTS, getSelection, setSelection, getNodesFor, getSelfReportsFor, listRaters, touchRater, getRatings, saveRating, getDistances, saveDistances } = require('./db');
 const Measures = require('./public/measures.js');
+const Teams = require('./teams');   // Condition C (team ideation): its own routes + tables
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -103,6 +104,7 @@ app.get('/', (req, res) => { res.redirect('/ConditionA'); });
 // The two study versions
 app.get('/ConditionA', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ConditionA.html')); });
 app.get('/ConditionB', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ConditionB.html')); });
+app.get('/ConditionC', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'ConditionC.html')); });
 // Old links keep working
 app.get('/idea-tree', (req, res) => { res.redirect('/ConditionA'); });
 app.get('/ai-only', (req, res) => { res.redirect('/ConditionB'); });
@@ -159,6 +161,8 @@ function adminAuth(req, res, next) {
 const needDb = (req, res, next) => dbConfigured() ? next() : res.status(503).json({ error: 'Database is not configured.' });
 const wrap = fn => async (req, res) => { try { await fn(req, res); } catch (err) { console.error(err); res.status(500).json({ error: 'Database error' }); } };
 const groupBy = (rows, key) => rows.reduce((o, r) => ((o[r[key]] = o[r[key]] || []).push(r), o), {});
+
+Teams.register(app, adminAuth);   // /api/c/* and /admin/c/*.csv
 
 app.get('/admin', adminAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/dashboard', adminAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
@@ -259,6 +263,8 @@ app.get('*', (req, res) => {
 
 initDb()
   .catch(err => console.error('Could not initialise the database:', err.message))
+  .then(() => Teams.initTeamsDb())
+  .catch(err => console.error('Could not initialise the Condition C tables:', err.message))
   .finally(() => {
     app.listen(PORT, () => console.log(`IdeaGit running on port ${PORT}`));
   });
