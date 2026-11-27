@@ -306,7 +306,11 @@ const FQ_QS=[
   {k:'refined', text:'Did you refine your idea? Why/why not?'},
 ];
 // After the per-idea questions: a "think and discuss" screen, then two reflection questions, then a copy-to-Canvas screen
-const FQ_THINK='Think about: \u201cWhat did you learn from ideating with AI?\u201d Once you are done thinking, wait for the person next to you to complete the task. Discuss with them to understand what they learned from ideating with AI. Press next once you are done discussing.';
+const FQ_THINK=[
+  'Think about: \u201cWhat did you learn from ideating with AI?\u201d',
+  'Once you are done thinking, wait for the person next to you to complete the task.',
+  'Discuss with them to understand what they learned from ideating with AI.',
+  'Press next once you are done discussing.'];   // each entry is shown on its own line
 const FQ_REFL=[
   {k:'learned',text:'What did you learn from ideating with AI?'},
   {k:'partner',text:'What did the person next to you learn from ideating with AI?'},
@@ -381,7 +385,7 @@ async function fqNext(){
 // Screen 1 after the questions: think, then discuss with the person next to you (idea tree stays on the left)
 function fqThink(){
   document.querySelector('.sr-right').innerHTML=
-    `<div class="sr-intro"><div class="sr-intro-card"><h2 class="sr-intro-title" style="font-size:1.9rem;line-height:1.5">${esc(FQ_THINK)}</h2>`
+    `<div class="sr-intro"><div class="sr-intro-card">${FQ_THINK.map((t,i)=>`<p class="fq-think-line${i===0?' fq-think-first':''}">${esc(t)}</p>`).join('')}`
     +`<div class="sr-foot"><button class="btn btn-outline" onclick="fqBackToIdeas()">← Back</button>`
     +`<button class="btn btn-primary" onclick="fqReflect()">Next →</button></div></div></div>`;
 }

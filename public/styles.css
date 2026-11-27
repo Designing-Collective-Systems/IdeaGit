@@ -916,6 +916,8 @@ body.app5 .tree-canvas{top:8px}
 .nav-account{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .nav-user{font-size:0.85rem;color:var(--text2);padding:0 4px}
 .fq-lead{font-size:1rem;color:var(--text2);line-height:1.5;margin:0}
+.fq-think-line{font-size:1.6rem;line-height:1.5;color:var(--text);margin:0 0 22px}
+.fq-think-first{font-weight:700;font-size:1.9rem}
 .fq-answer{white-space:pre-wrap;overflow-wrap:anywhere;font-size:1.1rem;line-height:1.55;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-top:6px}
 .fq-text{width:100%;min-height:120px;resize:vertical;font-size:1rem;line-height:1.5;box-sizing:border-box}
 #self-report-modal .sr-right .sr-page{padding-bottom:28px}
